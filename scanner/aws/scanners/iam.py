@@ -14,14 +14,14 @@ class IAMScanner:
         findings: list[Finding] = []
 
         for rule in IAM_RULES:
-            data_source = rule["data_source"]
-            collection_mode = rule["collection_mode"]
+            data_source = rule.data_source
+            collection_mode = rule.collection_mode
 
             handler = IAM_DATA_SOURCE_HANDLERS[data_source]
             collected_data = handler(self.collector)
 
-            check = rule["check"]
-            build_finding = rule["build_finding"]
+            check = rule.check
+            build_finding = rule.build_finding
 
             if collection_mode == "single":
                 result = check(**collected_data)
@@ -42,8 +42,7 @@ class IAMScanner:
 
             else:
                 raise ValueError(
-                    f"Unsupported IAM collection mode: "
-                    f"{collection_mode}"
+                    f"Unsupported IAM collection mode: {collection_mode}"
                 )
 
         return findings

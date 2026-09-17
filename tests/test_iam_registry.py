@@ -1,33 +1,32 @@
+from engine.rules.model import RuleDefinition
 from engine.rules.registry.iam_registry import IAM_RULES
 
 
 def test_iam_registry_contains_root_mfa_rule():
-    rule_ids = [rule["rule_id"] for rule in IAM_RULES]
+    rule_ids = [rule.rule_id for rule in IAM_RULES]
 
-    assert rule_ids == [
-        "CS-AWS-IAM-001",
-        "CS-AWS-IAM-002",
-    ]
+    assert "CS-AWS-IAM-001" in rule_ids
+    assert "CS-AWS-IAM-002" in rule_ids
 
 
 def test_iam_registry_has_required_fields():
-    required_fields = {
-        "rule_id",
-        "name",
-        "data_source",
-        "check",
-        "build_finding",
-    }
-
     for rule in IAM_RULES:
-        assert required_fields.issubset(rule.keys())
-        assert callable(rule["check"])
-        assert callable(rule["build_finding"])
+        assert isinstance(rule, RuleDefinition)
+
+        assert rule.rule_id
+        assert rule.name
+        assert rule.data_source
+        assert rule.collection_mode
+        assert rule.check_arguments
+        assert callable(rule.check)
+        assert callable(rule.build_finding)
+
 
 def test_iam_registry_rule_ids_are_unique():
-    rule_ids = [rule["rule_id"] for rule in IAM_RULES]
+    rule_ids = [rule.rule_id for rule in IAM_RULES]
 
     assert len(rule_ids) == len(set(rule_ids))
+
 
 def test_iam_rules_have_valid_data_sources():
     allowed_data_sources = {
@@ -36,7 +35,8 @@ def test_iam_rules_have_valid_data_sources():
     }
 
     for rule in IAM_RULES:
-        assert rule["data_source"] in allowed_data_sources
+        assert rule.data_source in allowed_data_sources
+
 
 def test_iam_rules_have_valid_collection_modes():
     allowed_modes = {
@@ -45,4 +45,4 @@ def test_iam_rules_have_valid_collection_modes():
     }
 
     for rule in IAM_RULES:
-        assert rule["collection_mode"] in allowed_modes
+        assert rule.collection_mode in allowed_modes

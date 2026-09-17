@@ -18,9 +18,10 @@ def test_create_s3_scanner():
         )
 
     assert isinstance(scanner, S3Scanner)
-    assert isinstance(scanner.service, S3Service)
+    assert isinstance(scanner.collector, object)
+    assert isinstance(scanner.collector.service, S3Service)
 
-    assert scanner.service.session is fake_session
+    assert scanner.collector.service.session is fake_session
 
     mock_create_session.assert_called_once_with(
         profile_name="cloudsentinel",
