@@ -15,7 +15,8 @@ class RuleExecutor:
     - executing the rule check
     - building a Finding when the check fails
 
-    Cloud/provider-specific collection logic remains outside this layer.
+    Cloud/provider-specific collection logic remains outside
+    this layer.
     """
 
     def __init__(
@@ -74,6 +75,9 @@ class RuleExecutor:
         collected_data: dict[str, Any],
     ) -> Finding | None:
         result = rule.check(**collected_data)
+
+        if result is None:
+            return None
 
         return rule.build_finding(result)
 
