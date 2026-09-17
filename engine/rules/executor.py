@@ -74,7 +74,12 @@ class RuleExecutor:
         rule: RuleDefinition,
         collected_data: dict[str, Any],
     ) -> Finding | None:
-        result = rule.check(**collected_data)
+        check_data = {
+            argument: collected_data[argument]
+            for argument in rule.check_arguments
+        }
+
+        result = rule.check(**check_data)
 
         if result is None:
             return None

@@ -149,3 +149,36 @@ def test_describe_instances_translates_client_error():
         match="EC2 instance discovery failed",
     ):
         service.describe_instances()
+
+def test_describe_volumes_returns_volumes():
+    service = EC2Service.__new__(EC2Service)
+
+    service.ec2_client = MagicMock()
+
+    service.ec2_client.describe_volumes.return_value = {
+        "Volumes": [
+            {
+                "VolumeId": "vol-001",
+                "Encrypted": False,
+            },
+            {
+                "VolumeId": "vol-002",
+                "Encrypted": True,
+            },
+        ]
+    }
+
+    volumes = service.describe_volumes(
+        ["vol-001", "vol-002"]
+    )
+
+    assert volumes == [
+        {
+            "VolumeId": "vol-001",
+            "Encrypted": False,
+        },
+        {
+            "VolumeId": "vol-002",
+            "Encrypted": True,
+        },
+    ]

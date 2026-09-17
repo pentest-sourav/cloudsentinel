@@ -40,10 +40,82 @@ class EC2DataCollector:
                     "security_group_ids": security_group_ids,
                     "public_ip": instance.get("PublicIpAddress"),
                     "private_ip": instance.get("PrivateIpAddress"),
+                    "metadata_http_tokens": (
+                        instance.get(
+                            "MetadataOptions",
+                            {},
+                        ).get("HttpTokens")
+                    ),
                 }
             )
 
         return collected_instances
+
+    def collect_ebs_volumes(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect EBS volumes attached to discovered EC2 instances
+        and normalize their encryption status.
+        """
+
+        instances = self.service.describe_instances()
+
+        instance_volume_map: list[dict[str, str]] = []
+        volume_ids: set[str] = set()
+
+        for instance in instances:
+            instance_id = instance.get("InstanceId")
+
+            if not instance_id:
+                continue
+
+            for mapping in instance.get(
+                "BlockDeviceMappings",
+                [],
+            ):
+                ebs = mapping.get("Ebs", {})
+                volume_id = ebs.get("VolumeId")
+
+                if not volume_id:
+                    continue
+
+                instance_volume_map.append(
+                    {
+                        "instance_id": instance_id,
+                        "volume_id": volume_id,
+                    }
+                )
+
+                volume_ids.add(volume_id)
+
+        volumes = self.service.describe_volumes(
+            sorted(volume_ids)
+        )
+
+        encryption_by_volume_id = {
+            volume.get("VolumeId"): volume.get("Encrypted")
+            for volume in volumes
+            if volume.get("VolumeId")
+        }
+
+        collected_volumes: list[dict[str, Any]] = []
+
+        for mapping in instance_volume_map:
+            volume_id = mapping["volume_id"]
+
+            if volume_id not in encryption_by_volume_id:
+                continue
+
+            collected_volumes.append(
+                {
+                    "instance_id": mapping["instance_id"],
+                    "volume_id": volume_id,
+                    "encrypted": encryption_by_volume_id[volume_id],
+                }
+            )
+
+        return collected_volumes
 
     def collect_security_groups(
         self,

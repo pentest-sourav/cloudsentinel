@@ -26,16 +26,25 @@ class EC2Service:
             instances: list[dict[str, Any]] = []
 
             for page in paginator.paginate():
-                for reservation in page.get("Reservations", []):
+                for reservation in page.get(
+                    "Reservations",
+                    [],
+                ):
                     instances.extend(
-                        reservation.get("Instances", [])
+                        reservation.get(
+                            "Instances",
+                            [],
+                        )
                     )
 
             return instances
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -71,7 +80,10 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -84,6 +96,52 @@ class EC2Service:
 
         except BotoCoreError as exc:
             raise RuntimeError(
-                f"AWS SDK error during security-group discovery: "
+                f"AWS SDK error during EC2 security-group "
+                f"discovery: {exc}"
+            ) from exc
+
+    def describe_volumes(
+        self,
+        volume_ids: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Retrieve EBS volume configuration for the supplied
+        volume IDs.
+
+        This operation is read-only.
+        """
+
+        if not volume_ids:
+            return []
+
+        try:
+            response = self.ec2_client.describe_volumes(
+                VolumeIds=volume_ids,
+            )
+
+            return response.get(
+                "Volumes",
+                [],
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"EBS volume discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during EBS volume discovery: "
                 f"{exc}"
             ) from exc
