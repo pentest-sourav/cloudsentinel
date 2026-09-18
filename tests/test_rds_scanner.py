@@ -121,3 +121,31 @@ def test_rds_scanner_detects_missing_backup_retention():
     assert finding.resource_id == "cloudsentinel-db"
     assert finding.severity.value == "medium"
     assert finding.evidence["backup_retention_period"] == 0
+def test_rds_scanner_detects_disabled_multi_az():
+    service = MagicMock()
+
+    service.describe_db_instances.return_value = [
+        {
+            "DBInstanceIdentifier": "cloudsentinel-db",
+            "Engine": "postgres",
+            "EngineVersion": "16.3",
+            "PubliclyAccessible": False,
+            "StorageEncrypted": True,
+            "BackupRetentionPeriod": 7,
+            "MultiAZ": False,
+            "DeletionProtection": True,
+        }
+    ]
+
+    scanner = RDSScanner(service)
+
+    findings = scanner.scan()
+
+    assert len(findings) == 1
+
+    finding = findings[0]
+
+    assert finding.rule_id == "CS-AWS-RDS-004"
+    assert finding.resource_id == "cloudsentinel-db"
+    assert finding.severity.value == "medium"
+    assert finding.evidence["multi_az"] is False

@@ -13,6 +13,10 @@ from engine.rules.aws.rds.backup_retention import (
     build_rds_backup_retention_finding,
     check_rds_backup_retention,
 )
+from engine.rules.aws.rds.multi_az import (
+    build_rds_multi_az_finding,
+    check_rds_multi_az,
+)
 
 
 RDS_RULES = RuleRegistry(
@@ -52,6 +56,18 @@ RDS_RULES = RuleRegistry(
             ],
             check=check_rds_backup_retention,
             build_finding=build_rds_backup_retention_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-004",
+            name="rds_multi_az",
+            data_source="rds_instances",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_instance_id",
+                "multi_az",
+            ],
+            check=check_rds_multi_az,
+            build_finding=build_rds_multi_az_finding,
         ),
     ]
 )
