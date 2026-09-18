@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
 from backend.app.schemas.scan import ScanCreate, ScanResponse
+from backend.app.schemas.scan_history import (
+    ScanHistoryListResponse,
+)
 from backend.app.schemas.scan_summary import ScanSummaryResponse
 from backend.app.services.aws_scan_service import run_aws_scan
 from backend.app.services.scan_runner import ScanRunner
-from backend.app.services.scan_service import create_scan
-from backend.app.services.scan_summary_service import get_scan_summary
-
+from backend.app.services.scan_service import (
+    create_scan,
+    list_scans,
+)
+from backend.app.services.scan_summary_service import (
+    get_scan_summary,
+)
 
 router = APIRouter(
     prefix="/api/v1/scans",
@@ -31,15 +38,38 @@ def create_new_scan(
     )
 
     if scan_data.provider == "aws":
-        findings = run_aws_scan()
+        scanner = run_aws_scan
     else:
-        findings = []
+        scanner = lambda: []
 
     runner = ScanRunner(db=db)
 
     return runner.run(
         scan=scan,
-        findings=findings,
+        scanner=scanner,
+    )
+
+
+@router.get(
+    "",
+    response_model=ScanHistoryListResponse,
+)
+def get_scans(
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=100,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    db: Session = Depends(get_db),
+):
+    return list_scans(
+        db=db,
+        limit=limit,
+        offset=offset,
     )
 
 

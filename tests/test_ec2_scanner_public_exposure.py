@@ -18,8 +18,9 @@ def test_ec2_scanner_detects_public_instance():
         }
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
     service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
 
     scanner = EC2Scanner(service)
 
@@ -55,8 +56,9 @@ def test_ec2_scanner_does_not_flag_private_instance():
         }
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
     service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
 
     scanner = EC2Scanner(service)
 
@@ -94,8 +96,9 @@ def test_ec2_scanner_handles_public_and_private_instances():
         },
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
     service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
 
     scanner = EC2Scanner(service)
 

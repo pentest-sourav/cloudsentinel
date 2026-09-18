@@ -162,6 +162,7 @@ def build_security_group_exposure_finding(
             "from_port": rule.from_port,
             "to_port": rule.to_port,
             "ipv4_cidr": rule.ipv4_cidr,
+            "internet_exposed": True,
             "ipv6_cidr": rule.ipv6_cidr,
             "source_security_group_id": (
                 rule.source_security_group_id

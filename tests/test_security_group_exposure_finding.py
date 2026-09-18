@@ -145,3 +145,54 @@ def test_finding_has_compliance_mapping():
     finding = build_security_group_exposure_finding(result)
 
     assert "CIS AWS Foundations" in finding.compliance
+
+def test_ipv6_ssh_finding_contains_complete_evidence():
+    rule = SecurityGroupRule(
+        protocol="tcp",
+        from_port=22,
+        to_port=22,
+        ipv6_cidr="::/0",
+    )
+
+    result = SecurityGroupExposureResult(
+        security_group_id="sg-ipv6-ssh",
+        rule=rule,
+        exposure_type="ssh_port_range",
+        management_service="SSH",
+    )
+
+    finding = build_security_group_exposure_finding(result)
+
+    assert finding.evidence["security_group_id"] == "sg-ipv6-ssh"
+    assert finding.evidence["protocol"] == "tcp"
+    assert finding.evidence["from_port"] == 22
+    assert finding.evidence["to_port"] == 22
+    assert finding.evidence["ipv4_cidr"] is None
+    assert finding.evidence["ipv6_cidr"] == "::/0"
+    assert finding.evidence["source"] == "::/0"
+    assert finding.evidence["exposure_type"] == "ssh_port_range"
+    assert finding.evidence["management_service"] == "SSH"
+
+
+def test_finding_preserves_security_group_identity():
+    rule = SecurityGroupRule(
+        protocol="tcp",
+        from_port=22,
+        to_port=22,
+        ipv4_cidr="0.0.0.0/0",
+    )
+
+    result = SecurityGroupExposureResult(
+        security_group_id="sg-production-001",
+        rule=rule,
+        exposure_type="ssh_port_range",
+        management_service="SSH",
+    )
+
+    finding = build_security_group_exposure_finding(result)
+
+    assert finding.resource_id == "sg-production-001"
+    assert (
+        finding.evidence["security_group_id"]
+        == "sg-production-001"
+    )

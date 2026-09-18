@@ -183,3 +183,42 @@ def test_get_scan_summary_returns_404_for_unknown_scan(client):
     assert response.json() == {
         "detail": "Scan not found"
     }
+
+def test_get_scan_summary_returns_zero_counts_when_no_findings(client):
+    db = TestingSessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="completed",
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        scan_id = scan.id
+
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/api/v1/scans/{scan_id}/summary"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["scan_id"] == scan_id
+    assert data["provider"] == "aws"
+    assert data["status"] == "completed"
+
+    assert data["total_findings"] == 0
+    assert data["critical_count"] == 0
+    assert data["high_count"] == 0
+    assert data["medium_count"] == 0
+    assert data["low_count"] == 0
+    assert data["info_count"] == 0

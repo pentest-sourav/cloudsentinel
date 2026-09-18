@@ -105,23 +105,7 @@ def test_collect_instances_returns_empty_list():
 def test_collect_security_groups_from_instances():
     service = MagicMock()
 
-    service.describe_instances.return_value = [
-        {
-            "InstanceId": "i-001",
-            "SecurityGroups": [
-                {"GroupId": "sg-002"},
-                {"GroupId": "sg-001"},
-            ],
-        },
-        {
-            "InstanceId": "i-002",
-            "SecurityGroups": [
-                {"GroupId": "sg-001"},
-            ],
-        },
-    ]
-
-    service.describe_security_groups.return_value = [
+    service.describe_all_security_groups.return_value = [
         {
             "GroupId": "sg-001",
             "GroupName": "web",
@@ -147,30 +131,12 @@ def test_collect_security_groups_from_instances():
         },
     ]
 
-    service.describe_security_groups.assert_called_once_with(
-        ["sg-001", "sg-002"]
-    )
-
+    service.describe_all_security_groups.assert_called_once_with()
 
 def test_collect_security_groups_handles_duplicate_group_ids():
     service = MagicMock()
 
-    service.describe_instances.return_value = [
-        {
-            "InstanceId": "i-001",
-            "SecurityGroups": [
-                {"GroupId": "sg-001"},
-            ],
-        },
-        {
-            "InstanceId": "i-002",
-            "SecurityGroups": [
-                {"GroupId": "sg-001"},
-            ],
-        },
-    ]
-
-    service.describe_security_groups.return_value = [
+    service.describe_all_security_groups.return_value = [
         {
             "GroupId": "sg-001",
         }
@@ -186,25 +152,12 @@ def test_collect_security_groups_handles_duplicate_group_ids():
         }
     ]
 
-    service.describe_security_groups.assert_called_once_with(
-        ["sg-001"]
-    )
-
+    service.describe_all_security_groups.assert_called_once_with()
 
 def test_collect_security_groups_handles_missing_group_id():
     service = MagicMock()
 
-    service.describe_instances.return_value = [
-        {
-            "InstanceId": "i-001",
-            "SecurityGroups": [
-                {},
-                {"GroupId": "sg-001"},
-            ],
-        }
-    ]
-
-    service.describe_security_groups.return_value = [
+    service.describe_all_security_groups.return_value = [
         {
             "GroupId": "sg-001",
         }
@@ -220,22 +173,12 @@ def test_collect_security_groups_handles_missing_group_id():
         }
     ]
 
-    service.describe_security_groups.assert_called_once_with(
-        ["sg-001"]
-    )
-
+    service.describe_all_security_groups.assert_called_once_with()
 
 def test_collect_security_groups_returns_empty_when_no_groups():
     service = MagicMock()
 
-    service.describe_instances.return_value = [
-        {
-            "InstanceId": "i-001",
-            "SecurityGroups": [],
-        }
-    ]
-
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
 
     collector = EC2DataCollector(service)
 
@@ -243,7 +186,7 @@ def test_collect_security_groups_returns_empty_when_no_groups():
 
     assert groups == []
 
-    service.describe_security_groups.assert_called_once_with([])
+    service.describe_all_security_groups.assert_called_once_with()
 
 def test_collect_instances_includes_metadata_http_tokens():
     service = Mock()
@@ -323,3 +266,72 @@ def test_collect_ebs_volumes_for_instances():
             "encrypted": True,
         },
     ]
+
+def test_collector_caches_instance_discovery():
+    service = MagicMock()
+
+    service.describe_instances.return_value = [
+        {
+            "InstanceId": "i-cache-001",
+            "State": {"Name": "running"},
+            "SecurityGroups": [],
+            "PublicIpAddress": None,
+            "PrivateIpAddress": "10.0.1.10",
+        }
+    ]
+
+    service.describe_security_groups.return_value = []
+    service.describe_volumes.return_value = []
+
+    collector = EC2DataCollector(service)
+
+    collector.collect_instances()
+    collector.collect_ebs_volumes()
+    collector.collect_security_groups()
+
+    service.describe_instances.assert_called_once()
+
+def test_collect_ebs_volumes_does_not_call_describe_volumes_when_no_volumes():
+    service = MagicMock()
+
+    service.describe_instances.return_value = [
+        {
+            "InstanceId": "i-no-volume-001",
+            "State": {"Name": "running"},
+            "SecurityGroups": [],
+            "BlockDeviceMappings": [],
+        }
+    ]
+
+    collector = EC2DataCollector(service)
+
+    volumes = collector.collect_ebs_volumes()
+
+    assert volumes == []
+
+    service.describe_volumes.assert_not_called()
+
+def test_collect_security_groups_does_not_depend_on_instances():
+    service = MagicMock()
+
+    service.describe_all_security_groups.return_value = [
+        {
+            "GroupId": "sg-standalone-001",
+            "GroupName": "standalone",
+        }
+    ]
+
+    collector = EC2DataCollector(service)
+
+    groups = collector.collect_security_groups()
+
+    assert groups == [
+        {
+            "GroupId": "sg-standalone-001",
+            "GroupName": "standalone",
+        }
+    ]
+
+    service.describe_all_security_groups.assert_called_once_with()
+    service.describe_instances.assert_not_called()
+    service.describe_security_groups.assert_not_called()

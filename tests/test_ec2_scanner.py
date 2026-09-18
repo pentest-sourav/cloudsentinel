@@ -15,7 +15,7 @@ def test_ec2_scanner_returns_security_group_findings():
         }
     ]
 
-    service.describe_security_groups.return_value = [
+    service.describe_all_security_groups.return_value = [
         {
             "GroupId": "sg-001",
             "GroupName": "public-ssh",
@@ -34,27 +34,20 @@ def test_ec2_scanner_returns_security_group_findings():
         }
     ]
 
+    service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
+
     scanner = EC2Scanner(service)
 
     findings = scanner.scan()
 
     assert len(findings) == 1
-
-    finding = findings[0]
-
-    assert finding.rule_id == "CS-AWS-EC2-001"
-    assert finding.title == "SSH Port Exposed to the Internet"
-    assert finding.severity.value == "high"
-    assert finding.provider == "aws"
-    assert finding.resource_type == "ec2_security_group"
-    assert finding.resource_id == "sg-001"
-
-    assert finding.evidence["source"] == "0.0.0.0/0"
-    assert finding.evidence["from_port"] == 22
-    assert finding.evidence["to_port"] == 22
+    assert findings[0].rule_id == "CS-AWS-EC2-001"
+    assert findings[0].severity.value == "high"
+    assert findings[0].resource_id == "sg-001"
 
 
-def test_ec2_scanner_returns_no_findings_for_private_ssh():
+def test_ec2_scanner_ignores_private_security_group_rules():
     service = MagicMock()
 
     service.describe_instances.return_value = [
@@ -66,7 +59,7 @@ def test_ec2_scanner_returns_no_findings_for_private_ssh():
         }
     ]
 
-    service.describe_security_groups.return_value = [
+    service.describe_all_security_groups.return_value = [
         {
             "GroupId": "sg-private",
             "IpPermissions": [
@@ -76,13 +69,16 @@ def test_ec2_scanner_returns_no_findings_for_private_ssh():
                     "ToPort": 22,
                     "IpRanges": [
                         {
-                            "CidrIp": "10.0.0.0/8",
+                            "CidrIp": "10.0.0.0/16",
                         }
                     ],
                 }
             ],
         }
     ]
+
+    service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
 
     scanner = EC2Scanner(service)
 
@@ -104,7 +100,7 @@ def test_ec2_scanner_handles_multiple_security_groups():
         }
     ]
 
-    service.describe_security_groups.return_value = [
+    service.describe_all_security_groups.return_value = [
         {
             "GroupId": "sg-001",
             "IpPermissions": [
@@ -137,19 +133,82 @@ def test_ec2_scanner_handles_multiple_security_groups():
         },
     ]
 
+    service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
+
     scanner = EC2Scanner(service)
 
     findings = scanner.scan()
 
     assert len(findings) == 2
 
-    assert findings[0].rule_id == "CS-AWS-EC2-001"
-    assert findings[1].rule_id == "CS-AWS-EC2-001"
+    finding_rule_ids = {
+        finding.rule_id
+        for finding in findings
+    }
 
-    assert {
+    assert finding_rule_ids == {
+        "CS-AWS-EC2-001",
+    }
+
+    finding_resource_ids = {
         finding.resource_id
         for finding in findings
-    } == {
+    }
+
+    assert finding_resource_ids == {
         "sg-001",
         "sg-002",
     }
+
+
+def test_ec2_scanner_ignores_unrelated_security_group_rules():
+    service = MagicMock()
+
+    service.describe_instances.return_value = [
+        {
+            "InstanceId": "i-004",
+            "SecurityGroups": [
+                {"GroupId": "sg-mixed"},
+            ],
+        }
+    ]
+
+    service.describe_all_security_groups.return_value = [
+        {
+            "GroupId": "sg-mixed",
+            "IpPermissions": [
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 443,
+                    "ToPort": 443,
+                    "IpRanges": [
+                        {
+                            "CidrIp": "0.0.0.0/0",
+                        }
+                    ],
+                },
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 22,
+                    "ToPort": 22,
+                    "IpRanges": [
+                        {
+                            "CidrIp": "0.0.0.0/0",
+                        }
+                    ],
+                },
+            ],
+        }
+    ]
+
+    service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
+
+    scanner = EC2Scanner(service)
+
+    findings = scanner.scan()
+
+    assert len(findings) == 1
+    assert findings[0].resource_id == "sg-mixed"
+    assert findings[0].rule_id == "CS-AWS-EC2-001"

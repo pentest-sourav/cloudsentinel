@@ -6,7 +6,7 @@ from engine.findings.model import Finding, Severity
 @dataclass(frozen=True)
 class EBSEncryptionResult:
     """
-    Result of detecting an unencrypted EBS volume
+    Result of evaluating the encryption state of an EBS volume
     attached to an EC2 instance.
     """
 
@@ -16,6 +16,8 @@ class EBSEncryptionResult:
 
     @property
     def is_unencrypted(self) -> bool:
+        """Return True when the EBS volume is not encrypted."""
+
         return not self.encrypted
 
 
@@ -26,6 +28,9 @@ def check_ebs_encryption(
 ) -> EBSEncryptionResult | None:
     """
     Detect an EBS volume that is not encrypted.
+
+    The rule only evaluates the normalized collector data.
+    It does not perform AWS API calls or remediation.
     """
 
     if encrypted:
@@ -42,8 +47,8 @@ def build_ebs_encryption_finding(
     result: EBSEncryptionResult,
 ) -> Finding:
     """
-    Convert an unencrypted EBS volume result
-    into a CloudSentinel Finding.
+    Convert an unencrypted EBS volume result into a CloudSentinel
+    security finding with evidence and remediation guidance.
     """
 
     return Finding(
@@ -56,20 +61,21 @@ def build_ebs_encryption_finding(
         description=(
             f"The EBS volume {result.volume_id}, attached to "
             f"EC2 instance {result.instance_id}, is not encrypted. "
-            "Unencrypted volumes may expose stored data if the "
-            "underlying storage is accessed outside the intended "
-            "security boundary."
+            "Data stored on an unencrypted EBS volume is not protected "
+            "by EBS encryption at rest."
         ),
         evidence={
             "instance_id": result.instance_id,
             "volume_id": result.volume_id,
             "encrypted": result.encrypted,
+            "encryption_status": "unencrypted",
         },
         remediation=(
-            "Use encrypted EBS volumes for sensitive workloads. "
-            "For existing unencrypted volumes, create an encrypted "
-            "snapshot or encrypted replacement volume and migrate "
-            "the workload as appropriate."
+            "Use encrypted EBS volumes for workloads that require "
+            "encryption at rest. For an existing unencrypted volume, "
+            "create an encrypted snapshot or encrypted replacement "
+            "volume and migrate the workload according to the "
+            "workload's availability and change-management requirements."
         ),
         compliance=[
             "CIS AWS Foundations",

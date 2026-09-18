@@ -24,7 +24,8 @@ def test_ec2_scanner_detects_unencrypted_ebs_volume():
         }
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
+    service.describe_snapshots.return_value = []
 
     service.describe_volumes.return_value = [
         {
@@ -75,7 +76,8 @@ def test_ec2_scanner_does_not_flag_encrypted_ebs_volume():
         }
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
+    service.describe_snapshots.return_value = []
 
     service.describe_volumes.return_value = [
         {
@@ -124,7 +126,8 @@ def test_ec2_scanner_handles_mixed_ebs_encryption():
         }
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
+    service.describe_snapshots.return_value = []
 
     service.describe_volumes.return_value = [
         {

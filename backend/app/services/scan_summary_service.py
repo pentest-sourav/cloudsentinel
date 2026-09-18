@@ -1,13 +1,40 @@
 from sqlalchemy.orm import Session
 
-from backend.app.models.scan import Scan
 from backend.app.models.finding import Finding
+from backend.app.models.scan import Scan
+
+
+def build_finding_counts(findings: list[Finding]) -> dict:
+    counts = {
+        "total_findings": len(findings),
+        "critical_count": 0,
+        "high_count": 0,
+        "medium_count": 0,
+        "low_count": 0,
+        "info_count": 0,
+    }
+
+    for finding in findings:
+        severity = finding.severity.lower()
+
+        if severity == "critical":
+            counts["critical_count"] += 1
+        elif severity == "high":
+            counts["high_count"] += 1
+        elif severity == "medium":
+            counts["medium_count"] += 1
+        elif severity == "low":
+            counts["low_count"] += 1
+        elif severity == "info":
+            counts["info_count"] += 1
+
+    return counts
 
 
 def get_scan_summary(
     db: Session,
     scan_id: int,
-) -> dict:
+) -> dict | None:
     scan = (
         db.query(Scan)
         .filter(Scan.id == scan_id)
@@ -23,30 +50,11 @@ def get_scan_summary(
         .all()
     )
 
-    summary = {
+    counts = build_finding_counts(findings)
+
+    return {
         "scan_id": scan.id,
         "provider": scan.provider,
         "status": scan.status,
-        "total_findings": len(findings),
-        "critical_count": 0,
-        "high_count": 0,
-        "medium_count": 0,
-        "low_count": 0,
-        "info_count": 0,
+        **counts,
     }
-
-    for finding in findings:
-        severity = finding.severity.lower()
-
-        if severity == "critical":
-            summary["critical_count"] += 1
-        elif severity == "high":
-            summary["high_count"] += 1
-        elif severity == "medium":
-            summary["medium_count"] += 1
-        elif severity == "low":
-            summary["low_count"] += 1
-        elif severity == "info":
-            summary["info_count"] += 1
-
-    return summary

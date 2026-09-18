@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from sqlalchemy.orm import Session
 
 from backend.app.models.scan import Scan
@@ -13,8 +15,8 @@ class ScanRunner:
     """
     Orchestrates a CloudSentinel security scan.
 
-    The runner is responsible for scan lifecycle management
-    and persistence of scanner findings.
+    The runner is responsible for scan lifecycle management,
+    scanner execution, and persistence of scanner findings.
     """
 
     def __init__(self, db: Session):
@@ -23,13 +25,15 @@ class ScanRunner:
     def run(
         self,
         scan: Scan,
-        findings: list,
+        scanner: Callable[[], list],
     ) -> Scan:
         try:
             start_scan(
                 db=self.db,
                 scan=scan,
             )
+
+            findings = scanner()
 
             for finding in findings:
                 persist_finding(

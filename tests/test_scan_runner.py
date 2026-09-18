@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from unittest.mock import patch
 
 from backend.app.core.database import Base
 from backend.app.models.scan import Scan
@@ -44,7 +45,7 @@ def test_scan_runner_persists_findings_and_completes_scan():
 
         result = runner.run(
             scan=scan,
-            findings=[engine_finding],
+            scanner=lambda: [engine_finding],
         )
 
         assert result.id == scan.id
@@ -62,6 +63,56 @@ def test_scan_runner_persists_findings_and_completes_scan():
         assert findings[0].rule_id == "CS-AWS-S3-001"
         assert findings[0].severity == "high"
         assert findings[0].resource_id == "test-bucket"
+
+    finally:
+        db.close()
+
+def test_scan_runner_fails_scan_when_finding_persistence_fails():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="pending",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        engine_finding = Finding(
+            rule_id="CS-AWS-EC2-001",
+            title="SSH Port Exposed to the Internet",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="ec2_security_group",
+            resource_id="sg-test",
+            description="SSH is publicly exposed.",
+            evidence={
+                "internet_exposed": True,
+            },
+        )
+
+        runner = ScanRunner(db=db)
+
+        with patch(
+            "backend.app.services.scan_runner.persist_finding",
+            side_effect=RuntimeError("database persistence failed"),
+        ):
+            result = runner.run(
+                scan=scan,
+                scanner=lambda: [engine_finding],
+            )
+
+        assert result.id == scan.id
+        assert result.status == "failed"
+        assert result.error_message == "database persistence failed"
+        assert result.started_at is not None
+        assert result.completed_at is not None
 
     finally:
         db.close()

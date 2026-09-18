@@ -140,3 +140,54 @@ def test_all_ports_public_exposure_is_detected():
     assert result is not None
     assert result.is_exposed is True
     assert result.exposure_type == "all_ports"
+
+def test_public_ipv4_port_range_containing_ssh_is_detected():
+    rule = SecurityGroupRule(
+        protocol="tcp",
+        from_port=20,
+        to_port=25,
+        ipv4_cidr="0.0.0.0/0",
+    )
+
+    result = check_security_group_exposure(
+        security_group_id="sg-range-ssh",
+        rule=rule,
+    )
+
+    assert result is not None
+    assert result.management_service == "SSH"
+    assert result.exposure_type == "ssh_port_range"
+
+
+def test_public_ipv4_port_range_containing_rdp_is_detected():
+    rule = SecurityGroupRule(
+        protocol="tcp",
+        from_port=3380,
+        to_port=3390,
+        ipv4_cidr="0.0.0.0/0",
+    )
+
+    result = check_security_group_exposure(
+        security_group_id="sg-range-rdp",
+        rule=rule,
+    )
+
+    assert result is not None
+    assert result.management_service == "RDP"
+    assert result.exposure_type == "rdp_port_range"
+
+
+def test_public_non_management_port_range_is_not_detected():
+    rule = SecurityGroupRule(
+        protocol="tcp",
+        from_port=1000,
+        to_port=2000,
+        ipv4_cidr="0.0.0.0/0",
+    )
+
+    result = check_security_group_exposure(
+        security_group_id="sg-non-management",
+        rule=rule,
+    )
+
+    assert result is None

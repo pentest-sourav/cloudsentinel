@@ -97,3 +97,78 @@ def test_aws_scan_api_persists_findings(monkeypatch):
 
     finally:
         app.dependency_overrides.clear()
+
+def test_aws_scan_api_marks_scan_failed_when_scanner_fails(monkeypatch):
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+
+    def override_get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    def failing_scan():
+        raise RuntimeError("AWS scan failed")
+
+    monkeypatch.setattr(
+        "backend.app.api.routes.scans.run_aws_scan",
+        failing_scan,
+    )
+
+    client = TestClient(app)
+
+    try:
+        response = client.post(
+            "/api/v1/scans",
+            json={"provider": "aws"},
+        )
+
+        assert response.status_code == 201
+
+        data = response.json()
+
+        assert data["provider"] == "aws"
+        assert data["status"] == "failed"
+        assert data["error_message"] == "AWS scan failed"
+
+        db = SessionLocal()
+
+        try:
+            scan = (
+                db.query(Scan)
+                .filter(Scan.id == data["id"])
+                .first()
+            )
+
+            assert scan is not None
+            assert scan.status == "failed"
+            assert scan.error_message == "AWS scan failed"
+            assert scan.started_at is not None
+            assert scan.completed_at is not None
+
+        finally:
+            db.close()
+
+    finally:
+        app.dependency_overrides.clear()
+
+def test_scan_api_rejects_invalid_provider():
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/scans",
+        json={"provider": "gcp"},
+    )
+
+    assert response.status_code == 422

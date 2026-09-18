@@ -21,3 +21,10 @@ class FindingResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class FindingListResponse(BaseModel):
+    items: list[FindingResponse]
+    total: int
+    limit: int
+    offset: int

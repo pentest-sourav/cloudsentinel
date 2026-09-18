@@ -20,7 +20,7 @@ def test_ec2_security_group_rule_executes_through_registry():
         }
     ]
 
-    service.describe_security_groups.return_value = [
+    service.describe_all_security_groups.return_value = [
         {
             "GroupId": "sg-001",
             "GroupName": "public-ssh",

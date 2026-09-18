@@ -21,8 +21,9 @@ def test_ec2_scanner_detects_imdsv1_enabled():
         }
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
     service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
 
     scanner = EC2Scanner(service)
 
@@ -62,8 +63,9 @@ def test_ec2_scanner_does_not_flag_imdsv2_required():
         }
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
     service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
 
     scanner = EC2Scanner(service)
 
@@ -108,8 +110,9 @@ def test_ec2_scanner_handles_mixed_imdsv1_and_imdsv2():
         },
     ]
 
-    service.describe_security_groups.return_value = []
+    service.describe_all_security_groups.return_value = []
     service.describe_volumes.return_value = []
+    service.describe_snapshots.return_value = []
 
     scanner = EC2Scanner(service)
 
