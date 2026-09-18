@@ -64,3 +64,32 @@ def test_rds_scanner_handles_empty_account():
     findings = scanner.scan()
 
     assert findings == []
+
+def test_rds_scanner_detects_unencrypted_rds():
+    service = MagicMock()
+
+    service.describe_db_instances.return_value = [
+        {
+            "DBInstanceIdentifier": "cloudsentinel-db",
+            "Engine": "postgres",
+            "EngineVersion": "16.3",
+            "PubliclyAccessible": False,
+            "StorageEncrypted": False,
+            "BackupRetentionPeriod": 7,
+            "MultiAZ": True,
+            "DeletionProtection": True,
+        }
+    ]
+
+    scanner = RDSScanner(service)
+
+    findings = scanner.scan()
+
+    assert len(findings) == 1
+
+    finding = findings[0]
+
+    assert finding.rule_id == "CS-AWS-RDS-002"
+    assert finding.resource_id == "cloudsentinel-db"
+    assert finding.severity.value == "high"
+    assert finding.evidence["storage_encrypted"] is False
