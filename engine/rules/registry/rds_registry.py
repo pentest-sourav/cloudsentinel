@@ -17,6 +17,10 @@ from engine.rules.aws.rds.multi_az import (
     build_rds_multi_az_finding,
     check_rds_multi_az,
 )
+from engine.rules.aws.rds.deletion_protection import (
+    build_rds_deletion_protection_finding,
+    check_rds_deletion_protection,
+)
 
 
 RDS_RULES = RuleRegistry(
@@ -68,6 +72,18 @@ RDS_RULES = RuleRegistry(
             ],
             check=check_rds_multi_az,
             build_finding=build_rds_multi_az_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-005",
+            name="rds_deletion_protection",
+            data_source="rds_instances",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_instance_id",
+                "deletion_protection",
+            ],
+            check=check_rds_deletion_protection,
+            build_finding=build_rds_deletion_protection_finding,
         ),
     ]
 )
