@@ -9,6 +9,10 @@ from engine.rules.aws.rds.storage_encryption import (
     build_rds_storage_encryption_finding,
     check_rds_storage_encryption,
 )
+from engine.rules.aws.rds.backup_retention import (
+    build_rds_backup_retention_finding,
+    check_rds_backup_retention,
+)
 
 
 RDS_RULES = RuleRegistry(
@@ -36,6 +40,18 @@ RDS_RULES = RuleRegistry(
             ],
             check=check_rds_storage_encryption,
             build_finding=build_rds_storage_encryption_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-003",
+            name="rds_backup_retention",
+            data_source="rds_instances",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_instance_id",
+                "backup_retention_period",
+            ],
+            check=check_rds_backup_retention,
+            build_finding=build_rds_backup_retention_finding,
         ),
     ]
 )
