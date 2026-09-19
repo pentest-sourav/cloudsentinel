@@ -1,3 +1,4 @@
+from scanner.aws.scanners.cloudtrail_scanner import CloudTrailScanner
 from scanner.aws.scanners.ec2 import EC2Scanner
 from scanner.aws.scanners.iam import IAMScanner
 from scanner.aws.scanners.rds import RDSScanner
@@ -12,6 +13,7 @@ from scanner.aws.services.ec2 import EC2Service
 from scanner.aws.services.iam import IAMService
 from scanner.aws.services.rds import RDSService
 from scanner.aws.services.s3 import S3Service
+from scanner.aws.services.cloudtrail import CloudTrailService
 from scanner.aws.services.vpc import VPCService
 from scanner.aws.services.security_groups import SecurityGroupService
 from scanner.aws.services.route_tables import RouteTableService
@@ -71,6 +73,11 @@ def run_aws_scan() -> list:
     route_table_scanner = RouteTableScanner(route_table_service)
     route_table_findings = route_table_scanner.scan()
 
+    # CloudTrail
+    cloudtrail_service = CloudTrailService(session)
+    cloudtrail_scanner = CloudTrailScanner(cloudtrail_service)
+    cloudtrail_findings = cloudtrail_scanner.scan()
+
     return (
         s3_findings
         + iam_findings
@@ -80,4 +87,5 @@ def run_aws_scan() -> list:
         + vpc_findings
         + security_group_findings
         + route_table_findings
+        + cloudtrail_findings
     )

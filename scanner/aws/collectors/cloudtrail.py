@@ -1,0 +1,97 @@
+from typing import Any
+
+from scanner.aws.services.cloudtrail import CloudTrailService
+
+
+class CloudTrailDataCollector:
+    """
+    Normalizes AWS CloudTrail configuration data
+    for security rules.
+    """
+
+    def __init__(self, service: CloudTrailService):
+        self.service = service
+        self._trails_cache: list[dict[str, Any]] | None = None
+        self._trail_status_cache: dict[str, dict[str, Any]] = {}
+
+    def _get_trails(self) -> list[dict[str, Any]]:
+        """
+        Discover CloudTrail trails once and cache the result.
+        """
+        if self._trails_cache is None:
+            self._trails_cache = self.service.describe_trails()
+
+        return self._trails_cache
+
+    def collect_trails(self) -> list[dict[str, Any]]:
+        """
+        Return normalized CloudTrail trail configuration.
+        """
+        normalized = []
+
+        for trail in self._get_trails():
+            trail_arn = trail.get("TrailARN")
+
+            if not trail_arn:
+                continue
+
+            normalized.append(
+                {
+                    "name": trail.get("Name"),
+                    "trail_arn": trail_arn,
+                    "home_region": trail.get("HomeRegion"),
+                    "s3_bucket_name": trail.get("S3BucketName"),
+                    "s3_key_prefix": trail.get("S3KeyPrefix"),
+                    "include_global_service_events": trail.get(
+                        "IncludeGlobalServiceEvents"
+                    ),
+                    "is_multi_region_trail": trail.get(
+                        "IsMultiRegionTrail"
+                    ),
+                    "enable_log_file_validation": trail.get(
+                        "LogFileValidationEnabled"
+                    ),
+                    "is_organization_trail": trail.get(
+                        "IsOrganizationTrail"
+                    ),
+                    "has_insight_selectors": bool(
+                        trail.get("InsightSelectors")
+                    ),
+                    "has_event_selectors": bool(
+                        trail.get("EventSelectors")
+                    ),
+                }
+            )
+
+        return normalized
+
+    def collect_account(self) -> dict[str, Any]:
+        """
+        Return account-level CloudTrail configuration data.
+        """
+        trails = self._get_trails()
+
+        valid_trails = [
+            trail
+            for trail in trails
+            if trail.get("TrailARN")
+        ]
+
+        return {
+            "trail_count": len(valid_trails),
+        }
+
+    def get_trail_status(
+        self,
+        trail_arn: str,
+    ) -> dict[str, Any]:
+        """
+        Return and cache the current logging status
+        for a CloudTrail trail.
+        """
+        if trail_arn not in self._trail_status_cache:
+            self._trail_status_cache[trail_arn] = (
+                self.service.get_trail_status(trail_arn)
+            )
+
+        return self._trail_status_cache[trail_arn]
