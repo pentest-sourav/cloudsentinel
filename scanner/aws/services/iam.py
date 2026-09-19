@@ -104,3 +104,36 @@ class IAMService:
                 f"AWS SDK error while checking MFA devices "
                 f"for user '{username}': {exc}"
             ) from exc
+
+    def list_access_keys(
+        self,
+        username: str,
+    ) -> list[dict[str, Any]]:
+        try:
+            response = self.iam_client.list_access_keys(
+                UserName=username,
+            )
+
+            return response.get(
+                "AccessKeyMetadata",
+                [],
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM access key listing failed for user "
+                f"'{username}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing access keys "
+                f"for user '{username}': {exc}"
+            ) from exc

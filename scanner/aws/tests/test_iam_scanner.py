@@ -1,0 +1,57 @@
+from datetime import datetime, timezone
+from unittest.mock import Mock
+
+from scanner.aws.scanners.iam import IAMScanner
+
+
+def test_iam_scanner_detects_old_active_access_key():
+    service = Mock()
+
+    service.get_account_summary.return_value = {
+        "AccountMFAEnabled": 1,
+    }
+
+    service.list_users.return_value = [
+        {
+            "UserName": "test-user",
+        }
+    ]
+
+    service.list_mfa_devices.return_value = [
+        {
+            "SerialNumber": "arn:aws:iam::123456789012:mfa/test-user",
+        }
+    ]
+
+    service.list_access_keys.return_value = [
+        {
+            "AccessKeyId": "AKIAOLD123",
+            "Status": "Active",
+            "CreateDate": datetime(
+                2026,
+                1,
+                1,
+                tzinfo=timezone.utc,
+            ),
+        }
+    ]
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam003_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-003"
+    ]
+
+    assert len(iam003_findings) == 1
+
+    finding = iam003_findings[0]
+
+    assert finding.resource_id == "AKIAOLD123"
+    assert finding.severity.value == "high"
+    assert finding.evidence["username"] == "test-user"
+    assert finding.evidence["status"] == "Active"
+    assert finding.evidence["threshold_days"] == 90

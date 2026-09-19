@@ -32,6 +32,7 @@ def test_iam_rules_have_valid_data_sources():
     allowed_data_sources = {
         "root_mfa",
         "iam_users",
+        "iam_access_keys",
     }
 
     for rule in IAM_RULES:
