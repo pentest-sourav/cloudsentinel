@@ -3,12 +3,14 @@ from scanner.aws.scanners.iam import IAMScanner
 from scanner.aws.scanners.rds import RDSScanner
 from scanner.aws.scanners.lambda_scanner import LambdaScanner
 from scanner.aws.scanners.s3 import S3Scanner
+from scanner.aws.scanners.vpc_scanner import VPCScanner
 
 from scanner.aws.services.lambda_service import LambdaService
 from scanner.aws.services.ec2 import EC2Service
 from scanner.aws.services.iam import IAMService
 from scanner.aws.services.rds import RDSService
 from scanner.aws.services.s3 import S3Service
+from scanner.aws.services.vpc import VPCService
 
 from scanner.aws.session import create_aws_session
 
@@ -50,10 +52,16 @@ def run_aws_scan() -> list:
     lambda_scanner = LambdaScanner(lambda_service)
     lambda_findings = lambda_scanner.scan()
 
+    # VPC
+    vpc_service = VPCService(session)
+    vpc_scanner = VPCScanner(vpc_service)
+    vpc_findings = vpc_scanner.scan()
+
     return (
         s3_findings
         + iam_findings
         + ec2_findings
         + rds_findings
         + lambda_findings
+        + vpc_findings
     )
