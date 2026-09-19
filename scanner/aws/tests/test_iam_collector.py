@@ -93,6 +93,7 @@ def test_collect_password_policy_returns_normalized_password_policy():
     assert result == {
         "minimum_password_length": 14,
         "require_symbols": True,
+        "require_numbers": True,
     }
 
     service.get_account_password_policy.assert_called_once_with()
@@ -103,6 +104,7 @@ def test_collect_password_policy_uses_cache():
     service.get_account_password_policy.return_value = {
         "MinimumPasswordLength": 14,
         "RequireSymbols": True,
+        "require_numbers": True,
     }
 
     collector = IAMDataCollector(service)

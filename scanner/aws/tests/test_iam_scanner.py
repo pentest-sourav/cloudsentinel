@@ -135,3 +135,87 @@ def test_iam_scanner_detects_password_policy_without_symbols():
     assert finding.evidence["expected"] is True
 
     service.get_account_password_policy.assert_called_once_with()
+
+def test_iam_scanner_detects_password_policy_without_numbers():
+    service = Mock()
+
+    service.get_account_summary.return_value = {
+        "AccountMFAEnabled": 1,
+    }
+
+    service.list_users.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": True,
+        "RequireNumbers": False,
+        "RequireUppercaseCharacters": True,
+        "RequireLowercaseCharacters": True,
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam007_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-007"
+    ]
+
+    assert len(iam007_findings) == 1
+
+    finding = iam007_findings[0]
+
+    assert finding.resource_id == "account-password-policy"
+    assert finding.severity.value == "medium"
+    assert finding.evidence["require_numbers"] is False
+    assert finding.evidence["expected"] is True
+
+    service.get_account_password_policy.assert_called_once_with()
+
+def test_iam_scanner_detects_multiple_password_policy_findings():
+    service = Mock()
+
+    service.get_account_summary.return_value = {
+        "AccountMFAEnabled": 1,
+    }
+
+    service.list_users.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": False,
+        "RequireNumbers": False,
+        "RequireUppercaseCharacters": True,
+        "RequireLowercaseCharacters": True,
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    password_policy_findings = {
+        finding.rule_id: finding
+        for finding in findings
+        if finding.resource_type == "iam_password_policy"
+    }
+
+    assert "CS-AWS-IAM-006" in password_policy_findings
+    assert "CS-AWS-IAM-007" in password_policy_findings
+
+    assert (
+        password_policy_findings[
+            "CS-AWS-IAM-006"
+        ].evidence["require_symbols"]
+        is False
+    )
+
+    assert (
+        password_policy_findings[
+            "CS-AWS-IAM-007"
+        ].evidence["require_numbers"]
+        is False
+    )
+
+    service.get_account_password_policy.assert_called_once_with()

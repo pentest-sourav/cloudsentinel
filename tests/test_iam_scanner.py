@@ -52,6 +52,7 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
     service.get_account_password_policy.return_value = {
         "MinimumPasswordLength": 14,
         "RequireSymbols": True,
+        "RequireNumbers": True,
     }
 
     scanner = IAMScanner(service)
@@ -83,6 +84,7 @@ def test_iam_scanner_uses_registry_data_sources():
     service.get_account_password_policy.return_value = {
         "MinimumPasswordLength": 14,
         "RequireSymbols": True,
+        "RequireNumbers": True,
     }
 
     scanner = IAMScanner(service)

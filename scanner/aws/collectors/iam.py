@@ -111,4 +111,8 @@ class IAMDataCollector:
                 "RequireSymbols",
                 False,
             ),
+            "require_numbers": policy.get(
+                 "RequireNumbers",
+                False,
+            ),
         }
