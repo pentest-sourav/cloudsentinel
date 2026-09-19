@@ -94,6 +94,7 @@ def test_collect_password_policy_returns_normalized_password_policy():
         "minimum_password_length": 14,
         "require_symbols": True,
         "require_numbers": True,
+        "require_uppercase": True,
     }
 
     service.get_account_password_policy.assert_called_once_with()

@@ -29,6 +29,10 @@ from engine.rules.aws.iam.password_policy_numbers import (
     check_password_policy_numbers,
     build_password_policy_numbers_finding,
 )
+from engine.rules.aws.iam.password_policy_uppercase import (
+    check_password_policy_uppercase,
+    build_password_policy_uppercase_finding,
+)
 
 IAM_RULES = RuleRegistry(
     [
@@ -110,6 +114,15 @@ IAM_RULES = RuleRegistry(
             check_arguments=["require_numbers"],
             check=check_password_policy_numbers,
             build_finding=build_password_policy_numbers_finding,
+       ),
+       RuleDefinition(
+           rule_id="CS-AWS-IAM-008",
+           name="password_policy_uppercase",
+           data_source="password_policy",
+           collection_mode="single",
+           check_arguments=["require_uppercase"],
+           check=check_password_policy_uppercase,
+           build_finding=build_password_policy_uppercase_finding,
        ),
     ]
 )

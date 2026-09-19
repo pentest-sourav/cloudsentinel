@@ -60,6 +60,7 @@ def test_iam_scanner_detects_old_active_access_key():
     assert finding.evidence["status"] == "Active"
     assert finding.evidence["threshold_days"] == 90
 
+
 def test_iam_scanner_detects_short_password_policy():
     service = Mock()
 
@@ -97,6 +98,7 @@ def test_iam_scanner_detects_short_password_policy():
     assert finding.evidence["threshold"] == 14
 
     service.get_account_password_policy.assert_called_once_with()
+
 
 def test_iam_scanner_detects_password_policy_without_symbols():
     service = Mock()
@@ -136,6 +138,7 @@ def test_iam_scanner_detects_password_policy_without_symbols():
 
     service.get_account_password_policy.assert_called_once_with()
 
+
 def test_iam_scanner_detects_password_policy_without_numbers():
     service = Mock()
 
@@ -174,6 +177,7 @@ def test_iam_scanner_detects_password_policy_without_numbers():
 
     service.get_account_password_policy.assert_called_once_with()
 
+
 def test_iam_scanner_detects_multiple_password_policy_findings():
     service = Mock()
 
@@ -187,7 +191,7 @@ def test_iam_scanner_detects_multiple_password_policy_findings():
         "MinimumPasswordLength": 14,
         "RequireSymbols": False,
         "RequireNumbers": False,
-        "RequireUppercaseCharacters": True,
+        "RequireUppercaseCharacters": False,
         "RequireLowercaseCharacters": True,
     }
 
@@ -203,6 +207,7 @@ def test_iam_scanner_detects_multiple_password_policy_findings():
 
     assert "CS-AWS-IAM-006" in password_policy_findings
     assert "CS-AWS-IAM-007" in password_policy_findings
+    assert "CS-AWS-IAM-008" in password_policy_findings
 
     assert (
         password_policy_findings[
@@ -217,5 +222,72 @@ def test_iam_scanner_detects_multiple_password_policy_findings():
         ].evidence["require_numbers"]
         is False
     )
+
+    assert (
+        password_policy_findings[
+            "CS-AWS-IAM-008"
+        ].evidence["require_uppercase"]
+        is False
+    )
+
+    assert (
+        password_policy_findings[
+            "CS-AWS-IAM-006"
+        ].severity.value
+        == "medium"
+    )
+
+    assert (
+        password_policy_findings[
+            "CS-AWS-IAM-007"
+        ].severity.value
+        == "medium"
+    )
+
+    assert (
+        password_policy_findings[
+            "CS-AWS-IAM-008"
+        ].severity.value
+        == "medium"
+    )
+
+    service.get_account_password_policy.assert_called_once_with()
+
+
+def test_iam_scanner_detects_password_policy_without_uppercase():
+    service = Mock()
+
+    service.get_account_summary.return_value = {
+        "AccountMFAEnabled": 1,
+    }
+
+    service.list_users.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireUppercaseCharacters": False,
+        "RequireLowercaseCharacters": True,
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam008_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-008"
+    ]
+
+    assert len(iam008_findings) == 1
+
+    finding = iam008_findings[0]
+
+    assert finding.resource_id == "account-password-policy"
+    assert finding.severity.value == "medium"
+    assert finding.evidence["require_uppercase"] is False
+    assert finding.evidence["expected"] is True
 
     service.get_account_password_policy.assert_called_once_with()

@@ -115,4 +115,8 @@ class IAMDataCollector:
                  "RequireNumbers",
                 False,
             ),
+            "require_uppercase": policy.get(
+                 "RequireUppercaseCharacters",
+                False,
+           ),
         }
