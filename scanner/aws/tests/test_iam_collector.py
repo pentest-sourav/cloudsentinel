@@ -70,3 +70,28 @@ def test_collect_iam_access_keys_normalizes_access_keys():
 
     assert service.list_users.call_count == 1
     assert service.list_access_keys.call_count == 2
+
+def test_collect_password_policy_returns_normalized_password_policy():
+    service = Mock()
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireUppercaseCharacters": True,
+        "RequireLowercaseCharacters": True,
+        "AllowUsersToChangePassword": True,
+        "ExpirePasswords": True,
+        "MaxPasswordAge": 90,
+        "PasswordReusePrevention": 24,
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_password_policy()
+
+    assert result == {
+        "minimum_password_length": 14,
+    }
+
+    service.get_account_password_policy.assert_called_once_with()

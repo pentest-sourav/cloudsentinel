@@ -88,3 +88,13 @@ class IAMDataCollector:
 
     def collect_iam_access_keys(self) -> list[dict[str, Any]]:
         return self._get_access_keys()
+
+    def collect_password_policy(self) -> dict[str, Any]:
+        policy = self.service.get_account_password_policy()
+
+        return {
+            "minimum_password_length": policy.get(
+                "MinimumPasswordLength",
+                0,
+            ),
+        }

@@ -34,6 +34,10 @@ def test_iam_scanner_detects_inactive_access_key():
         }
     ]
 
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
+
     scanner = IAMScanner(service)
 
     findings = scanner.scan()

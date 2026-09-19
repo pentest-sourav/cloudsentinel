@@ -16,6 +16,10 @@ def test_iam_scanner_returns_root_and_user_mfa_findings():
 
     service.list_access_keys.return_value = []
 
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
+
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
@@ -45,6 +49,10 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
 
     service.list_access_keys.return_value = []
 
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
+
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
@@ -70,6 +78,10 @@ def test_iam_scanner_uses_registry_data_sources():
     ]
 
     service.list_access_keys.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
 
     scanner = IAMScanner(service)
 

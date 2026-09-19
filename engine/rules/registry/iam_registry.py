@@ -17,7 +17,10 @@ from engine.rules.aws.iam.user_mfa import (
     build_user_mfa_finding,
     check_user_mfa,
 )
-
+from engine.rules.aws.iam.password_policy import (
+    build_password_policy_finding,
+    check_password_policy_minimum_length,
+)
 
 IAM_RULES = RuleRegistry(
     [
@@ -70,6 +73,17 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_inactive_access_key,
             build_finding=build_inactive_access_key_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-005",
+            name="password_policy",
+            data_source="password_policy",
+            collection_mode="single",
+            check_arguments=[
+                "minimum_password_length",
+            ],
+            check=check_password_policy_minimum_length,
+            build_finding=build_password_policy_finding,
         ),
     ]
 )

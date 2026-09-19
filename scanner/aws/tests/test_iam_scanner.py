@@ -11,6 +11,10 @@ def test_iam_scanner_detects_old_active_access_key():
         "AccountMFAEnabled": 1,
     }
 
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
+
     service.list_users.return_value = [
         {
             "UserName": "test-user",
@@ -55,3 +59,41 @@ def test_iam_scanner_detects_old_active_access_key():
     assert finding.evidence["username"] == "test-user"
     assert finding.evidence["status"] == "Active"
     assert finding.evidence["threshold_days"] == 90
+
+def test_iam_scanner_detects_short_password_policy():
+    service = Mock()
+
+    service.get_account_summary.return_value = {
+        "AccountMFAEnabled": 1,
+    }
+
+    service.list_users.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 8,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireUppercaseCharacters": True,
+        "RequireLowercaseCharacters": True,
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam005_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-005"
+    ]
+
+    assert len(iam005_findings) == 1
+
+    finding = iam005_findings[0]
+
+    assert finding.resource_id == "account-password-policy"
+    assert finding.severity.value == "medium"
+    assert finding.evidence["minimum_password_length"] == 8
+    assert finding.evidence["threshold"] == 14
+
+    service.get_account_password_policy.assert_called_once_with()

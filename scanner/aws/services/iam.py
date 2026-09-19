@@ -137,3 +137,31 @@ class IAMService:
                 f"AWS SDK error while listing access keys "
                 f"for user '{username}': {exc}"
             ) from exc
+
+    def get_account_password_policy(self) -> dict[str, Any]:
+        try:
+            response = self.iam_client.get_account_password_policy()
+
+            return response.get(
+                "PasswordPolicy",
+                {},
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM password policy check failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while checking IAM password policy: "
+                f"{exc}"
+            ) from exc

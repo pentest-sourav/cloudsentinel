@@ -38,3 +38,41 @@ def test_list_access_keys_returns_access_key_metadata():
     iam_client.list_access_keys.assert_called_once_with(
         UserName="cloudsentinel-auditor"
     )
+
+def test_get_account_password_policy_returns_password_policy():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_account_password_policy.return_value = {
+        "PasswordPolicy": {
+            "MinimumPasswordLength": 14,
+            "RequireSymbols": True,
+            "RequireNumbers": True,
+            "RequireUppercaseCharacters": True,
+            "RequireLowercaseCharacters": True,
+            "AllowUsersToChangePassword": True,
+            "ExpirePasswords": True,
+            "MaxPasswordAge": 90,
+            "PasswordReusePrevention": 24,
+        }
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.get_account_password_policy()
+
+    assert result == {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireUppercaseCharacters": True,
+        "RequireLowercaseCharacters": True,
+        "AllowUsersToChangePassword": True,
+        "ExpirePasswords": True,
+        "MaxPasswordAge": 90,
+        "PasswordReusePrevention": 24,
+    }
+
+    iam_client.get_account_password_policy.assert_called_once_with()
