@@ -42,6 +42,7 @@ def test_run_aws_scan_combines_s3_and_iam_findings():
     mock_s3_scanner.scan.assert_called_once()
     mock_iam_scanner.scan.assert_called_once()
 
+
 def test_run_aws_scan_includes_ec2_findings():
     s3_finding = Mock(rule_id="CS-AWS-S3-001")
     iam_finding = Mock(rule_id="CS-AWS-IAM-001")
@@ -93,6 +94,8 @@ def test_run_aws_scan_includes_ec2_findings():
     mock_s3_scanner.scan.assert_called_once()
     mock_iam_scanner.scan.assert_called_once()
     mock_ec2_scanner.scan.assert_called_once()
+
+
 def test_run_aws_scan_includes_lambda_findings():
     s3_finding = Mock(rule_id="CS-AWS-S3-001")
     iam_finding = Mock(rule_id="CS-AWS-IAM-001")
@@ -170,13 +173,16 @@ def test_run_aws_scan_includes_lambda_findings():
     mock_ec2_scanner.scan.assert_called_once()
     mock_rds_scanner.scan.assert_called_once()
     mock_lambda_scanner.scan.assert_called_once()
-def test_run_aws_scan_includes_vpc_findings():
+
+
+def test_run_aws_scan_includes_vpc_and_security_group_findings():
     s3_finding = Mock(rule_id="CS-AWS-S3-001")
     iam_finding = Mock(rule_id="CS-AWS-IAM-001")
     ec2_finding = Mock(rule_id="CS-AWS-EC2-001")
     rds_finding = Mock(rule_id="CS-AWS-RDS-001")
     lambda_finding = Mock(rule_id="CS-AWS-LAMBDA-001")
     vpc_finding = Mock(rule_id="CS-AWS-VPC-001")
+    security_group_finding = Mock(rule_id="CS-AWS-SG-001")
 
     mock_s3_scanner = Mock()
     mock_s3_scanner.scan.return_value = [s3_finding]
@@ -196,12 +202,18 @@ def test_run_aws_scan_includes_vpc_findings():
     mock_vpc_scanner = Mock()
     mock_vpc_scanner.scan.return_value = [vpc_finding]
 
+    mock_security_group_scanner = Mock()
+    mock_security_group_scanner.scan.return_value = [
+        security_group_finding
+    ]
+
     mock_s3_service = Mock()
     mock_iam_service = Mock()
     mock_ec2_service = Mock()
     mock_rds_service = Mock()
     mock_lambda_service = Mock()
     mock_vpc_service = Mock()
+    mock_security_group_service = Mock()
 
     with patch(
         "backend.app.services.aws_scan_service.create_aws_session"
@@ -241,6 +253,12 @@ def test_run_aws_scan_includes_vpc_findings():
     ), patch(
         "backend.app.services.aws_scan_service.VPCScanner",
         return_value=mock_vpc_scanner,
+    ), patch(
+        "backend.app.services.aws_scan_service.SecurityGroupService",
+        return_value=mock_security_group_service,
+    ), patch(
+        "backend.app.services.aws_scan_service.SecurityGroupScanner",
+        return_value=mock_security_group_scanner,
     ):
         result = run_aws_scan()
 
@@ -251,6 +269,7 @@ def test_run_aws_scan_includes_vpc_findings():
         rds_finding,
         lambda_finding,
         vpc_finding,
+        security_group_finding,
     ]
 
     mock_session.assert_called_once()
@@ -260,3 +279,4 @@ def test_run_aws_scan_includes_vpc_findings():
     mock_rds_scanner.scan.assert_called_once()
     mock_lambda_scanner.scan.assert_called_once()
     mock_vpc_scanner.scan.assert_called_once()
+    mock_security_group_scanner.scan.assert_called_once()
