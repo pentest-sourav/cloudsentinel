@@ -5,6 +5,10 @@ from engine.rules.aws.iam.access_key_age import (
     build_access_key_age_finding,
     check_access_key_age,
 )
+from engine.rules.aws.iam.inactive_access_key import (
+    build_inactive_access_key_finding,
+    check_inactive_access_key,
+)
 from engine.rules.aws.iam.root_mfa import (
     build_root_mfa_finding,
     check_root_mfa,
@@ -52,6 +56,20 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_access_key_age,
             build_finding=build_access_key_age_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-004",
+            name="inactive_access_key",
+            data_source="iam_access_keys",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "access_key_id",
+                "status",
+                "created_at",
+            ],
+            check=check_inactive_access_key,
+            build_finding=build_inactive_access_key_finding,
         ),
     ]
 )
