@@ -97,3 +97,41 @@ def test_iam_scanner_detects_short_password_policy():
     assert finding.evidence["threshold"] == 14
 
     service.get_account_password_policy.assert_called_once_with()
+
+def test_iam_scanner_detects_password_policy_without_symbols():
+    service = Mock()
+
+    service.get_account_summary.return_value = {
+        "AccountMFAEnabled": 1,
+    }
+
+    service.list_users.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": False,
+        "RequireNumbers": True,
+        "RequireUppercaseCharacters": True,
+        "RequireLowercaseCharacters": True,
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam006_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-006"
+    ]
+
+    assert len(iam006_findings) == 1
+
+    finding = iam006_findings[0]
+
+    assert finding.resource_id == "account-password-policy"
+    assert finding.severity.value == "medium"
+    assert finding.evidence["require_symbols"] is False
+    assert finding.evidence["expected"] is True
+
+    service.get_account_password_policy.assert_called_once_with()

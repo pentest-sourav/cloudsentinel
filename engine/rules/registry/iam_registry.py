@@ -21,6 +21,10 @@ from engine.rules.aws.iam.password_policy import (
     build_password_policy_finding,
     check_password_policy_minimum_length,
 )
+from engine.rules.aws.iam.password_policy_symbols import (
+    check_password_policy_symbols,
+    build_password_policy_symbols_finding,
+)
 
 IAM_RULES = RuleRegistry(
     [
@@ -84,6 +88,15 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_password_policy_minimum_length,
             build_finding=build_password_policy_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-006",
+            name="password_policy_symbols",
+            data_source="password_policy",
+            collection_mode="single",
+            check_arguments=["require_symbols"],
+            check=check_password_policy_symbols,
+            build_finding=build_password_policy_symbols_finding,
         ),
     ]
 )

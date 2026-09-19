@@ -8,15 +8,17 @@ class IAMDataCollector:
     """
     Collect IAM data required by CloudSentinel IAM rules.
 
-    The collector caches IAM users and access-key data so
-    multiple IAM rules can reuse the same AWS API responses
-    during a single scan.
+    The collector caches IAM users, access-key data, and password
+    policy data so multiple IAM rules can reuse the same AWS API
+    responses during a single scan.
     """
 
     def __init__(self, service: IAMService):
         self.service = service
+
         self._users_cache: list[dict[str, Any]] | None = None
         self._access_keys_cache: list[dict[str, Any]] | None = None
+        self._password_policy_cache: dict[str, Any] | None = None
 
     def _get_users(self) -> list[dict[str, Any]]:
         """
@@ -90,11 +92,23 @@ class IAMDataCollector:
         return self._get_access_keys()
 
     def collect_password_policy(self) -> dict[str, Any]:
-        policy = self.service.get_account_password_policy()
+        """
+        Return normalized IAM password policy using a per-scan cache.
+        """
+        if self._password_policy_cache is None:
+            self._password_policy_cache = (
+                self.service.get_account_password_policy()
+            )
+
+        policy = self._password_policy_cache
 
         return {
             "minimum_password_length": policy.get(
                 "MinimumPasswordLength",
                 0,
+            ),
+            "require_symbols": policy.get(
+                "RequireSymbols",
+                False,
             ),
         }
