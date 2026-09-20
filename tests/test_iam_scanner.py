@@ -53,6 +53,7 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
         "MinimumPasswordLength": 14,
         "RequireSymbols": True,
         "RequireNumbers": True,
+        "RequireLowercaseCharacters": True,
         "RequireUppercaseCharacters": True,
     }
 
@@ -86,6 +87,7 @@ def test_iam_scanner_uses_registry_data_sources():
         "MinimumPasswordLength": 14,
         "RequireSymbols": True,
         "RequireNumbers": True,
+        "RequireLowercaseCharacters": True,
         "RequireUppercaseCharacters": True,
     }
 

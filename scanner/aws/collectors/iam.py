@@ -112,11 +112,15 @@ class IAMDataCollector:
                 False,
             ),
             "require_numbers": policy.get(
-                 "RequireNumbers",
+                "RequireNumbers",
                 False,
             ),
             "require_uppercase": policy.get(
-                 "RequireUppercaseCharacters",
+                "RequireUppercaseCharacters",
                 False,
-           ),
+            ),
+            "require_lowercase": policy.get(
+                "RequireLowercaseCharacters",
+                False,
+            ),
         }

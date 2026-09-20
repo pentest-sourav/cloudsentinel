@@ -72,3 +72,28 @@ def test_iam_registry_password_policy_uppercase_rule_has_check_and_finding_build
 
     assert callable(rule.check)
     assert callable(rule.build_finding)
+
+
+def test_iam_registry_contains_password_policy_lowercase_rule():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-009")
+
+    assert rule is not None
+    assert rule.rule_id == "CS-AWS-IAM-009"
+    assert rule.name == "password_policy_lowercase"
+    assert rule.data_source == "password_policy"
+    assert rule.collection_mode == "single"
+
+
+def test_iam_registry_password_policy_lowercase_rule_has_expected_arguments():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-009")
+
+    assert rule.check_arguments == [
+        "require_lowercase",
+    ]
+
+
+def test_iam_registry_password_policy_lowercase_rule_has_check_and_finding_builder():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-009")
+
+    assert callable(rule.check)
+    assert callable(rule.build_finding)

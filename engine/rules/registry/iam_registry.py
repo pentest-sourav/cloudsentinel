@@ -33,6 +33,10 @@ from engine.rules.aws.iam.password_policy_uppercase import (
     check_password_policy_uppercase,
     build_password_policy_uppercase_finding,
 )
+from engine.rules.aws.iam.password_policy_lowercase import (
+    check_password_policy_lowercase,
+    build_password_policy_lowercase_finding,
+)
 
 IAM_RULES = RuleRegistry(
     [
@@ -123,6 +127,15 @@ IAM_RULES = RuleRegistry(
            check_arguments=["require_uppercase"],
            check=check_password_policy_uppercase,
            build_finding=build_password_policy_uppercase_finding,
+       ),
+       RuleDefinition(
+           rule_id="CS-AWS-IAM-009",
+           name="password_policy_lowercase",
+           data_source="password_policy",
+           collection_mode="single",
+           check_arguments=["require_lowercase"],
+           check=check_password_policy_lowercase,
+           build_finding=build_password_policy_lowercase_finding,
        ),
     ]
 )
