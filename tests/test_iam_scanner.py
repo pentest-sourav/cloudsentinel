@@ -55,6 +55,7 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
         "RequireNumbers": True,
         "RequireLowercaseCharacters": True,
         "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
 
     scanner = IAMScanner(service)
@@ -89,6 +90,7 @@ def test_iam_scanner_uses_registry_data_sources():
         "RequireNumbers": True,
         "RequireLowercaseCharacters": True,
         "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
 
     scanner = IAMScanner(service)

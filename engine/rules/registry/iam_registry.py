@@ -37,6 +37,10 @@ from engine.rules.aws.iam.password_policy_lowercase import (
     check_password_policy_lowercase,
     build_password_policy_lowercase_finding,
 )
+from engine.rules.aws.iam.password_reuse import (
+    check_password_reuse,
+    build_password_reuse_finding,
+)
 
 IAM_RULES = RuleRegistry(
     [
@@ -137,5 +141,14 @@ IAM_RULES = RuleRegistry(
            check=check_password_policy_lowercase,
            build_finding=build_password_policy_lowercase_finding,
        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-010",
+            name="password_reuse",
+            data_source="password_policy",
+            collection_mode="single",
+            check_arguments=["password_reuse_prevention"],
+            check=check_password_reuse,
+            build_finding=build_password_reuse_finding,
+        ),
     ]
 )

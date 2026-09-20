@@ -96,6 +96,7 @@ def test_collect_password_policy_returns_normalized_password_policy():
         "require_numbers": True,
         "require_uppercase": True,
         "require_lowercase": True,
+        "password_reuse_prevention": 24,
     }
 
     service.get_account_password_policy.assert_called_once_with()
@@ -109,6 +110,7 @@ def test_collect_password_policy_uses_cache():
         "RequireNumbers": True,
         "RequireUppercaseCharacters": True,
         "RequireLowercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
 
     collector = IAMDataCollector(service)

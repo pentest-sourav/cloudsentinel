@@ -123,4 +123,8 @@ class IAMDataCollector:
                 "RequireLowercaseCharacters",
                 False,
             ),
+            "password_reuse_prevention": policy.get(
+                "PasswordReusePrevention",
+                0,
+            ),
         }
