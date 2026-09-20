@@ -41,6 +41,10 @@ from engine.rules.aws.iam.password_reuse import (
     check_password_reuse,
     build_password_reuse_finding,
 )
+from engine.rules.aws.iam.unused_console_password import (
+    check_unused_console_password,
+    build_unused_console_password_finding,
+)
 
 IAM_RULES = RuleRegistry(
     [
@@ -149,6 +153,20 @@ IAM_RULES = RuleRegistry(
             check_arguments=["password_reuse_prevention"],
             check=check_password_reuse,
             build_finding=build_password_reuse_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-011",
+            name="unused_console_password",
+            data_source="credential_report",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "password_enabled",
+                "password_last_used",
+                "current_time",
+            ],
+            check=check_unused_console_password,
+            build_finding=build_unused_console_password_finding,
         ),
     ]
 )

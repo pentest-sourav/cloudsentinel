@@ -165,3 +165,53 @@ class IAMService:
                 f"AWS SDK error while checking IAM password policy: "
                 f"{exc}"
             ) from exc
+
+    def generate_credential_report(self) -> dict[str, Any]:
+        try:
+            response = self.iam_client.generate_credential_report()
+
+            return response
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM credential report generation failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while generating IAM credential report: "
+                f"{exc}"
+            ) from exc
+
+    def get_credential_report(self) -> dict[str, Any]:
+        try:
+            response = self.iam_client.get_credential_report()
+
+            return response
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM credential report retrieval failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while retrieving IAM credential report: "
+                f"{exc}"
+            ) from exc

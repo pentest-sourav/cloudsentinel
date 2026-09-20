@@ -4,6 +4,13 @@ from unittest.mock import Mock
 from scanner.aws.scanners.iam import IAMScanner
 
 
+def _configure_credential_report(service):
+    service.get_credential_report.return_value = {
+        "Content": b"user,password_enabled,password_last_used\n",
+        "ReportFormat": "text/csv",
+    }
+
+
 def test_iam_scanner_detects_old_active_access_key():
     service = Mock()
 
@@ -14,6 +21,10 @@ def test_iam_scanner_detects_old_active_access_key():
     service.get_account_password_policy.return_value = {
         "MinimumPasswordLength": 14,
         "RequireLowercaseCharacters": True,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
 
     service.list_users.return_value = [
@@ -40,6 +51,8 @@ def test_iam_scanner_detects_old_active_access_key():
             ),
         }
     ]
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 
@@ -77,7 +90,10 @@ def test_iam_scanner_detects_short_password_policy():
         "RequireSymbols": True,
         "RequireNumbers": True,
         "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 
@@ -116,7 +132,10 @@ def test_iam_scanner_detects_password_policy_without_symbols():
         "RequireSymbols": False,
         "RequireNumbers": True,
         "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 
@@ -155,7 +174,10 @@ def test_iam_scanner_detects_password_policy_without_numbers():
         "RequireSymbols": True,
         "RequireNumbers": False,
         "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 
@@ -197,6 +219,8 @@ def test_iam_scanner_detects_multiple_password_policy_findings():
         "PasswordReusePrevention": 0,
     }
 
+    _configure_credential_report(service)
+
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
@@ -212,6 +236,7 @@ def test_iam_scanner_detects_multiple_password_policy_findings():
     assert "CS-AWS-IAM-008" in password_policy_findings
     assert "CS-AWS-IAM-009" in password_policy_findings
     assert "CS-AWS-IAM-010" in password_policy_findings
+
     assert (
         password_policy_findings[
             "CS-AWS-IAM-006"
@@ -242,7 +267,7 @@ def test_iam_scanner_detects_multiple_password_policy_findings():
 
     assert (
         password_policy_findings[
-             "CS-AWS-IAM-010"
+            "CS-AWS-IAM-010"
         ].evidence["password_reuse_prevention"]
         == 0
     )
@@ -300,7 +325,10 @@ def test_iam_scanner_detects_password_policy_without_uppercase():
         "RequireSymbols": True,
         "RequireNumbers": True,
         "RequireUppercaseCharacters": False,
+        "PasswordReusePrevention": 24,
     }
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 
@@ -342,6 +370,8 @@ def test_iam_scanner_detects_password_policy_without_reuse_prevention():
         "PasswordReusePrevention": 0,
     }
 
+    _configure_credential_report(service)
+
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
@@ -379,7 +409,10 @@ def test_iam_scanner_detects_password_policy_without_lowercase():
         "RequireSymbols": True,
         "RequireNumbers": True,
         "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
     }
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 
@@ -401,3 +434,53 @@ def test_iam_scanner_detects_password_policy_without_lowercase():
     assert finding.evidence["expected"] is True
 
     service.get_account_password_policy.assert_called_once_with()
+
+
+def test_iam_scanner_detects_unused_console_password():
+    service = Mock()
+
+    service.get_account_summary.return_value = {
+        "AccountMFAEnabled": 1,
+    }
+
+    service.list_users.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireLowercaseCharacters": True,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
+    }
+
+    service.get_credential_report.return_value = {
+        "Content": (
+            b"user,password_enabled,password_last_used\n"
+            b"old-user,true,2026-01-01T00:00:00+00:00\n"
+        ),
+        "ReportFormat": "text/csv",
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam011_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-011"
+    ]
+
+    assert len(iam011_findings) == 1
+
+    finding = iam011_findings[0]
+
+    assert finding.resource_id == "old-user"
+    assert finding.severity.value == "medium"
+    assert finding.resource_type == "iam_user"
+    assert finding.evidence["username"] == "old-user"
+    assert finding.evidence["password_enabled"] is True
+    assert finding.evidence["threshold_days"] == 90
+
+    service.get_credential_report.assert_called_once_with()

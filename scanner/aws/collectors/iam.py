@@ -1,3 +1,5 @@
+import csv
+import io
 from datetime import datetime, timezone
 from typing import Any
 
@@ -8,9 +10,9 @@ class IAMDataCollector:
     """
     Collect IAM data required by CloudSentinel IAM rules.
 
-    The collector caches IAM users, access-key data, and password
-    policy data so multiple IAM rules can reuse the same AWS API
-    responses during a single scan.
+    The collector caches IAM users, access-key data, password
+    policy data, and credential-report data so multiple IAM rules
+    can reuse the same AWS API responses during a single scan.
     """
 
     def __init__(self, service: IAMService):
@@ -19,6 +21,7 @@ class IAMDataCollector:
         self._users_cache: list[dict[str, Any]] | None = None
         self._access_keys_cache: list[dict[str, Any]] | None = None
         self._password_policy_cache: dict[str, Any] | None = None
+        self._credential_report_cache: list[dict[str, Any]] | None = None
 
     def _get_users(self) -> list[dict[str, Any]]:
         """
@@ -128,3 +131,78 @@ class IAMDataCollector:
                 0,
             ),
         }
+
+    def collect_credential_report(self) -> list[dict[str, Any]]:
+        """
+        Return normalized IAM credential report data using a
+        per-scan cache.
+
+        Credential-report timestamps are converted to timezone-aware
+        datetime objects so IAM rules can safely perform age
+        calculations.
+        """
+        if self._credential_report_cache is None:
+            report = self.service.get_credential_report()
+
+            content = report.get("Content", b"")
+
+            if isinstance(content, bytes):
+                content = content.decode("utf-8")
+
+            reader = csv.DictReader(
+                io.StringIO(content)
+            )
+
+            current_time = datetime.now(timezone.utc)
+
+            collected_users: list[dict[str, Any]] = []
+
+            for row in reader:
+                password_last_used = row.get(
+                    "password_last_used"
+                )
+
+                if password_last_used in (
+                    None,
+                    "",
+                    "N/A",
+                ):
+                    password_last_used = None
+                else:
+                    password_last_used = (
+                        datetime.fromisoformat(
+                            password_last_used.replace(
+                                "Z",
+                                "+00:00",
+                            )
+                        )
+                    )
+
+                    if password_last_used.tzinfo is None:
+                        password_last_used = (
+                            password_last_used.replace(
+                                tzinfo=timezone.utc
+                            )
+                        )
+
+                collected_users.append(
+                    {
+                        "username": row.get(
+                            "user",
+                            "",
+                        ),
+                        "password_enabled": (
+                            row.get(
+                                "password_enabled",
+                                "false",
+                            ).lower()
+                            == "true"
+                        ),
+                        "password_last_used": password_last_used,
+                        "current_time": current_time,
+                    }
+                )
+
+            self._credential_report_cache = collected_users
+
+        return self._credential_report_cache

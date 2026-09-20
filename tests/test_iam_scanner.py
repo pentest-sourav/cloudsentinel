@@ -3,6 +3,13 @@ from unittest.mock import Mock
 from scanner.aws.scanners.iam import IAMScanner
 
 
+def _configure_credential_report(service):
+    service.get_credential_report.return_value = {
+        "Content": b"user,password_enabled,password_last_used\n",
+        "ReportFormat": "text/csv",
+    }
+
+
 def test_iam_scanner_returns_root_and_user_mfa_findings():
     service = Mock()
 
@@ -19,6 +26,8 @@ def test_iam_scanner_returns_root_and_user_mfa_findings():
     service.get_account_password_policy.return_value = {
         "MinimumPasswordLength": 14,
     }
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 
@@ -58,6 +67,8 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
         "PasswordReusePrevention": 24,
     }
 
+    _configure_credential_report(service)
+
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
@@ -93,6 +104,8 @@ def test_iam_scanner_uses_registry_data_sources():
         "PasswordReusePrevention": 24,
     }
 
+    _configure_credential_report(service)
+
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
@@ -100,5 +113,6 @@ def test_iam_scanner_uses_registry_data_sources():
     service.get_root_mfa_status.assert_called_once()
     service.list_users.assert_called_once()
     service.list_access_keys.assert_called_once()
+    service.get_credential_report.assert_called_once()
 
     assert findings == []

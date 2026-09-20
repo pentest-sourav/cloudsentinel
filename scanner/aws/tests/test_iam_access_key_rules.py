@@ -4,6 +4,13 @@ from unittest.mock import Mock
 from scanner.aws.scanners.iam import IAMScanner
 
 
+def _configure_credential_report(service):
+    service.get_credential_report.return_value = {
+        "Content": b"user,password_enabled,password_last_used\n",
+        "ReportFormat": "text/csv",
+    }
+
+
 def test_iam_scanner_evaluates_access_key_rules_together():
     service = Mock()
 
@@ -47,6 +54,8 @@ def test_iam_scanner_evaluates_access_key_rules_together():
     service.get_account_password_policy.return_value = {
         "MinimumPasswordLength": 14,
     }
+
+    _configure_credential_report(service)
 
     scanner = IAMScanner(service)
 

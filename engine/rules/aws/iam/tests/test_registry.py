@@ -121,3 +121,30 @@ def test_iam_registry_password_reuse_rule_has_check_and_finding_builder():
 
     assert callable(rule.check)
     assert callable(rule.build_finding)
+
+def test_iam_registry_contains_unused_console_password_rule():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-011")
+
+    assert rule is not None
+    assert rule.rule_id == "CS-AWS-IAM-011"
+    assert rule.name == "unused_console_password"
+    assert rule.data_source == "credential_report"
+    assert rule.collection_mode == "multiple"
+
+
+def test_iam_registry_unused_console_password_rule_has_expected_arguments():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-011")
+
+    assert rule.check_arguments == [
+        "username",
+        "password_enabled",
+        "password_last_used",
+        "current_time",
+    ]
+
+
+def test_iam_registry_unused_console_password_rule_has_check_and_finding_builder():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-011")
+
+    assert callable(rule.check)
+    assert callable(rule.build_finding)

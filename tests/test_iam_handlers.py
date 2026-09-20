@@ -7,4 +7,5 @@ def test_iam_data_source_handlers_have_required_sources():
         "iam_users",
         "iam_access_keys",
         "password_policy",
+        "credential_report",
     }
