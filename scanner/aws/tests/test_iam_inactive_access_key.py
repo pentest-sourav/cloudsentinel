@@ -45,6 +45,8 @@ def test_iam_scanner_detects_inactive_access_key():
         "MinimumPasswordLength": 14,
     }
 
+    service.list_attached_user_policies.return_value = []
+
     _configure_credential_report(service)
 
     scanner = IAMScanner(service)

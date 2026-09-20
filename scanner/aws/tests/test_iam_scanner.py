@@ -52,6 +52,8 @@ def test_iam_scanner_detects_old_active_access_key():
         }
     ]
 
+    service.list_attached_user_policies.return_value = []
+
     _configure_credential_report(service)
 
     scanner = IAMScanner(service)

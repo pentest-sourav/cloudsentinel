@@ -1,4 +1,6 @@
+import json
 from typing import Any
+from urllib.parse import unquote
 
 from botocore.exceptions import BotoCoreError, ClientError
 
@@ -214,4 +216,130 @@ class IAMService:
             raise RuntimeError(
                 f"AWS SDK error while retrieving IAM credential report: "
                 f"{exc}"
+            ) from exc
+
+    def list_attached_user_policies(
+        self,
+        username: str,
+    ) -> list[dict[str, Any]]:
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_attached_user_policies"
+            )
+
+            policies: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                UserName=username,
+            ):
+                policies.extend(
+                    page.get(
+                        "AttachedPolicies",
+                        [],
+                    )
+                )
+
+            return policies
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM attached policy listing failed for user "
+                f"'{username}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing attached policies "
+                f"for user '{username}': {exc}"
+            ) from exc
+
+    def get_policy(
+        self,
+        policy_arn: str,
+    ) -> dict[str, Any]:
+        try:
+            response = self.iam_client.get_policy(
+                PolicyArn=policy_arn,
+            )
+
+            return response.get(
+                "Policy",
+                {},
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM policy retrieval failed for "
+                f"'{policy_arn}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while retrieving IAM policy "
+                f"'{policy_arn}': {exc}"
+            ) from exc
+
+    def get_policy_version(
+        self,
+        policy_arn: str,
+        version_id: str,
+    ) -> dict[str, Any]:
+        try:
+            response = self.iam_client.get_policy_version(
+                PolicyArn=policy_arn,
+                VersionId=version_id,
+            )
+
+            version = response.get(
+                "PolicyVersion",
+                {},
+            )
+
+            document = version.get(
+                "Document",
+                {},
+            )
+
+            if isinstance(document, str):
+                document = json.loads(
+                    unquote(document)
+                )
+
+            return {
+                "policy_version": version,
+                "document": document,
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM policy version retrieval failed for "
+                f"'{policy_arn}' version '{version_id}': "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while retrieving IAM policy version "
+                f"'{policy_arn}' version '{version_id}': {exc}"
             ) from exc

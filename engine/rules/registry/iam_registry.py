@@ -45,6 +45,11 @@ from engine.rules.aws.iam.unused_console_password import (
     check_unused_console_password,
     build_unused_console_password_finding,
 )
+from engine.rules.aws.iam.broad_user_policy import (
+    check_broad_user_policy,
+    build_broad_user_policy_finding,
+)
+
 
 IAM_RULES = RuleRegistry(
     [
@@ -118,7 +123,7 @@ IAM_RULES = RuleRegistry(
             check=check_password_policy_symbols,
             build_finding=build_password_policy_symbols_finding,
         ),
-       RuleDefinition(
+        RuleDefinition(
             rule_id="CS-AWS-IAM-007",
             name="password_policy_numbers",
             data_source="password_policy",
@@ -126,31 +131,33 @@ IAM_RULES = RuleRegistry(
             check_arguments=["require_numbers"],
             check=check_password_policy_numbers,
             build_finding=build_password_policy_numbers_finding,
-       ),
-       RuleDefinition(
-           rule_id="CS-AWS-IAM-008",
-           name="password_policy_uppercase",
-           data_source="password_policy",
-           collection_mode="single",
-           check_arguments=["require_uppercase"],
-           check=check_password_policy_uppercase,
-           build_finding=build_password_policy_uppercase_finding,
-       ),
-       RuleDefinition(
-           rule_id="CS-AWS-IAM-009",
-           name="password_policy_lowercase",
-           data_source="password_policy",
-           collection_mode="single",
-           check_arguments=["require_lowercase"],
-           check=check_password_policy_lowercase,
-           build_finding=build_password_policy_lowercase_finding,
-       ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-008",
+            name="password_policy_uppercase",
+            data_source="password_policy",
+            collection_mode="single",
+            check_arguments=["require_uppercase"],
+            check=check_password_policy_uppercase,
+            build_finding=build_password_policy_uppercase_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-009",
+            name="password_policy_lowercase",
+            data_source="password_policy",
+            collection_mode="single",
+            check_arguments=["require_lowercase"],
+            check=check_password_policy_lowercase,
+            build_finding=build_password_policy_lowercase_finding,
+        ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-010",
             name="password_reuse",
             data_source="password_policy",
             collection_mode="single",
-            check_arguments=["password_reuse_prevention"],
+            check_arguments=[
+                "password_reuse_prevention",
+            ],
             check=check_password_reuse,
             build_finding=build_password_reuse_finding,
         ),
@@ -167,6 +174,24 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_unused_console_password,
             build_finding=build_unused_console_password_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-012",
+            name="broad_user_policy",
+            data_source="broad_user_policies",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "policy_name",
+                "policy_arn",
+                "policy_version_id",
+                "effect",
+                "action",
+                "resource",
+                "condition",
+            ],
+            check=check_broad_user_policy,
+            build_finding=build_broad_user_policy_finding,
         ),
     ]
 )

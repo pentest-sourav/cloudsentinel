@@ -35,6 +35,7 @@ def test_iam_rules_have_valid_data_sources():
         "iam_access_keys",
         "password_policy",
         "credential_report",
+        "broad_user_policies",
     }
 
     for rule in IAM_RULES:

@@ -182,3 +182,250 @@ def test_collect_credential_report_uses_cache():
     assert first_result == second_result
 
     assert service.get_credential_report.call_count == 1
+
+
+def test_collect_broad_user_policies_normalizes_single_statement():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "AdminLikePolicy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "AdminLikePolicy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "AdminLikePolicy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "AdminLikePolicy"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_policies()
+
+    assert result == [
+        {
+            "username": "alice",
+            "policy_name": "AdminLikePolicy",
+            "policy_arn": (
+                "arn:aws:iam::123456789012:policy/"
+                "AdminLikePolicy"
+            ),
+            "policy_version_id": "v1",
+            "effect": "Allow",
+            "action": "*",
+            "resource": "*",
+            "condition": None,
+        }
+    ]
+
+    service.list_users.assert_called_once()
+    service.list_attached_user_policies.assert_called_once_with(
+        "alice"
+    )
+    service.get_policy.assert_called_once_with(
+        "arn:aws:iam::123456789012:policy/"
+        "AdminLikePolicy"
+    )
+    service.get_policy_version.assert_called_once_with(
+        "arn:aws:iam::123456789012:policy/"
+        "AdminLikePolicy",
+        "v1",
+    )
+
+
+def test_collect_broad_user_policies_normalizes_multiple_statements():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "MixedPolicy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "MixedPolicy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "MixedPolicy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "MixedPolicy"
+        ),
+        "DefaultVersionId": "v3",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v3",
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "*",
+                    "Resource": "*",
+                },
+                {
+                    "Effect": "Deny",
+                    "Action": "s3:DeleteBucket",
+                    "Resource": "*",
+                },
+            ],
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_policies()
+
+    assert len(result) == 2
+
+    assert result[0]["effect"] == "Allow"
+    assert result[0]["action"] == "*"
+    assert result[0]["resource"] == "*"
+
+    assert result[1]["effect"] == "Deny"
+    assert result[1]["action"] == "s3:DeleteBucket"
+    assert result[1]["resource"] == "*"
+
+
+def test_collect_broad_user_policies_skips_policy_without_default_version():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "IncompletePolicy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "IncompletePolicy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "IncompletePolicy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "IncompletePolicy"
+        ),
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_policies()
+
+    assert result == []
+
+    service.get_policy_version.assert_not_called()
+
+
+def test_collect_broad_user_policies_skips_policy_without_arn():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "MissingArnPolicy",
+        }
+    ]
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_policies()
+
+    assert result == []
+
+    service.get_policy.assert_not_called()
+    service.get_policy_version.assert_not_called()
+
+
+def test_collect_broad_user_policies_uses_cache():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "AdminLikePolicy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "AdminLikePolicy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "AdminLikePolicy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "AdminLikePolicy"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    first_result = collector.collect_broad_user_policies()
+    second_result = collector.collect_broad_user_policies()
+
+    assert first_result == second_result
+
+    assert service.list_users.call_count == 1
+    assert service.list_attached_user_policies.call_count == 1
+    assert service.get_policy.call_count == 1
+    assert service.get_policy_version.call_count == 1

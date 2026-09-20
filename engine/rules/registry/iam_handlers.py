@@ -12,4 +12,5 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     "iam_access_keys": IAMDataCollector.collect_iam_access_keys,
     "password_policy": IAMDataCollector.collect_password_policy,
     "credential_report": IAMDataCollector.collect_credential_report,
+    "broad_user_policies": IAMDataCollector.collect_broad_user_policies,
 }

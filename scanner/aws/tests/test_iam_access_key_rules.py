@@ -55,6 +55,8 @@ def test_iam_scanner_evaluates_access_key_rules_together():
         "MinimumPasswordLength": 14,
     }
 
+    service.list_attached_user_policies.return_value = []
+
     _configure_credential_report(service)
 
     scanner = IAMScanner(service)

@@ -10,6 +10,17 @@ def _configure_credential_report(service):
     }
 
 
+def _configure_broad_user_policies(service):
+    service.list_attached_user_policies.return_value = []
+
+    service.get_policy.return_value = {}
+
+    service.get_policy_version.return_value = {
+        "policy_version": {},
+        "document": {},
+    }
+
+
 def test_iam_scanner_returns_root_and_user_mfa_findings():
     service = Mock()
 
@@ -28,6 +39,7 @@ def test_iam_scanner_returns_root_and_user_mfa_findings():
     }
 
     _configure_credential_report(service)
+    _configure_broad_user_policies(service)
 
     scanner = IAMScanner(service)
 
@@ -68,6 +80,7 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
     }
 
     _configure_credential_report(service)
+    _configure_broad_user_policies(service)
 
     scanner = IAMScanner(service)
 
@@ -105,6 +118,7 @@ def test_iam_scanner_uses_registry_data_sources():
     }
 
     _configure_credential_report(service)
+    _configure_broad_user_policies(service)
 
     scanner = IAMScanner(service)
 
@@ -114,5 +128,8 @@ def test_iam_scanner_uses_registry_data_sources():
     service.list_users.assert_called_once()
     service.list_access_keys.assert_called_once()
     service.get_credential_report.assert_called_once()
+    service.list_attached_user_policies.assert_called_once_with(
+        "test-user"
+    )
 
     assert findings == []
