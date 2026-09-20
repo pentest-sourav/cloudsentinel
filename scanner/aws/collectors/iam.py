@@ -11,7 +11,8 @@ class IAMDataCollector:
     Collect IAM data required by CloudSentinel IAM rules.
 
     The collector caches IAM users, access-key data, password
-    policy data, credential-report data, and attached-user-policy
+    policy data, credential-report data, attached-user-policy
+    data, user-group membership data, and attached-group-policy
     data so multiple IAM rules can reuse the same AWS API
     responses during a single scan.
     """
@@ -23,7 +24,22 @@ class IAMDataCollector:
         self._access_keys_cache: list[dict[str, Any]] | None = None
         self._password_policy_cache: dict[str, Any] | None = None
         self._credential_report_cache: list[dict[str, Any]] | None = None
+
         self._attached_user_policies_cache: list[
+            dict[str, Any]
+        ] | None = None
+
+        self._groups_for_user_cache: dict[
+            str,
+            list[dict[str, Any]],
+        ] = {}
+
+        self._attached_group_policies_cache: dict[
+            str,
+            list[dict[str, Any]],
+        ] = {}
+
+        self._broad_group_policies_cache: list[
             dict[str, Any]
         ] | None = None
 
@@ -70,6 +86,133 @@ class IAMDataCollector:
             self._access_keys_cache = collected_access_keys
 
         return self._access_keys_cache
+
+    def _get_groups_for_user(
+        self,
+        username: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Return IAM groups for a user using a per-scan cache.
+        """
+        if username not in self._groups_for_user_cache:
+            self._groups_for_user_cache[username] = (
+                self.service.list_groups_for_user(
+                    username
+                )
+            )
+
+        return self._groups_for_user_cache[username]
+
+    def _get_attached_group_policies(
+        self,
+        group_name: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Return managed policies directly attached to an IAM group.
+
+        Group policy data is cached by group name so the same group is
+        never queried repeatedly during a single scan.
+        """
+        if group_name not in self._attached_group_policies_cache:
+            self._attached_group_policies_cache[group_name] = (
+                self.service.list_attached_group_policies(
+                    group_name
+                )
+            )
+
+        return self._attached_group_policies_cache[group_name]
+
+    def _collect_group_policy_statements(
+        self,
+        username: str,
+        group_name: str,
+        attached_policies: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """
+        Collect normalized statements from managed policies attached
+        directly to an IAM group.
+
+        Only the default policy version is evaluated. Policy
+        interpretation remains the responsibility of the rule layer.
+        """
+        collected_policies: list[dict[str, Any]] = []
+
+        for attached_policy in attached_policies:
+            policy_arn = attached_policy.get(
+                "PolicyArn"
+            )
+
+            policy_name = attached_policy.get(
+                "PolicyName"
+            )
+
+            if not policy_arn:
+                continue
+
+            policy = self.service.get_policy(
+                policy_arn
+            )
+
+            default_version_id = policy.get(
+                "DefaultVersionId"
+            )
+
+            if not default_version_id:
+                continue
+
+            version = self.service.get_policy_version(
+                policy_arn,
+                default_version_id,
+            )
+
+            document = version.get(
+                "document",
+                {},
+            )
+
+            if not isinstance(document, dict):
+                continue
+
+            statements = document.get(
+                "Statement",
+                [],
+            )
+
+            if isinstance(statements, dict):
+                statements = [statements]
+
+            if not isinstance(statements, list):
+                continue
+
+            for statement in statements:
+                if not isinstance(statement, dict):
+                    continue
+
+                collected_policies.append(
+                    {
+                        "username": username,
+                        "group_name": group_name,
+                        "policy_name": policy_name,
+                        "policy_arn": policy_arn,
+                        "policy_version_id": (
+                            default_version_id
+                        ),
+                        "effect": statement.get(
+                            "Effect"
+                        ),
+                        "action": statement.get(
+                            "Action"
+                        ),
+                        "resource": statement.get(
+                            "Resource"
+                        ),
+                        "condition": statement.get(
+                            "Condition"
+                        ),
+                    }
+                )
+
+        return collected_policies
 
     def collect_root_mfa(self) -> dict[str, Any]:
         return {
@@ -316,3 +459,57 @@ class IAMDataCollector:
             )
 
         return self._attached_user_policies_cache
+
+    def collect_broad_group_policies(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect normalized managed policies directly attached to
+        IAM groups that are assigned to IAM users.
+
+        The collector preserves the user-to-group-to-policy
+        relationship so downstream rules can identify exactly
+        which group introduces the broad permission.
+
+        Only the default policy version is evaluated. Policy
+        interpretation remains the responsibility of the rule layer.
+        """
+        if self._broad_group_policies_cache is None:
+            users = self._get_users()
+
+            collected_policies: list[dict[str, Any]] = []
+
+            for user in users:
+                username = user["UserName"]
+
+                groups = self._get_groups_for_user(
+                    username
+                )
+
+                for group in groups:
+                    group_name = group.get(
+                        "GroupName"
+                    )
+
+                    if not group_name:
+                        continue
+
+                    attached_policies = (
+                        self._get_attached_group_policies(
+                            group_name
+                        )
+                    )
+
+                    collected_policies.extend(
+                        self._collect_group_policy_statements(
+                            username=username,
+                            group_name=group_name,
+                            attached_policies=attached_policies,
+                        )
+                    )
+
+            self._broad_group_policies_cache = (
+                collected_policies
+            )
+
+        return self._broad_group_policies_cache

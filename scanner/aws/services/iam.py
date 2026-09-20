@@ -260,6 +260,105 @@ class IAMService:
                 f"for user '{username}': {exc}"
             ) from exc
 
+    def list_groups_for_user(
+        self,
+        username: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Return all IAM groups that the specified user belongs to.
+
+        IAM can paginate group membership results, so the service
+        consumes the paginator and returns one normalized list for
+        callers.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_groups_for_user"
+            )
+
+            groups: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                UserName=username,
+            ):
+                groups.extend(
+                    page.get(
+                        "Groups",
+                        [],
+                    )
+                )
+
+            return groups
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM group listing failed for user "
+                f"'{username}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing groups "
+                f"for user '{username}': {exc}"
+            ) from exc
+
+    def list_attached_group_policies(
+        self,
+        group_name: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Return all managed policies directly attached to an IAM group.
+
+        Only managed policies are returned by this method. Inline group
+        policies are intentionally handled separately so the service
+        layer preserves the distinction between managed and inline
+        policy sources.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_attached_group_policies"
+            )
+
+            policies: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                GroupName=group_name,
+            ):
+                policies.extend(
+                    page.get(
+                        "AttachedPolicies",
+                        [],
+                    )
+                )
+
+            return policies
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM attached group policy listing failed for "
+                f"group '{group_name}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing attached group policies "
+                f"for group '{group_name}': {exc}"
+            ) from exc
+
     def get_policy(
         self,
         policy_arn: str,

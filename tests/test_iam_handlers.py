@@ -9,4 +9,5 @@ def test_iam_data_source_handlers_have_required_sources():
         "password_policy",
         "credential_report",
         "broad_user_policies",
+        "broad_group_policies",
     }

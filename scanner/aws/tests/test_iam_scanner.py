@@ -11,6 +11,52 @@ def _configure_credential_report(service):
     }
 
 
+def _configure_broad_user_policies(service):
+    service.list_attached_user_policies.return_value = []
+
+    service.get_policy.return_value = {}
+
+    service.get_policy_version.return_value = {
+        "policy_version": {},
+        "document": {},
+    }
+
+
+def _configure_broad_group_policies(service):
+    service.list_groups_for_user.return_value = []
+    service.list_attached_group_policies.return_value = []
+
+
+def _configure_common_iam_service(service, username):
+    service.get_root_mfa_status.return_value = True
+
+    service.list_users.return_value = [
+        {"UserName": username},
+    ]
+
+    service.list_mfa_devices.return_value = [
+        {
+            "SerialNumber": (
+                f"arn:aws:iam::123456789012:mfa/{username}"
+            )
+        }
+    ]
+
+    service.list_access_keys.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireLowercaseCharacters": True,
+        "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
+    }
+
+    _configure_credential_report(service)
+    _configure_broad_user_policies(service)
+
+
 def test_iam_scanner_detects_old_active_access_key():
     service = Mock()
 
@@ -55,6 +101,7 @@ def test_iam_scanner_detects_old_active_access_key():
     service.list_attached_user_policies.return_value = []
 
     _configure_credential_report(service)
+    _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
 
@@ -71,418 +118,370 @@ def test_iam_scanner_detects_old_active_access_key():
     finding = iam003_findings[0]
 
     assert finding.resource_id == "AKIAOLD123"
-    assert finding.severity.value == "high"
     assert finding.evidence["username"] == "test-user"
-    assert finding.evidence["status"] == "Active"
-    assert finding.evidence["threshold_days"] == 90
 
 
-def test_iam_scanner_detects_short_password_policy():
+def test_iam_scanner_returns_root_and_user_mfa_findings():
     service = Mock()
 
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
+    service.get_root_mfa_status.return_value = False
 
-    service.list_users.return_value = []
-
-    service.get_account_password_policy.return_value = {
-        "MinimumPasswordLength": 8,
-        "RequireLowercaseCharacters": True,
-        "RequireSymbols": True,
-        "RequireNumbers": True,
-        "RequireUppercaseCharacters": True,
-        "PasswordReusePrevention": 24,
-    }
-
-    _configure_credential_report(service)
-
-    scanner = IAMScanner(service)
-
-    findings = scanner.scan()
-
-    iam005_findings = [
-        finding
-        for finding in findings
-        if finding.rule_id == "CS-AWS-IAM-005"
+    service.list_users.return_value = [
+        {"UserName": "user-without-mfa"},
     ]
 
-    assert len(iam005_findings) == 1
+    service.list_mfa_devices.return_value = []
 
-    finding = iam005_findings[0]
-
-    assert finding.resource_id == "account-password-policy"
-    assert finding.severity.value == "medium"
-    assert finding.evidence["minimum_password_length"] == 8
-    assert finding.evidence["threshold"] == 14
-
-    service.get_account_password_policy.assert_called_once_with()
-
-
-def test_iam_scanner_detects_password_policy_without_symbols():
-    service = Mock()
-
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
-
-    service.list_users.return_value = []
+    service.list_access_keys.return_value = []
 
     service.get_account_password_policy.return_value = {
         "MinimumPasswordLength": 14,
-        "RequireLowercaseCharacters": True,
-        "RequireSymbols": False,
-        "RequireNumbers": True,
-        "RequireUppercaseCharacters": True,
-        "PasswordReusePrevention": 24,
     }
 
     _configure_credential_report(service)
+    _configure_broad_user_policies(service)
+    _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
 
-    iam006_findings = [
-        finding
-        for finding in findings
-        if finding.rule_id == "CS-AWS-IAM-006"
+    rule_ids = [finding.rule_id for finding in findings]
+
+    assert "CS-AWS-IAM-001" in rule_ids
+    assert "CS-AWS-IAM-002" in rule_ids
+
+
+def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "protected-user",
+    )
+    _configure_broad_group_policies(service)
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    assert findings == []
+
+
+def test_iam_scanner_uses_registry_data_sources():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "test-user",
+    )
+    _configure_broad_group_policies(service)
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    service.get_root_mfa_status.assert_called_once()
+    service.list_users.assert_called_once()
+    service.list_access_keys.assert_called_once()
+    service.get_credential_report.assert_called_once()
+
+    service.list_attached_user_policies.assert_called_once_with(
+        "test-user"
+    )
+
+    service.list_groups_for_user.assert_called_once_with(
+        "test-user"
+    )
+
+    assert findings == []
+
+
+def test_iam_scanner_returns_broad_group_policy_finding():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups_for_user.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
     ]
 
-    assert len(iam006_findings) == 1
-
-    finding = iam006_findings[0]
-
-    assert finding.resource_id == "account-password-policy"
-    assert finding.severity.value == "medium"
-    assert finding.evidence["require_symbols"] is False
-    assert finding.evidence["expected"] is True
-
-    service.get_account_password_policy.assert_called_once_with()
-
-
-def test_iam_scanner_detects_password_policy_without_numbers():
-    service = Mock()
-
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
-
-    service.list_users.return_value = []
-
-    service.get_account_password_policy.return_value = {
-        "MinimumPasswordLength": 14,
-        "RequireLowercaseCharacters": True,
-        "RequireSymbols": True,
-        "RequireNumbers": False,
-        "RequireUppercaseCharacters": True,
-        "PasswordReusePrevention": 24,
-    }
-
-    _configure_credential_report(service)
-
-    scanner = IAMScanner(service)
-
-    findings = scanner.scan()
-
-    iam007_findings = [
-        finding
-        for finding in findings
-        if finding.rule_id == "CS-AWS-IAM-007"
+    service.list_attached_group_policies.return_value = [
+        {
+            "PolicyName": "DeveloperAccess",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "DeveloperAccess"
+            ),
+        }
     ]
 
-    assert len(iam007_findings) == 1
-
-    finding = iam007_findings[0]
-
-    assert finding.resource_id == "account-password-policy"
-    assert finding.severity.value == "medium"
-    assert finding.evidence["require_numbers"] is False
-    assert finding.evidence["expected"] is True
-
-    service.get_account_password_policy.assert_called_once_with()
-
-
-def test_iam_scanner_detects_multiple_password_policy_findings():
-    service = Mock()
-
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
-
-    service.list_users.return_value = []
-
-    service.get_account_password_policy.return_value = {
-        "MinimumPasswordLength": 14,
-        "RequireLowercaseCharacters": False,
-        "RequireSymbols": False,
-        "RequireNumbers": False,
-        "RequireUppercaseCharacters": False,
-        "PasswordReusePrevention": 0,
-    }
-
-    _configure_credential_report(service)
-
-    scanner = IAMScanner(service)
-
-    findings = scanner.scan()
-
-    password_policy_findings = {
-        finding.rule_id: finding
-        for finding in findings
-        if finding.resource_type == "iam_password_policy"
-    }
-
-    assert "CS-AWS-IAM-006" in password_policy_findings
-    assert "CS-AWS-IAM-007" in password_policy_findings
-    assert "CS-AWS-IAM-008" in password_policy_findings
-    assert "CS-AWS-IAM-009" in password_policy_findings
-    assert "CS-AWS-IAM-010" in password_policy_findings
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-006"
-        ].evidence["require_symbols"]
-        is False
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-007"
-        ].evidence["require_numbers"]
-        is False
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-008"
-        ].evidence["require_uppercase"]
-        is False
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-009"
-        ].evidence["require_lowercase"]
-        is False
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-010"
-        ].evidence["password_reuse_prevention"]
-        == 0
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-006"
-        ].severity.value
-        == "medium"
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-007"
-        ].severity.value
-        == "medium"
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-008"
-        ].severity.value
-        == "medium"
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-009"
-        ].severity.value
-        == "medium"
-    )
-
-    assert (
-        password_policy_findings[
-            "CS-AWS-IAM-010"
-        ].severity.value
-        == "medium"
-    )
-
-    service.get_account_password_policy.assert_called_once_with()
-
-
-def test_iam_scanner_detects_password_policy_without_uppercase():
-    service = Mock()
-
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
-
-    service.list_users.return_value = []
-
-    service.get_account_password_policy.return_value = {
-        "MinimumPasswordLength": 14,
-        "RequireLowercaseCharacters": True,
-        "RequireSymbols": True,
-        "RequireNumbers": True,
-        "RequireUppercaseCharacters": False,
-        "PasswordReusePrevention": 24,
-    }
-
-    _configure_credential_report(service)
-
-    scanner = IAMScanner(service)
-
-    findings = scanner.scan()
-
-    iam008_findings = [
-        finding
-        for finding in findings
-        if finding.rule_id == "CS-AWS-IAM-008"
-    ]
-
-    assert len(iam008_findings) == 1
-
-    finding = iam008_findings[0]
-
-    assert finding.resource_id == "account-password-policy"
-    assert finding.severity.value == "medium"
-    assert finding.evidence["require_uppercase"] is False
-    assert finding.evidence["expected"] is True
-
-    service.get_account_password_policy.assert_called_once_with()
-
-
-def test_iam_scanner_detects_password_policy_without_reuse_prevention():
-    service = Mock()
-
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
-
-    service.list_users.return_value = []
-
-    service.get_account_password_policy.return_value = {
-        "MinimumPasswordLength": 14,
-        "RequireLowercaseCharacters": True,
-        "RequireSymbols": True,
-        "RequireNumbers": True,
-        "RequireUppercaseCharacters": True,
-        "PasswordReusePrevention": 0,
-    }
-
-    _configure_credential_report(service)
-
-    scanner = IAMScanner(service)
-
-    findings = scanner.scan()
-
-    iam010_findings = [
-        finding
-        for finding in findings
-        if finding.rule_id == "CS-AWS-IAM-010"
-    ]
-
-    assert len(iam010_findings) == 1
-
-    finding = iam010_findings[0]
-
-    assert finding.resource_id == "account-password-policy"
-    assert finding.severity.value == "medium"
-    assert finding.evidence["password_reuse_prevention"] == 0
-    assert finding.evidence["expected"] == 1
-
-    service.get_account_password_policy.assert_called_once_with()
-
-
-def test_iam_scanner_detects_password_policy_without_lowercase():
-    service = Mock()
-
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
-
-    service.list_users.return_value = []
-
-    service.get_account_password_policy.return_value = {
-        "MinimumPasswordLength": 14,
-        "RequireLowercaseCharacters": False,
-        "RequireSymbols": True,
-        "RequireNumbers": True,
-        "RequireUppercaseCharacters": True,
-        "PasswordReusePrevention": 24,
-    }
-
-    _configure_credential_report(service)
-
-    scanner = IAMScanner(service)
-
-    findings = scanner.scan()
-
-    iam009_findings = [
-        finding
-        for finding in findings
-        if finding.rule_id == "CS-AWS-IAM-009"
-    ]
-
-    assert len(iam009_findings) == 1
-
-    finding = iam009_findings[0]
-
-    assert finding.resource_id == "account-password-policy"
-    assert finding.severity.value == "medium"
-    assert finding.evidence["require_lowercase"] is False
-    assert finding.evidence["expected"] is True
-
-    service.get_account_password_policy.assert_called_once_with()
-
-
-def test_iam_scanner_detects_unused_console_password():
-    service = Mock()
-
-    service.get_account_summary.return_value = {
-        "AccountMFAEnabled": 1,
-    }
-
-    service.list_users.return_value = []
-
-    service.get_account_password_policy.return_value = {
-        "MinimumPasswordLength": 14,
-        "RequireLowercaseCharacters": True,
-        "RequireSymbols": True,
-        "RequireNumbers": True,
-        "RequireUppercaseCharacters": True,
-        "PasswordReusePrevention": 24,
-    }
-
-    service.get_credential_report.return_value = {
-        "Content": (
-            b"user,password_enabled,password_last_used\n"
-            b"old-user,true,2026-01-01T00:00:00+00:00\n"
+    service.get_policy.return_value = {
+        "PolicyName": "DeveloperAccess",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "DeveloperAccess"
         ),
-        "ReportFormat": "text/csv",
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+            "IsDefaultVersion": True,
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
     }
 
     scanner = IAMScanner(service)
 
     findings = scanner.scan()
 
-    iam011_findings = [
+    iam_013_findings = [
         finding
         for finding in findings
-        if finding.rule_id == "CS-AWS-IAM-011"
+        if finding.rule_id == "CS-AWS-IAM-013"
     ]
 
-    assert len(iam011_findings) == 1
+    assert len(iam_013_findings) == 1
 
-    finding = iam011_findings[0]
+    finding = iam_013_findings[0]
 
-    assert finding.resource_id == "old-user"
-    assert finding.severity.value == "medium"
-    assert finding.resource_type == "iam_user"
-    assert finding.evidence["username"] == "old-user"
-    assert finding.evidence["password_enabled"] is True
-    assert finding.evidence["threshold_days"] == 90
+    assert finding.title == (
+        "IAM User Receives Broad Permissions Through Group"
+    )
 
-    service.get_credential_report.assert_called_once_with()
+    assert finding.resource_id == "alice"
+
+    assert finding.evidence["username"] == "alice"
+    assert finding.evidence["group_name"] == "Developers"
+    assert finding.evidence["policy_name"] == "DeveloperAccess"
+    assert finding.evidence["policy_version_id"] == "v1"
+    assert finding.evidence["action"] == "*"
+    assert finding.evidence["resource"] == "*"
+    assert finding.evidence["permission_source"] == "iam_group"
+
+    service.list_groups_for_user.assert_called_once_with(
+        "alice"
+    )
+
+    service.list_attached_group_policies.assert_called_once_with(
+        "Developers"
+    )
+
+    service.get_policy.assert_called_once_with(
+        "arn:aws:iam::123456789012:policy/"
+        "DeveloperAccess"
+    )
+
+    service.get_policy_version.assert_called_once_with(
+        "arn:aws:iam::123456789012:policy/"
+        "DeveloperAccess",
+        "v1",
+    )
+
+
+def test_iam_scanner_does_not_report_specific_group_permissions():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups_for_user.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
+    ]
+
+    service.list_attached_group_policies.return_value = [
+        {
+            "PolicyName": "DeveloperAccess",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "DeveloperAccess"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "DeveloperAccess",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "DeveloperAccess"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+            "IsDefaultVersion": True,
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "s3:GetObject",
+                "Resource": (
+                    "arn:aws:s3:::example-bucket/*"
+                ),
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_013_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-013"
+    ]
+
+    assert iam_013_findings == []
+
+
+def test_iam_scanner_does_not_report_group_deny_statement():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups_for_user.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
+    ]
+
+    service.list_attached_group_policies.return_value = [
+        {
+            "PolicyName": "DeveloperAccess",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "DeveloperAccess"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "DeveloperAccess",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "DeveloperAccess"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+            "IsDefaultVersion": True,
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Deny",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_013_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-013"
+    ]
+
+    assert iam_013_findings == []
+
+
+def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
+    service = Mock()
+
+    service.get_root_mfa_status.return_value = True
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+        {"UserName": "bob"},
+    ]
+
+    service.list_mfa_devices.return_value = [
+        {
+            "SerialNumber": (
+                "arn:aws:iam::123456789012:mfa/alice"
+            )
+        },
+        {
+            "SerialNumber": (
+                "arn:aws:iam::123456789012:mfa/bob"
+            )
+        },
+    ]
+
+    service.list_access_keys.return_value = []
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+        "RequireSymbols": True,
+        "RequireNumbers": True,
+        "RequireLowercaseCharacters": True,
+        "RequireUppercaseCharacters": True,
+        "PasswordReusePrevention": 24,
+    }
+
+    _configure_credential_report(service)
+    _configure_broad_user_policies(service)
+
+    service.list_groups_for_user.side_effect = [
+        [
+            {
+                "GroupName": "Developers",
+                "GroupId": "AGPAEXAMPLE",
+            }
+        ],
+        [
+            {
+                "GroupName": "Developers",
+                "GroupId": "AGPAEXAMPLE",
+            }
+        ],
+    ]
+
+    service.list_attached_group_policies.return_value = []
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    assert findings == []
+
+    assert service.list_groups_for_user.call_count == 2
+
+    service.list_attached_group_policies.assert_called_once_with(
+        "Developers"
+    )

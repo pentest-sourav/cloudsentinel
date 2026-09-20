@@ -11,6 +11,11 @@ def _configure_credential_report(service):
     }
 
 
+def _configure_broad_group_policies(service):
+    service.list_groups_for_user.return_value = []
+    service.list_attached_group_policies.return_value = []
+
+
 def test_iam_scanner_detects_inactive_access_key():
     service = Mock()
 
@@ -48,6 +53,7 @@ def test_iam_scanner_detects_inactive_access_key():
     service.list_attached_user_policies.return_value = []
 
     _configure_credential_report(service)
+    _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
 

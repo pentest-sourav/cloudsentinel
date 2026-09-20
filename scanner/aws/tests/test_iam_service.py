@@ -9,7 +9,6 @@ from scanner.aws.services.iam import IAMService
 def test_list_access_keys_returns_access_key_metadata():
     session = Mock()
     iam_client = Mock()
-
     iam_client.list_access_keys.return_value = {
         "AccessKeyMetadata": [
             {
@@ -46,7 +45,6 @@ def test_list_access_keys_returns_access_key_metadata():
 def test_get_account_password_policy_returns_password_policy():
     session = Mock()
     iam_client = Mock()
-
     iam_client.get_account_password_policy.return_value = {
         "PasswordPolicy": {
             "MinimumPasswordLength": 14,
@@ -201,6 +199,140 @@ def test_list_attached_user_policies_returns_attached_policies():
     )
 
 
+def test_list_groups_for_user_returns_all_groups():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.return_value = [
+        {
+            "Groups": [
+                {
+                    "GroupName": "Developers",
+                    "GroupId": "AGPAEXAMPLE1",
+                    "Arn": (
+                        "arn:aws:iam::123456789012:group/"
+                        "Developers"
+                    ),
+                }
+            ]
+        },
+        {
+            "Groups": [
+                {
+                    "GroupName": "Security",
+                    "GroupId": "AGPAEXAMPLE2",
+                    "Arn": (
+                        "arn:aws:iam::123456789012:group/"
+                        "Security"
+                    ),
+                }
+            ]
+        },
+    ]
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.list_groups_for_user(
+        "alice"
+    )
+
+    assert result == [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE1",
+            "Arn": (
+                "arn:aws:iam::123456789012:group/"
+                "Developers"
+            ),
+        },
+        {
+            "GroupName": "Security",
+            "GroupId": "AGPAEXAMPLE2",
+            "Arn": (
+                "arn:aws:iam::123456789012:group/"
+                "Security"
+            ),
+        },
+    ]
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_groups_for_user"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        UserName="alice"
+    )
+
+
+def test_list_attached_group_policies_returns_attached_policies():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.return_value = [
+        {
+            "AttachedPolicies": [
+                {
+                    "PolicyName": "DeveloperAccess",
+                    "PolicyArn": (
+                        "arn:aws:iam::123456789012:policy/"
+                        "DeveloperAccess"
+                    ),
+                }
+            ]
+        },
+        {
+            "AttachedPolicies": [
+                {
+                    "PolicyName": "SecurityAudit",
+                    "PolicyArn": (
+                        "arn:aws:iam::123456789012:policy/"
+                        "SecurityAudit"
+                    ),
+                }
+            ]
+        },
+    ]
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.list_attached_group_policies(
+        "Developers"
+    )
+
+    assert result == [
+        {
+            "PolicyName": "DeveloperAccess",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "DeveloperAccess"
+            ),
+        },
+        {
+            "PolicyName": "SecurityAudit",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "SecurityAudit"
+            ),
+        },
+    ]
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_attached_group_policies"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        GroupName="Developers"
+    )
+
+
 def test_get_policy_returns_policy_metadata():
     session = Mock()
     iam_client = Mock()
@@ -350,7 +482,6 @@ def test_list_attached_user_policies_wraps_client_error():
     )
 
     session.client.return_value = iam_client
-
     service = IAMService(session)
 
     with pytest.raises(
@@ -361,6 +492,63 @@ def test_list_attached_user_policies_wraps_client_error():
         ),
     ):
         service.list_attached_user_policies("alice")
+
+
+def test_list_groups_for_user_wraps_client_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_paginator.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDenied",
+                "Message": "User is not authorized",
+            }
+        },
+        "GetPaginator",
+    )
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "IAM group listing failed for user "
+            "'alice': AccessDenied: User is not authorized"
+        ),
+    ):
+        service.list_groups_for_user("alice")
+
+
+def test_list_attached_group_policies_wraps_client_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_paginator.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDenied",
+                "Message": "Group policy access denied",
+            }
+        },
+        "GetPaginator",
+    )
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "IAM attached group policy listing failed for "
+            "group 'Developers': AccessDenied: "
+            "Group policy access denied"
+        ),
+    ):
+        service.list_attached_group_policies(
+            "Developers"
+        )
 
 
 def test_get_policy_wraps_client_error():
@@ -453,3 +641,49 @@ def test_list_attached_user_policies_wraps_botocore_error():
         ),
     ):
         service.list_attached_user_policies("alice")
+
+
+def test_list_groups_for_user_wraps_botocore_error():
+    session = Mock()
+    iam_client = Mock()
+
+    paginator = Mock()
+    paginator.paginate.side_effect = BotoCoreError()
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "AWS SDK error while listing groups "
+            "for user 'alice'"
+        ),
+    ):
+        service.list_groups_for_user("alice")
+
+
+def test_list_attached_group_policies_wraps_botocore_error():
+    session = Mock()
+    iam_client = Mock()
+
+    paginator = Mock()
+    paginator.paginate.side_effect = BotoCoreError()
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "AWS SDK error while listing attached group policies "
+            "for group 'Developers'"
+        ),
+    ):
+        service.list_attached_group_policies(
+            "Developers"
+        )
