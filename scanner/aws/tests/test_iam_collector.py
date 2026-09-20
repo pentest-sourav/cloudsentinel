@@ -662,3 +662,357 @@ def test_collect_broad_user_inline_policies_uses_cache():
         "alice",
         "AdminInline",
     )
+
+
+def test_collect_broad_group_inline_policies_normalizes_multiple_groups_policies_and_statements():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+        },
+        {
+            "GroupName": "Security",
+        },
+    ]
+
+    service.list_group_policies.side_effect = [
+        [
+            "AdminInline",
+            "AuditInline",
+        ],
+        [
+            "SecurityInline",
+        ],
+    ]
+
+    service.get_group_policy.side_effect = [
+        {
+            "policy_name": "AdminInline",
+            "document": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": "*",
+                        "Resource": "*",
+                    },
+                    {
+                        "Effect": "Deny",
+                        "Action": "s3:DeleteBucket",
+                        "Resource": "*",
+                    },
+                ],
+            },
+        },
+        {
+            "policy_name": "AuditInline",
+            "document": {
+                "Version": "2012-10-17",
+                "Statement": {
+                    "Effect": "Allow",
+                    "Action": "logs:*",
+                    "Resource": "*",
+                },
+            },
+        },
+        {
+            "policy_name": "SecurityInline",
+            "document": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": "ec2:Describe*",
+                        "Resource": "*",
+                    },
+                    {
+                        "Effect": "Allow",
+                        "Action": "*",
+                        "Resource": "arn:aws:s3:::example/*",
+                    },
+                ],
+            },
+        },
+    ]
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_group_inline_policies()
+
+    assert result == [
+        {
+            "group_name": "Developers",
+            "policy_name": "AdminInline",
+            "statement_index": 0,
+            "effect": "Allow",
+            "action": "*",
+            "resource": "*",
+            "condition": None,
+        },
+        {
+            "group_name": "Developers",
+            "policy_name": "AdminInline",
+            "statement_index": 1,
+            "effect": "Deny",
+            "action": "s3:DeleteBucket",
+            "resource": "*",
+            "condition": None,
+        },
+        {
+            "group_name": "Developers",
+            "policy_name": "AuditInline",
+            "statement_index": 0,
+            "effect": "Allow",
+            "action": "logs:*",
+            "resource": "*",
+            "condition": None,
+        },
+        {
+            "group_name": "Security",
+            "policy_name": "SecurityInline",
+            "statement_index": 0,
+            "effect": "Allow",
+            "action": "ec2:Describe*",
+            "resource": "*",
+            "condition": None,
+        },
+        {
+            "group_name": "Security",
+            "policy_name": "SecurityInline",
+            "statement_index": 1,
+            "effect": "Allow",
+            "action": "*",
+            "resource": "arn:aws:s3:::example/*",
+            "condition": None,
+        },
+    ]
+
+    service.list_groups.assert_called_once_with()
+
+    assert service.list_group_policies.call_count == 2
+    service.list_group_policies.assert_any_call(
+        "Developers"
+    )
+    service.list_group_policies.assert_any_call(
+        "Security"
+    )
+
+    assert service.get_group_policy.call_count == 3
+    service.get_group_policy.assert_any_call(
+        "Developers",
+        "AdminInline",
+    )
+    service.get_group_policy.assert_any_call(
+        "Developers",
+        "AuditInline",
+    )
+    service.get_group_policy.assert_any_call(
+        "Security",
+        "SecurityInline",
+    )
+
+
+def test_collect_broad_group_inline_policies_preserves_statement_indexes_when_invalid_entries_exist():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+        },
+    ]
+
+    service.list_group_policies.return_value = [
+        "MixedInline",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "MixedInline",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "*",
+                    "Resource": "*",
+                },
+                "invalid-statement",
+                None,
+                {
+                    "Effect": "Deny",
+                    "Action": "s3:*",
+                    "Resource": "*",
+                },
+            ],
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_group_inline_policies()
+
+    assert result == [
+        {
+            "group_name": "Developers",
+            "policy_name": "MixedInline",
+            "statement_index": 0,
+            "effect": "Allow",
+            "action": "*",
+            "resource": "*",
+            "condition": None,
+        },
+        {
+            "group_name": "Developers",
+            "policy_name": "MixedInline",
+            "statement_index": 3,
+            "effect": "Deny",
+            "action": "s3:*",
+            "resource": "*",
+            "condition": None,
+        },
+    ]
+
+
+def test_collect_broad_group_inline_policies_handles_single_statement_dict():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+        },
+    ]
+
+    service.list_group_policies.return_value = [
+        "DeveloperInline",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "DeveloperInline",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+                "Condition": {
+                    "Bool": {
+                        "aws:SecureTransport": "false",
+                    }
+                },
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_group_inline_policies()
+
+    assert result == [
+        {
+            "group_name": "Developers",
+            "policy_name": "DeveloperInline",
+            "statement_index": 0,
+            "effect": "Allow",
+            "action": "*",
+            "resource": "*",
+            "condition": {
+                "Bool": {
+                    "aws:SecureTransport": "false",
+                }
+            },
+        }
+    ]
+
+
+def test_collect_broad_group_inline_policies_skips_group_without_name():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {},
+        {
+            "GroupName": "Developers",
+        },
+    ]
+
+    service.list_group_policies.return_value = []
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_group_inline_policies()
+
+    assert result == []
+
+    assert service.list_groups.call_count == 1
+    service.list_group_policies.assert_called_once_with(
+        "Developers"
+    )
+
+
+def test_collect_broad_group_inline_policies_handles_empty_policy_list():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+        },
+    ]
+
+    service.list_group_policies.return_value = []
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_group_inline_policies()
+
+    assert result == []
+
+    service.list_groups.assert_called_once_with()
+    service.list_group_policies.assert_called_once_with(
+        "Developers"
+    )
+    service.get_group_policy.assert_not_called()
+
+
+def test_collect_broad_group_inline_policies_uses_cache():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+        },
+    ]
+
+    service.list_group_policies.return_value = [
+        "AdminInline",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "AdminInline",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    first_result = collector.collect_broad_group_inline_policies()
+    second_result = collector.collect_broad_group_inline_policies()
+
+    assert first_result == second_result
+
+    assert service.list_groups.call_count == 1
+    assert service.list_group_policies.call_count == 1
+    assert service.get_group_policy.call_count == 1
+
+    service.list_group_policies.assert_called_once_with(
+        "Developers"
+    )
+
+    service.get_group_policy.assert_called_once_with(
+        "Developers",
+        "AdminInline",
+    )

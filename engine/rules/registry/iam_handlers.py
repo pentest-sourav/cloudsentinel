@@ -17,4 +17,7 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     "broad_user_inline_policies": (
         IAMDataCollector.collect_broad_user_inline_policies
     ),
+    "broad_group_inline_policies": (
+        IAMDataCollector.collect_broad_group_inline_policies
+    ),
 }

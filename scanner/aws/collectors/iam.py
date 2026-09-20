@@ -13,8 +13,9 @@ class IAMDataCollector:
     The collector caches IAM users, access-key data, password
     policy data, credential-report data, attached-user-policy
     data, user-group membership data, attached-group-policy
-    data, and inline-user-policy data so multiple IAM rules can
-    reuse the same AWS API responses during a single scan.
+    data, inline-user-policy data, and inline-group-policy data
+    so multiple IAM rules can reuse the same AWS API responses
+    during a single scan.
     """
 
     def __init__(self, service: IAMService):
@@ -44,6 +45,12 @@ class IAMDataCollector:
         ] = {}
 
         self._broad_group_policies_cache: list[
+            dict[str, Any]
+        ] | None = None
+
+        self._groups_cache: list[dict[str, Any]] | None = None
+
+        self._group_inline_policies_cache: list[
             dict[str, Any]
         ] | None = None
 
@@ -106,6 +113,20 @@ class IAMDataCollector:
             )
 
         return self._groups_for_user_cache[username]
+
+    def _get_groups(self) -> list[dict[str, Any]]:
+        """
+        Return all IAM groups using a per-scan cache.
+
+        This cache is intentionally separate from the user-to-group
+        membership cache because IAM-015 evaluates inline policies
+        attached to every group, including groups that are not
+        currently associated with a discovered IAM user.
+        """
+        if self._groups_cache is None:
+            self._groups_cache = self.service.list_groups()
+
+        return self._groups_cache
 
     def _get_attached_group_policies(
         self,
@@ -267,6 +288,73 @@ class IAMDataCollector:
             collected_statements.append(
                 {
                     "username": username,
+                    "policy_name": policy_name,
+                    "statement_index": statement_index,
+                    "effect": statement.get(
+                        "Effect"
+                    ),
+                    "action": statement.get(
+                        "Action"
+                    ),
+                    "resource": statement.get(
+                        "Resource"
+                    ),
+                    "condition": statement.get(
+                        "Condition"
+                    ),
+                }
+            )
+
+        return collected_statements
+
+    def _collect_group_inline_policy_statements(
+        self,
+        group_name: str,
+        policy_name: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect normalized statements from an inline IAM group policy.
+
+        Each normalized statement includes its zero-based statement
+        index so downstream rules can identify the exact statement
+        that triggered a finding.
+
+        Policy interpretation remains the responsibility of the rule
+        layer.
+        """
+        policy_response = self.service.get_group_policy(
+            group_name,
+            policy_name,
+        )
+
+        document = policy_response.get(
+            "document",
+            {},
+        )
+
+        if not isinstance(document, dict):
+            return []
+
+        statements = document.get(
+            "Statement",
+            [],
+        )
+
+        if isinstance(statements, dict):
+            statements = [statements]
+
+        if not isinstance(statements, list):
+            return []
+
+        collected_statements: list[dict[str, Any]] = []
+
+        for statement_index, statement in enumerate(statements):
+            if not isinstance(statement, dict):
+                continue
+
+            collected_statements.append(
+                {
+                    "group_name": group_name,
                     "policy_name": policy_name,
                     "statement_index": statement_index,
                     "effect": statement.get(
@@ -625,3 +713,52 @@ class IAMDataCollector:
             )
 
         return self._broad_group_policies_cache
+
+    def collect_broad_group_inline_policies(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect normalized statements from inline IAM policies
+        directly attached to every IAM group.
+
+        All groups are evaluated independently of current user
+        membership so security findings are not missed for groups
+        that currently have no discovered members.
+
+        Each normalized statement includes its zero-based statement
+        index so downstream rules can identify the exact statement
+        that produced a finding.
+
+        Policy interpretation remains the responsibility of the rule
+        layer.
+        """
+        if self._group_inline_policies_cache is None:
+            groups = self._get_groups()
+
+            collected_policies: list[dict[str, Any]] = []
+
+            for group in groups:
+                group_name = group.get(
+                    "GroupName"
+                )
+
+                if not group_name:
+                    continue
+
+                policy_names = self.service.list_group_policies(
+                    group_name
+                )
+
+                for policy_name in policy_names:
+                    collected_policies.extend(
+                        self._collect_group_inline_policy_statements(
+                            group_name=group_name,
+                            policy_name=policy_name,
+                        )
+                    )
+
+            self._group_inline_policies_cache = (
+                collected_policies
+            )
+
+        return self._group_inline_policies_cache

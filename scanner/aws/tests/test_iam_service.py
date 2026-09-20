@@ -894,3 +894,356 @@ def test_list_groups_for_user_wraps_botocore_error():
         ),
     ):
         service.list_groups_for_user("alice")
+
+
+def test_list_groups_returns_all_groups():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.return_value = [
+        {
+            "Groups": [
+                {
+                    "GroupName": "Developers",
+                    "GroupId": "AGPAEXAMPLE1",
+                    "Arn": (
+                        "arn:aws:iam::123456789012:group/"
+                        "Developers"
+                    ),
+                }
+            ]
+        },
+        {
+            "Groups": [
+                {
+                    "GroupName": "Security",
+                    "GroupId": "AGPAEXAMPLE2",
+                    "Arn": (
+                        "arn:aws:iam::123456789012:group/"
+                        "Security"
+                    ),
+                }
+            ]
+        },
+    ]
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.list_groups()
+
+    assert result == [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE1",
+            "Arn": (
+                "arn:aws:iam::123456789012:group/"
+                "Developers"
+            ),
+        },
+        {
+            "GroupName": "Security",
+            "GroupId": "AGPAEXAMPLE2",
+            "Arn": (
+                "arn:aws:iam::123456789012:group/"
+                "Security"
+            ),
+        },
+    ]
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_groups"
+    )
+
+    paginator.paginate.assert_called_once_with()
+
+
+def test_list_group_policies_returns_all_inline_policy_names():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.return_value = [
+        {
+            "PolicyNames": [
+                "DeveloperInlinePolicy",
+            ]
+        },
+        {
+            "PolicyNames": [
+                "SecurityInlinePolicy",
+                "AuditInlinePolicy",
+            ]
+        },
+    ]
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.list_group_policies("Developers")
+
+    assert result == [
+        "DeveloperInlinePolicy",
+        "SecurityInlinePolicy",
+        "AuditInlinePolicy",
+    ]
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_group_policies"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        GroupName="Developers"
+    )
+
+
+def test_get_group_policy_returns_decoded_policy_document():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_group_policy.return_value = {
+        "GroupName": "Developers",
+        "PolicyName": "DeveloperInlinePolicy",
+        "PolicyDocument": (
+            "%7B%22Version%22%3A%222012-10-17%22%2C"
+            "%22Statement%22%3A%7B%22Effect%22%3A%22Allow%22%2C"
+            "%22Action%22%3A%22*%22%2C%22Resource%22%3A%22*%22%7D%7D"
+        ),
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.get_group_policy(
+        "Developers",
+        "DeveloperInlinePolicy",
+    )
+
+    assert result == {
+        "policy_name": "DeveloperInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    iam_client.get_group_policy.assert_called_once_with(
+        GroupName="Developers",
+        PolicyName="DeveloperInlinePolicy",
+    )
+
+
+def test_get_group_policy_returns_existing_dict_document():
+    session = Mock()
+    iam_client = Mock()
+
+    document = {
+        "Version": "2012-10-17",
+        "Statement": {
+            "Effect": "Allow",
+            "Action": "s3:GetObject",
+            "Resource": "*",
+        },
+    }
+
+    iam_client.get_group_policy.return_value = {
+        "GroupName": "Developers",
+        "PolicyName": "ReadOnlyInlinePolicy",
+        "PolicyDocument": document,
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.get_group_policy(
+        "Developers",
+        "ReadOnlyInlinePolicy",
+    )
+
+    assert result == {
+        "policy_name": "ReadOnlyInlinePolicy",
+        "document": document,
+    }
+
+
+def test_list_groups_wraps_client_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_paginator.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDenied",
+                "Message": "Group listing denied",
+            }
+        },
+        "GetPaginator",
+    )
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "IAM group listing failed: "
+            "AccessDenied: Group listing denied"
+        ),
+    ):
+        service.list_groups()
+
+
+def test_list_groups_wraps_botocore_error():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.side_effect = BotoCoreError()
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match="AWS SDK error while listing IAM groups",
+    ):
+        service.list_groups()
+
+
+def test_list_group_policies_wraps_client_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_paginator.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDenied",
+                "Message": "Group policy listing denied",
+            }
+        },
+        "GetPaginator",
+    )
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "IAM inline group policy listing failed for "
+            "group 'Developers': AccessDenied: "
+            "Group policy listing denied"
+        ),
+    ):
+        service.list_group_policies("Developers")
+
+
+def test_list_group_policies_wraps_botocore_error():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.side_effect = BotoCoreError()
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "AWS SDK error while listing inline group policies "
+            "for group 'Developers'"
+        ),
+    ):
+        service.list_group_policies("Developers")
+
+
+def test_get_group_policy_wraps_client_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_group_policy.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "NoSuchEntity",
+                "Message": "Policy does not exist",
+            }
+        },
+        "GetGroupPolicy",
+    )
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "IAM inline group policy retrieval failed for "
+            "group 'Developers' policy 'MissingPolicy': "
+            "NoSuchEntity: Policy does not exist"
+        ),
+    ):
+        service.get_group_policy(
+            "Developers",
+            "MissingPolicy",
+        )
+
+
+def test_get_group_policy_wraps_botocore_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_group_policy.side_effect = BotoCoreError()
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "AWS SDK error while retrieving inline group policy "
+            "'MissingPolicy' for group 'Developers'"
+        ),
+    ):
+        service.get_group_policy(
+            "Developers",
+            "MissingPolicy",
+        )
+
+
+def test_get_group_policy_wraps_malformed_json_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_group_policy.return_value = {
+        "GroupName": "Developers",
+        "PolicyName": "BrokenPolicy",
+        "PolicyDocument": "%7B%22Version%22%3A",
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        ValueError,
+    ):
+        service.get_group_policy(
+            "Developers",
+            "BrokenPolicy",
+        )

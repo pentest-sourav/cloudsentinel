@@ -29,6 +29,9 @@ def _configure_broad_user_inline_policies(service):
 def _configure_broad_group_policies(service):
     service.list_groups_for_user.return_value = []
     service.list_attached_group_policies.return_value = []
+    service.list_groups.return_value = []
+    service.list_group_policies.return_value = []
+    service.get_group_policy.return_value = {}
 
 
 def _configure_common_iam_service(service, username):
@@ -60,6 +63,7 @@ def _configure_common_iam_service(service, username):
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
     _configure_broad_user_inline_policies(service)
+    _configure_broad_group_policies(service)
 
 
 def test_iam_scanner_detects_old_active_access_key():
@@ -166,7 +170,6 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
         service,
         "protected-user",
     )
-    _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
 
@@ -182,7 +185,6 @@ def test_iam_scanner_uses_registry_data_sources():
         service,
         "test-user",
     )
-    _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
 
@@ -204,6 +206,11 @@ def test_iam_scanner_uses_registry_data_sources():
     service.list_groups_for_user.assert_called_once_with(
         "test-user"
     )
+
+    service.list_groups.assert_called_once_with()
+
+    service.list_group_policies.assert_not_called()
+    service.get_group_policy.assert_not_called()
 
     assert findings == []
 
@@ -468,6 +475,7 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
     _configure_broad_user_inline_policies(service)
+    _configure_broad_group_policies(service)
 
     service.list_groups_for_user.side_effect = [
         [
@@ -498,6 +506,8 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
         "Developers"
     )
 
+    service.list_groups.assert_called_once_with()
+
 
 def test_iam_scanner_returns_broad_user_inline_policy_finding():
     service = Mock()
@@ -506,7 +516,6 @@ def test_iam_scanner_returns_broad_user_inline_policy_finding():
         service,
         "alice",
     )
-    _configure_broad_group_policies(service)
 
     service.list_user_policies.return_value = [
         "AdminInlinePolicy",
@@ -563,4 +572,274 @@ def test_iam_scanner_returns_broad_user_inline_policy_finding():
     service.get_user_policy.assert_called_once_with(
         "alice",
         "AdminInlinePolicy",
+    )
+
+
+def test_iam_scanner_returns_broad_group_inline_policy_finding():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
+    ]
+
+    service.list_group_policies.return_value = [
+        "AdminInlinePolicy",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "AdminInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_015_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-015"
+    ]
+
+    assert len(iam_015_findings) == 1
+
+    finding = iam_015_findings[0]
+
+    assert finding.title == (
+        "IAM Group Inline Policy Grants Broad Permissions"
+    )
+
+    assert finding.resource_type == "iam_group"
+    assert finding.resource_id == "Developers"
+    assert finding.severity.value == "high"
+
+    assert finding.evidence["group_name"] == "Developers"
+    assert (
+        finding.evidence["policy_name"]
+        == "AdminInlinePolicy"
+    )
+    assert finding.evidence["statement_index"] == 0
+    assert finding.evidence["effect"] == "Allow"
+    assert finding.evidence["action"] == "*"
+    assert finding.evidence["resource"] == "*"
+    assert finding.evidence["broad_permission"] is True
+    assert (
+        finding.evidence["permission_source"]
+        == "iam_group_inline"
+    )
+
+    service.list_groups.assert_called_once_with()
+
+    service.list_group_policies.assert_called_once_with(
+        "Developers"
+    )
+
+    service.get_group_policy.assert_called_once_with(
+        "Developers",
+        "AdminInlinePolicy",
+    )
+
+
+def test_iam_scanner_does_not_report_broad_group_inline_policy_for_specific_action():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
+    ]
+
+    service.list_group_policies.return_value = [
+        "DeveloperInlinePolicy",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "DeveloperInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "s3:GetObject",
+                "Resource": "*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_015_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-015"
+    ]
+
+    assert iam_015_findings == []
+
+    service.list_groups.assert_called_once_with()
+
+    service.list_group_policies.assert_called_once_with(
+        "Developers"
+    )
+
+    service.get_group_policy.assert_called_once_with(
+        "Developers",
+        "DeveloperInlinePolicy",
+    )
+
+
+def test_iam_scanner_does_not_report_broad_group_inline_policy_for_deny_statement():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
+    ]
+
+    service.list_group_policies.return_value = [
+        "DenyInlinePolicy",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "DenyInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Deny",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_015_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-015"
+    ]
+
+    assert iam_015_findings == []
+
+    service.list_groups.assert_called_once_with()
+
+    service.list_group_policies.assert_called_once_with(
+        "Developers"
+    )
+
+    service.get_group_policy.assert_called_once_with(
+        "Developers",
+        "DenyInlinePolicy",
+    )
+
+
+def test_iam_scanner_detects_broad_inline_policy_on_orphan_group():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "LegacyAdmins",
+            "GroupId": "AGPAORPHAN",
+        }
+    ]
+
+    service.list_group_policies.return_value = [
+        "LegacyAdminInlinePolicy",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "LegacyAdminInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_015_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-015"
+    ]
+
+    assert len(iam_015_findings) == 1
+
+    finding = iam_015_findings[0]
+
+    assert finding.resource_type == "iam_group"
+    assert finding.resource_id == "LegacyAdmins"
+    assert finding.severity.value == "high"
+
+    assert finding.evidence["group_name"] == "LegacyAdmins"
+    assert (
+        finding.evidence["policy_name"]
+        == "LegacyAdminInlinePolicy"
+    )
+    assert finding.evidence["statement_index"] == 0
+    assert finding.evidence["effect"] == "Allow"
+    assert finding.evidence["action"] == "*"
+    assert finding.evidence["resource"] == "*"
+    assert finding.evidence["broad_permission"] is True
+    assert (
+        finding.evidence["permission_source"]
+        == "iam_group_inline"
+    )
+
+    service.list_groups.assert_called_once_with()
+
+    service.list_group_policies.assert_called_once_with(
+        "LegacyAdmins"
+    )
+
+    service.get_group_policy.assert_called_once_with(
+        "LegacyAdmins",
+        "LegacyAdminInlinePolicy",
+    )
+
+    service.list_groups_for_user.assert_called_once_with(
+        "alice"
     )

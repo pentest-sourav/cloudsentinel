@@ -57,6 +57,10 @@ from engine.rules.aws.iam.broad_user_inline_policy import (
     check_broad_user_inline_policy,
     build_broad_user_inline_policy_finding,
 )
+from engine.rules.aws.iam.broad_group_inline_policy import (
+    check_broad_group_inline_policy,
+    build_broad_group_inline_policy_finding,
+)
 
 
 IAM_RULES = RuleRegistry(
@@ -246,6 +250,23 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_broad_user_inline_policy,
             build_finding=build_broad_user_inline_policy_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-015",
+            name="broad_group_inline_policy",
+            data_source="broad_group_inline_policies",
+            collection_mode="multiple",
+            check_arguments=[
+                "group_name",
+                "policy_name",
+                "statement_index",
+                "effect",
+                "action",
+                "resource",
+                "condition",
+            ],
+            check=check_broad_group_inline_policy,
+            build_finding=build_broad_group_inline_policy_finding,
         ),
     ]
 )

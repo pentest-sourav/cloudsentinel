@@ -38,6 +38,7 @@ def test_iam_rules_have_valid_data_sources():
         "broad_user_policies",
         "broad_group_policies",
         "broad_user_inline_policies",
+        "broad_group_inline_policies",
     }
 
     for rule in IAM_RULES:
