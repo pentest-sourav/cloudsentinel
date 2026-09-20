@@ -429,3 +429,236 @@ def test_collect_broad_user_policies_uses_cache():
     assert service.list_attached_user_policies.call_count == 1
     assert service.get_policy.call_count == 1
     assert service.get_policy_version.call_count == 1
+
+
+def test_collect_broad_user_inline_policies_normalizes_multiple_users_policies_and_statements():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+        {"UserName": "bob"},
+    ]
+
+    service.list_user_policies.side_effect = [
+        [
+            "AdminInline",
+            "AuditInline",
+        ],
+        [
+            "DeveloperInline",
+        ],
+    ]
+
+    service.get_user_policy.side_effect = [
+        {
+            "policy_name": "AdminInline",
+            "document": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": "*",
+                        "Resource": "*",
+                    },
+                    {
+                        "Effect": "Deny",
+                        "Action": "s3:DeleteBucket",
+                        "Resource": "*",
+                    },
+                ],
+            },
+        },
+        {
+            "policy_name": "AuditInline",
+            "document": {
+                "Version": "2012-10-17",
+                "Statement": {
+                    "Effect": "Allow",
+                    "Action": "logs:*",
+                    "Resource": "*",
+                },
+            },
+        },
+        {
+            "policy_name": "DeveloperInline",
+            "document": {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": "ec2:Describe*",
+                        "Resource": "*",
+                    }
+                ],
+            },
+        },
+    ]
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_inline_policies()
+
+    assert len(result) == 4
+
+    assert result[0] == {
+        "username": "alice",
+        "policy_name": "AdminInline",
+        "statement_index": 0,
+        "effect": "Allow",
+        "action": "*",
+        "resource": "*",
+        "condition": None,
+    }
+
+    assert result[1] == {
+        "username": "alice",
+        "policy_name": "AdminInline",
+        "statement_index": 1,
+        "effect": "Deny",
+        "action": "s3:DeleteBucket",
+        "resource": "*",
+        "condition": None,
+    }
+
+    assert result[2] == {
+        "username": "alice",
+        "policy_name": "AuditInline",
+        "statement_index": 0,
+        "effect": "Allow",
+        "action": "logs:*",
+        "resource": "*",
+        "condition": None,
+    }
+
+    assert result[3] == {
+        "username": "bob",
+        "policy_name": "DeveloperInline",
+        "statement_index": 0,
+        "effect": "Allow",
+        "action": "ec2:Describe*",
+        "resource": "*",
+        "condition": None,
+    }
+
+    assert service.list_users.call_count == 1
+    assert service.list_user_policies.call_count == 2
+
+    service.list_user_policies.assert_any_call("alice")
+    service.list_user_policies.assert_any_call("bob")
+
+    assert service.get_user_policy.call_count == 3
+
+    service.get_user_policy.assert_any_call(
+        "alice",
+        "AdminInline",
+    )
+    service.get_user_policy.assert_any_call(
+        "alice",
+        "AuditInline",
+    )
+    service.get_user_policy.assert_any_call(
+        "bob",
+        "DeveloperInline",
+    )
+
+
+def test_collect_broad_user_inline_policies_skips_invalid_statements():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_user_policies.return_value = [
+        "MixedInline",
+    ]
+
+    service.get_user_policy.return_value = {
+        "policy_name": "MixedInline",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Action": "*",
+                    "Resource": "*",
+                },
+                "invalid-statement",
+                None,
+                {
+                    "Effect": "Deny",
+                    "Action": "s3:*",
+                    "Resource": "*",
+                },
+            ],
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_inline_policies()
+
+    assert result == [
+        {
+            "username": "alice",
+            "policy_name": "MixedInline",
+            "statement_index": 0,
+            "effect": "Allow",
+            "action": "*",
+            "resource": "*",
+            "condition": None,
+        },
+        {
+            "username": "alice",
+            "policy_name": "MixedInline",
+            "statement_index": 3,
+            "effect": "Deny",
+            "action": "s3:*",
+            "resource": "*",
+            "condition": None,
+        },
+    ]
+
+
+def test_collect_broad_user_inline_policies_uses_cache():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_user_policies.return_value = [
+        "AdminInline",
+    ]
+
+    service.get_user_policy.return_value = {
+        "policy_name": "AdminInline",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    first_result = collector.collect_broad_user_inline_policies()
+    second_result = collector.collect_broad_user_inline_policies()
+
+    assert first_result == second_result
+
+    assert service.list_users.call_count == 1
+    assert service.list_user_policies.call_count == 1
+    assert service.get_user_policy.call_count == 1
+
+    service.list_user_policies.assert_called_once_with(
+        "alice"
+    )
+
+    service.get_user_policy.assert_called_once_with(
+        "alice",
+        "AdminInline",
+    )

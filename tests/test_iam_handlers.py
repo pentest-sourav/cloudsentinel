@@ -10,4 +10,5 @@ def test_iam_data_source_handlers_have_required_sources():
         "credential_report",
         "broad_user_policies",
         "broad_group_policies",
+        "broad_user_inline_policies",
     }

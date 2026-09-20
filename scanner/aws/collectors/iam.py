@@ -12,9 +12,9 @@ class IAMDataCollector:
 
     The collector caches IAM users, access-key data, password
     policy data, credential-report data, attached-user-policy
-    data, user-group membership data, and attached-group-policy
-    data so multiple IAM rules can reuse the same AWS API
-    responses during a single scan.
+    data, user-group membership data, attached-group-policy
+    data, and inline-user-policy data so multiple IAM rules can
+    reuse the same AWS API responses during a single scan.
     """
 
     def __init__(self, service: IAMService):
@@ -26,6 +26,10 @@ class IAMDataCollector:
         self._credential_report_cache: list[dict[str, Any]] | None = None
 
         self._attached_user_policies_cache: list[
+            dict[str, Any]
+        ] | None = None
+
+        self._broad_user_inline_policies_cache: list[
             dict[str, Any]
         ] | None = None
 
@@ -214,6 +218,74 @@ class IAMDataCollector:
 
         return collected_policies
 
+    def _collect_user_inline_policy_statements(
+        self,
+        username: str,
+        policy_name: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect normalized statements from an inline IAM user policy.
+
+        Inline policies are evaluated directly from the policy document
+        returned by IAM. Policy interpretation remains the
+        responsibility of the rule layer.
+
+        Each normalized statement includes its zero-based statement
+        index so downstream findings can identify the exact statement
+        that triggered a rule.
+        """
+        policy_response = self.service.get_user_policy(
+            username,
+            policy_name,
+        )
+
+        document = policy_response.get(
+            "document",
+            {},
+        )
+
+        if not isinstance(document, dict):
+            return []
+
+        statements = document.get(
+            "Statement",
+            [],
+        )
+
+        if isinstance(statements, dict):
+            statements = [statements]
+
+        if not isinstance(statements, list):
+            return []
+
+        collected_statements: list[dict[str, Any]] = []
+
+        for statement_index, statement in enumerate(statements):
+            if not isinstance(statement, dict):
+                continue
+
+            collected_statements.append(
+                {
+                    "username": username,
+                    "policy_name": policy_name,
+                    "statement_index": statement_index,
+                    "effect": statement.get(
+                        "Effect"
+                    ),
+                    "action": statement.get(
+                        "Action"
+                    ),
+                    "resource": statement.get(
+                        "Resource"
+                    ),
+                    "condition": statement.get(
+                        "Condition"
+                    ),
+                }
+            )
+
+        return collected_statements
+
     def collect_root_mfa(self) -> dict[str, Any]:
         return {
             "root_mfa_enabled": self.service.get_root_mfa_status(),
@@ -320,7 +392,6 @@ class IAMDataCollector:
                     "N/A",
                 ):
                     password_last_used = None
-
                 else:
                     password_last_used = (
                         datetime.fromisoformat(
@@ -459,6 +530,47 @@ class IAMDataCollector:
             )
 
         return self._attached_user_policies_cache
+
+    def collect_broad_user_inline_policies(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect normalized statements from inline IAM policies
+        directly attached to IAM users.
+
+        Each inline policy is retrieved from IAM and normalized into
+        one record per policy statement. The zero-based statement
+        index is preserved so downstream rules can identify the exact
+        statement that produced a finding.
+
+        Policy interpretation remains the responsibility of the rule
+        layer.
+        """
+        if self._broad_user_inline_policies_cache is None:
+            users = self._get_users()
+
+            collected_policies: list[dict[str, Any]] = []
+
+            for user in users:
+                username = user["UserName"]
+
+                policy_names = self.service.list_user_policies(
+                    username
+                )
+
+                for policy_name in policy_names:
+                    collected_policies.extend(
+                        self._collect_user_inline_policy_statements(
+                            username=username,
+                            policy_name=policy_name,
+                        )
+                    )
+
+            self._broad_user_inline_policies_cache = (
+                collected_policies
+            )
+
+        return self._broad_user_inline_policies_cache
 
     def collect_broad_group_policies(
         self,

@@ -22,6 +22,10 @@ def _configure_broad_user_policies(service):
     }
 
 
+def _configure_broad_user_inline_policies(service):
+    service.list_user_policies.return_value = []
+
+
 def _configure_broad_group_policies(service):
     service.list_groups_for_user.return_value = []
     service.list_attached_group_policies.return_value = []
@@ -55,6 +59,7 @@ def _configure_common_iam_service(service, username):
 
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
+    _configure_broad_user_inline_policies(service)
 
 
 def test_iam_scanner_detects_old_active_access_key():
@@ -101,6 +106,7 @@ def test_iam_scanner_detects_old_active_access_key():
     service.list_attached_user_policies.return_value = []
 
     _configure_credential_report(service)
+    _configure_broad_user_inline_policies(service)
     _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
@@ -140,6 +146,7 @@ def test_iam_scanner_returns_root_and_user_mfa_findings():
 
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
+    _configure_broad_user_inline_policies(service)
     _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
@@ -187,6 +194,10 @@ def test_iam_scanner_uses_registry_data_sources():
     service.get_credential_report.assert_called_once()
 
     service.list_attached_user_policies.assert_called_once_with(
+        "test-user"
+    )
+
+    service.list_user_policies.assert_called_once_with(
         "test-user"
     )
 
@@ -456,6 +467,7 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
 
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
+    _configure_broad_user_inline_policies(service)
 
     service.list_groups_for_user.side_effect = [
         [
@@ -484,4 +496,71 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
 
     service.list_attached_group_policies.assert_called_once_with(
         "Developers"
+    )
+
+
+def test_iam_scanner_returns_broad_user_inline_policy_finding():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+    _configure_broad_group_policies(service)
+
+    service.list_user_policies.return_value = [
+        "AdminInlinePolicy",
+    ]
+
+    service.get_user_policy.return_value = {
+        "policy_name": "AdminInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_014_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-014"
+    ]
+
+    assert len(iam_014_findings) == 1
+
+    finding = iam_014_findings[0]
+
+    assert finding.title == (
+        "IAM User Inline Policy Grants Broad Permissions"
+    )
+
+    assert finding.resource_id == "alice"
+    assert finding.severity.value == "high"
+
+    assert finding.evidence["username"] == "alice"
+    assert finding.evidence["policy_name"] == "AdminInlinePolicy"
+    assert finding.evidence["effect"] == "Allow"
+    assert finding.evidence["action"] == "*"
+    assert finding.evidence["resource"] == "*"
+    assert finding.evidence["broad_permission"] is True
+    assert (
+        finding.evidence["permission_source"]
+        == "iam_user_inline"
+    )
+
+    service.list_user_policies.assert_called_once_with(
+        "alice"
+    )
+
+    service.get_user_policy.assert_called_once_with(
+        "alice",
+        "AdminInlinePolicy",
     )

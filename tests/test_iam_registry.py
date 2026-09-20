@@ -37,6 +37,7 @@ def test_iam_rules_have_valid_data_sources():
         "credential_report",
         "broad_user_policies",
         "broad_group_policies",
+        "broad_user_inline_policies",
     }
 
     for rule in IAM_RULES:

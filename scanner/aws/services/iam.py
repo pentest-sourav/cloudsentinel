@@ -260,6 +260,111 @@ class IAMService:
                 f"for user '{username}': {exc}"
             ) from exc
 
+    def list_user_policies(
+        self,
+        username: str,
+    ) -> list[str]:
+        """
+        Return all inline policy names directly attached to an IAM user.
+
+        IAM can paginate inline policy names, so the service consumes
+        the paginator and returns one normalized list.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_user_policies"
+            )
+
+            policy_names: list[str] = []
+
+            for page in paginator.paginate(
+                UserName=username,
+            ):
+                policy_names.extend(
+                    page.get(
+                        "PolicyNames",
+                        [],
+                    )
+                )
+
+            return policy_names
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM inline policy listing failed for user "
+                f"'{username}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing inline policies "
+                f"for user '{username}': {exc}"
+            ) from exc
+
+    def get_user_policy(
+        self,
+        username: str,
+        policy_name: str,
+    ) -> dict[str, Any]:
+        """
+        Retrieve and normalize an inline IAM user policy.
+
+        AWS returns the policy document URL-encoded. The service
+        decodes the document and converts it into a Python dictionary
+        so the collector/rule layers do not need to understand the
+        AWS response encoding.
+        """
+        try:
+            response = self.iam_client.get_user_policy(
+                UserName=username,
+                PolicyName=policy_name,
+            )
+
+            document = response.get(
+                "PolicyDocument",
+                {},
+            )
+
+            if isinstance(document, str):
+                document = json.loads(
+                    unquote(document)
+                )
+
+            return {
+                "policy_name": response.get(
+                    "PolicyName",
+                    policy_name,
+                ),
+                "document": document,
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM inline policy retrieval failed for user "
+                f"'{username}' policy '{policy_name}': "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while retrieving inline policy "
+                f"'{policy_name}' for user '{username}': {exc}"
+            ) from exc
+
     def list_groups_for_user(
         self,
         username: str,

@@ -199,6 +199,88 @@ def test_list_attached_user_policies_returns_attached_policies():
     )
 
 
+def test_list_user_policies_returns_all_inline_policy_names():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.return_value = [
+        {
+            "PolicyNames": [
+                "DeveloperInlinePolicy",
+            ]
+        },
+        {
+            "PolicyNames": [
+                "SecurityInlinePolicy",
+                "AuditInlinePolicy",
+            ]
+        },
+    ]
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.list_user_policies("alice")
+
+    assert result == [
+        "DeveloperInlinePolicy",
+        "SecurityInlinePolicy",
+        "AuditInlinePolicy",
+    ]
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_user_policies"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        UserName="alice"
+    )
+
+
+def test_get_user_policy_returns_decoded_policy_document():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_user_policy.return_value = {
+        "UserName": "alice",
+        "PolicyName": "DeveloperInlinePolicy",
+        "PolicyDocument": (
+            "%7B%22Version%22%3A%222012-10-17%22%2C"
+            "%22Statement%22%3A%7B%22Effect%22%3A%22Allow%22%2C"
+            "%22Action%22%3A%22*%22%2C%22Resource%22%3A%22*%22%7D%7D"
+        ),
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.get_user_policy(
+        "alice",
+        "DeveloperInlinePolicy",
+    )
+
+    assert result == {
+        "policy_name": "DeveloperInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    iam_client.get_user_policy.assert_called_once_with(
+        UserName="alice",
+        PolicyName="DeveloperInlinePolicy",
+    )
+
+
 def test_list_groups_for_user_returns_all_groups():
     session = Mock()
     iam_client = Mock()
@@ -494,7 +576,7 @@ def test_list_attached_user_policies_wraps_client_error():
         service.list_attached_user_policies("alice")
 
 
-def test_list_groups_for_user_wraps_client_error():
+def test_list_user_policies_wraps_client_error():
     session = Mock()
     iam_client = Mock()
 
@@ -514,25 +596,25 @@ def test_list_groups_for_user_wraps_client_error():
     with pytest.raises(
         RuntimeError,
         match=(
-            "IAM group listing failed for user "
+            "IAM inline policy listing failed for user "
             "'alice': AccessDenied: User is not authorized"
         ),
     ):
-        service.list_groups_for_user("alice")
+        service.list_user_policies("alice")
 
 
-def test_list_attached_group_policies_wraps_client_error():
+def test_get_user_policy_wraps_client_error():
     session = Mock()
     iam_client = Mock()
 
-    iam_client.get_paginator.side_effect = ClientError(
+    iam_client.get_user_policy.side_effect = ClientError(
         {
             "Error": {
-                "Code": "AccessDenied",
-                "Message": "Group policy access denied",
+                "Code": "NoSuchEntity",
+                "Message": "Policy does not exist",
             }
         },
-        "GetPaginator",
+        "GetUserPolicy",
     )
 
     session.client.return_value = iam_client
@@ -541,13 +623,14 @@ def test_list_attached_group_policies_wraps_client_error():
     with pytest.raises(
         RuntimeError,
         match=(
-            "IAM attached group policy listing failed for "
-            "group 'Developers': AccessDenied: "
-            "Group policy access denied"
+            "IAM inline policy retrieval failed for user "
+            "'alice' policy 'MissingPolicy': "
+            "NoSuchEntity: Policy does not exist"
         ),
     ):
-        service.list_attached_group_policies(
-            "Developers"
+        service.get_user_policy(
+            "alice",
+            "MissingPolicy",
         )
 
 
@@ -643,7 +726,7 @@ def test_list_attached_user_policies_wraps_botocore_error():
         service.list_attached_user_policies("alice")
 
 
-def test_list_groups_for_user_wraps_botocore_error():
+def test_list_user_policies_wraps_botocore_error():
     session = Mock()
     iam_client = Mock()
 
@@ -658,11 +741,113 @@ def test_list_groups_for_user_wraps_botocore_error():
     with pytest.raises(
         RuntimeError,
         match=(
-            "AWS SDK error while listing groups "
+            "AWS SDK error while listing inline policies "
             "for user 'alice'"
         ),
     ):
+        service.list_user_policies("alice")
+
+
+def test_get_user_policy_wraps_botocore_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_user_policy.side_effect = BotoCoreError()
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "AWS SDK error while retrieving inline policy "
+            "'MissingPolicy' for user 'alice'"
+        ),
+    ):
+        service.get_user_policy(
+            "alice",
+            "MissingPolicy",
+        )
+
+
+def test_list_groups_for_user_wraps_client_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_paginator.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDenied",
+                "Message": "User is not authorized",
+            }
+        },
+        "GetPaginator",
+    )
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "IAM group listing failed for user "
+            "'alice': AccessDenied: User is not authorized"
+        ),
+    ):
         service.list_groups_for_user("alice")
+
+
+def test_list_attached_group_policies_wraps_client_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_paginator.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDenied",
+                "Message": "Group policy access denied",
+            }
+        },
+        "GetPaginator",
+    )
+
+    session.client.return_value = iam_client
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "IAM attached group policy listing failed for "
+            "group 'Developers': AccessDenied: "
+            "Group policy access denied"
+        ),
+    ):
+        service.list_attached_group_policies(
+            "Developers"
+        )
+
+
+def test_get_user_policy_wraps_malformed_json_error():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_user_policy.return_value = {
+        "PolicyName": "BrokenPolicy",
+        "PolicyDocument": "%7B%22Version%22%3A",
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        ValueError,
+    ):
+        service.get_user_policy(
+            "alice",
+            "BrokenPolicy",
+        )
 
 
 def test_list_attached_group_policies_wraps_botocore_error():
@@ -687,3 +872,25 @@ def test_list_attached_group_policies_wraps_botocore_error():
         service.list_attached_group_policies(
             "Developers"
         )
+
+
+def test_list_groups_for_user_wraps_botocore_error():
+    session = Mock()
+    iam_client = Mock()
+
+    paginator = Mock()
+    paginator.paginate.side_effect = BotoCoreError()
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "AWS SDK error while listing groups "
+            "for user 'alice'"
+        ),
+    ):
+        service.list_groups_for_user("alice")

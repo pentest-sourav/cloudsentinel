@@ -53,6 +53,10 @@ from engine.rules.aws.iam.broad_group_policy import (
     check_broad_group_policy,
     build_broad_group_policy_finding,
 )
+from engine.rules.aws.iam.broad_user_inline_policy import (
+    check_broad_user_inline_policy,
+    build_broad_user_inline_policy_finding,
+)
 
 
 IAM_RULES = RuleRegistry(
@@ -62,7 +66,9 @@ IAM_RULES = RuleRegistry(
             name="root_mfa",
             data_source="root_mfa",
             collection_mode="single",
-            check_arguments=["root_mfa_enabled"],
+            check_arguments=[
+                "root_mfa_enabled",
+            ],
             check=check_root_mfa,
             build_finding=build_root_mfa_finding,
         ),
@@ -109,7 +115,7 @@ IAM_RULES = RuleRegistry(
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-005",
-            name="password_policy",
+            name="password_policy_minimum_length",
             data_source="password_policy",
             collection_mode="single",
             check_arguments=[
@@ -123,7 +129,9 @@ IAM_RULES = RuleRegistry(
             name="password_policy_symbols",
             data_source="password_policy",
             collection_mode="single",
-            check_arguments=["require_symbols"],
+            check_arguments=[
+                "require_symbols",
+            ],
             check=check_password_policy_symbols,
             build_finding=build_password_policy_symbols_finding,
         ),
@@ -132,7 +140,9 @@ IAM_RULES = RuleRegistry(
             name="password_policy_numbers",
             data_source="password_policy",
             collection_mode="single",
-            check_arguments=["require_numbers"],
+            check_arguments=[
+                "require_numbers",
+            ],
             check=check_password_policy_numbers,
             build_finding=build_password_policy_numbers_finding,
         ),
@@ -141,7 +151,9 @@ IAM_RULES = RuleRegistry(
             name="password_policy_uppercase",
             data_source="password_policy",
             collection_mode="single",
-            check_arguments=["require_uppercase"],
+            check_arguments=[
+                "require_uppercase",
+            ],
             check=check_password_policy_uppercase,
             build_finding=build_password_policy_uppercase_finding,
         ),
@@ -150,7 +162,9 @@ IAM_RULES = RuleRegistry(
             name="password_policy_lowercase",
             data_source="password_policy",
             collection_mode="single",
-            check_arguments=["require_lowercase"],
+            check_arguments=[
+                "require_lowercase",
+            ],
             check=check_password_policy_lowercase,
             build_finding=build_password_policy_lowercase_finding,
         ),
@@ -215,6 +229,23 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_broad_group_policy,
             build_finding=build_broad_group_policy_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-014",
+            name="broad_user_inline_policy",
+            data_source="broad_user_inline_policies",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "policy_name",
+                "statement_index",
+                "effect",
+                "action",
+                "resource",
+                "condition",
+            ],
+            check=check_broad_user_inline_policy,
+            build_finding=build_broad_user_inline_policy_finding,
         ),
     ]
 )

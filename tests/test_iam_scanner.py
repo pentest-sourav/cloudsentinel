@@ -21,6 +21,10 @@ def _configure_broad_user_policies(service):
     }
 
 
+def _configure_broad_user_inline_policies(service):
+    service.list_user_policies.return_value = []
+
+
 def _configure_broad_group_policies(service):
     service.list_groups_for_user.return_value = []
 
@@ -62,6 +66,7 @@ def _configure_common_iam_service(service, username):
 
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
+    _configure_broad_user_inline_policies(service)
 
 
 def test_iam_scanner_returns_root_and_user_mfa_findings():
@@ -83,6 +88,7 @@ def test_iam_scanner_returns_root_and_user_mfa_findings():
 
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
+    _configure_broad_user_inline_policies(service)
     _configure_broad_group_policies(service)
 
     scanner = IAMScanner(service)
@@ -130,6 +136,10 @@ def test_iam_scanner_uses_registry_data_sources():
     service.get_credential_report.assert_called_once()
 
     service.list_attached_user_policies.assert_called_once_with(
+        "test-user"
+    )
+
+    service.list_user_policies.assert_called_once_with(
         "test-user"
     )
 
@@ -399,6 +409,7 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
 
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
+    _configure_broad_user_inline_policies(service)
 
     service.list_groups_for_user.side_effect = [
         [
