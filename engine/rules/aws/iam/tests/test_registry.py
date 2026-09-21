@@ -190,3 +190,31 @@ def test_iam_registry_broad_action_restricted_resource_rule_has_check_and_findin
 
     assert callable(rule.check)
     assert callable(rule.build_finding)
+
+
+def test_iam_registry_contains_no_active_authentication_credential_rule():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-020")
+
+    assert rule is not None
+    assert rule.rule_id == "CS-AWS-IAM-020"
+    assert rule.name == "no_active_authentication_credential"
+    assert rule.data_source == "no_active_authentication_credentials"
+    assert rule.collection_mode == "multiple"
+
+
+def test_iam_registry_no_active_authentication_credential_rule_has_expected_arguments():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-020")
+
+    assert rule.check_arguments == [
+        "username",
+        "password_enabled",
+        "active_access_key_count",
+        "active_access_key_ids",
+    ]
+
+
+def test_iam_registry_no_active_authentication_credential_rule_has_check_and_finding_builder():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-020")
+
+    assert callable(rule.check)
+    assert callable(rule.build_finding)

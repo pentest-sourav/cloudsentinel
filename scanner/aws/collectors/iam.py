@@ -325,7 +325,7 @@ class IAMDataCollector:
 
         Each normalized statement includes its zero-based statement
         index so downstream rules can identify the exact statement
-        that triggered a finding.
+        that triggered a rule.
 
         Policy interpretation remains the responsibility of the rule
         layer.
@@ -566,6 +566,61 @@ class IAMDataCollector:
             self._credential_report_cache = collected_users
 
         return self._credential_report_cache
+
+    def collect_no_active_authentication_credentials(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect authentication-credential state for every IAM user.
+
+        IAM-020 reports users that have neither an enabled console
+        password nor an active programmatic access key.
+
+        Existing credential-report and access-key caches are reused,
+        so this method does not introduce additional AWS API calls.
+        """
+        credential_report = self.collect_credential_report()
+        access_keys = self.collect_iam_access_keys()
+
+        active_keys_by_user: dict[str, list[str]] = {}
+
+        for access_key in access_keys:
+            if access_key["status"] != "Active":
+                continue
+
+            username = access_key["username"]
+
+            active_keys_by_user.setdefault(
+                username,
+                [],
+            ).append(
+                access_key["access_key_id"]
+            )
+
+        results: list[dict[str, Any]] = []
+
+        for user in credential_report:
+            username = user["username"]
+
+            active_access_key_ids = active_keys_by_user.get(
+                username,
+                [],
+            )
+
+            results.append(
+                {
+                    "username": username,
+                    "password_enabled": user[
+                        "password_enabled"
+                    ],
+                    "active_access_key_count": len(
+                        active_access_key_ids
+                    ),
+                    "active_access_key_ids": active_access_key_ids,
+                }
+            )
+
+        return results
 
     def collect_broad_user_policies(
         self,

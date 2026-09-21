@@ -94,6 +94,19 @@ def collect_multiple_authentication_methods(
     return results
 
 
+def collect_no_active_authentication_credentials(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect authentication-credential state for IAM-020.
+
+    The IAMDataCollector reuses its credential-report and
+    access-key caches, so this handler does not introduce
+    additional AWS API calls.
+    """
+    return collector.collect_no_active_authentication_credentials()
+
+
 def collect_access_key_last_used(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -136,6 +149,9 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "multiple_authentication_methods": (
         collect_multiple_authentication_methods
+    ),
+    "no_active_authentication_credentials": (
+        collect_no_active_authentication_credentials
     ),
     "access_key_last_used": (
         collect_access_key_last_used

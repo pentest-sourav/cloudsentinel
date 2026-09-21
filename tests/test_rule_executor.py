@@ -192,3 +192,71 @@ def test_unsupported_collection_mode_raises_value_error():
             rule=rule,
             collector=FakeCollector(),
         )
+
+
+def test_execute_iam_020_no_active_authentication_credential_rule():
+    from engine.rules.registry.iam_handlers import (
+        collect_no_active_authentication_credentials,
+    )
+    from engine.rules.registry.iam_registry import IAM_RULES
+
+    class IAM020Collector:
+        def collect_no_active_authentication_credentials(self):
+            return [
+                {
+                    "username": "alice",
+                    "password_enabled": False,
+                    "active_access_key_count": 0,
+                    "active_access_key_ids": [],
+                },
+                {
+                    "username": "bob",
+                    "password_enabled": True,
+                    "active_access_key_count": 0,
+                    "active_access_key_ids": [],
+                },
+                {
+                    "username": "charlie",
+                    "password_enabled": False,
+                    "active_access_key_count": 1,
+                    "active_access_key_ids": ["AKIACHARLIE01"],
+                },
+            ]
+
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-020")
+
+    assert rule is not None
+
+    executor = RuleExecutor(
+        handlers={
+            "no_active_authentication_credentials": (
+                collect_no_active_authentication_credentials
+            ),
+        }
+    )
+
+    findings = executor.execute_rule(
+        rule=rule,
+        collector=IAM020Collector(),
+    )
+
+    assert len(findings) == 1
+
+    finding = findings[0]
+
+    assert finding.rule_id == "CS-AWS-IAM-020"
+    assert finding.title == (
+        "IAM User Has No Active Authentication Credential"
+    )
+    assert finding.severity == Severity.LOW
+    assert finding.provider == "aws"
+    assert finding.resource_type == "iam_user"
+    assert finding.resource_id == "alice"
+
+    assert finding.evidence == {
+        "username": "alice",
+        "password_enabled": False,
+        "active_access_key_count": 0,
+        "active_access_key_ids": [],
+        "has_active_authentication_credential": False,
+    }
