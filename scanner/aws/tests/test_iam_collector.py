@@ -1162,3 +1162,79 @@ def test_collect_user_attached_policies_handles_user_without_policies():
             "inline_policy_names": [],
         }
     ]
+
+
+def test_collect_administrative_group_policies_scans_all_groups():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {"GroupName": "Administrators"},
+        {"GroupName": "Developers"},
+    ]
+
+    service.list_attached_group_policies.side_effect = [
+        [
+            {
+                "PolicyName": "AdministratorAccess",
+                "PolicyArn": (
+                    "arn:aws:iam::aws:policy/"
+                    "AdministratorAccess"
+                ),
+            }
+        ],
+        [
+            {
+                "PolicyName": "ReadOnlyAccess",
+                "PolicyArn": (
+                    "arn:aws:iam::aws:policy/"
+                    "ReadOnlyAccess"
+                ),
+            }
+        ],
+    ]
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_administrative_group_policies()
+
+    assert result == [
+        {
+            "group_name": "Administrators",
+            "policy_name": "AdministratorAccess",
+            "policy_arn": (
+                "arn:aws:iam::aws:policy/"
+                "AdministratorAccess"
+            ),
+        }
+    ]
+
+    service.list_groups.assert_called_once_with()
+    assert service.list_attached_group_policies.call_count == 2
+
+
+def test_collect_administrative_group_policies_reuses_group_caches():
+    service = Mock()
+
+    service.list_groups.return_value = [
+        {"GroupName": "Administrators"},
+    ]
+
+    service.list_attached_group_policies.return_value = [
+        {
+            "PolicyName": "AdministratorAccess",
+            "PolicyArn": (
+                "arn:aws:iam::aws:policy/"
+                "AdministratorAccess"
+            ),
+        }
+    ]
+
+    collector = IAMDataCollector(service)
+
+    first = collector.collect_administrative_group_policies()
+    second = collector.collect_administrative_group_policies()
+
+    assert first == second
+
+    assert service.list_groups.call_count == 1
+    assert service.list_attached_group_policies.call_count == 1

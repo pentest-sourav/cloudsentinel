@@ -24,7 +24,8 @@ def test_iam_data_source_handlers_have_expected_sources():
         "access_key_last_used",
         "no_active_authentication_credentials",
         "user_attached_policies",
-            "stale_iam_users",
+        "stale_iam_users",
+        "administrative_group_policies",
     }
 
     assert set(IAM_DATA_SOURCE_HANDLERS) == expected_sources
@@ -98,3 +99,32 @@ def test_collect_user_attached_policies_delegates_to_collector():
     assert result == expected
 
     collector.collect_user_attached_policies.assert_called_once_with()
+
+
+def test_collect_administrative_group_policies_delegates_to_collector():
+    collector = MagicMock()
+
+    expected = [
+        {
+            "group_name": "Administrators",
+            "policy_name": "AdministratorAccess",
+            "policy_arn": (
+                "arn:aws:iam::aws:policy/"
+                "AdministratorAccess"
+            ),
+        }
+    ]
+
+    collector.collect_administrative_group_policies.return_value = (
+        expected
+    )
+
+    from engine.rules.registry.iam_handlers import (
+        collect_administrative_group_policies,
+    )
+
+    result = collect_administrative_group_policies(collector)
+
+    assert result == expected
+
+    collector.collect_administrative_group_policies.assert_called_once_with()

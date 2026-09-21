@@ -119,6 +119,19 @@ def collect_user_attached_policies(
     return collector.collect_user_attached_policies()
 
 
+def collect_administrative_group_policies(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect direct AdministratorAccess attachments for every IAM
+    group.
+
+    IAMDataCollector reuses its group and attached-policy caches,
+    preventing duplicate AWS API calls during the same scan.
+    """
+    return collector.collect_administrative_group_policies()
+
+
 def collect_no_active_authentication_credentials(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -166,6 +179,9 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     "root_access_key": collect_root_access_key,
     "user_attached_policies": (
         collect_user_attached_policies
+    ),
+    "administrative_group_policies": (
+        collect_administrative_group_policies
     ),
     "iam_users": IAMDataCollector.collect_iam_users,
     "iam_access_keys": IAMDataCollector.collect_iam_access_keys,

@@ -862,6 +862,67 @@ class IAMDataCollector:
 
         return results
 
+    def collect_administrative_group_policies(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect direct AdministratorAccess attachments for every
+        IAM group.
+
+        This intentionally evaluates all groups, including groups
+        without current members, so IAM-026 cannot miss an
+        administrative group that is temporarily unused.
+
+        Existing group and attached-policy caches are reused to
+        avoid duplicate AWS API calls during the same scan.
+        """
+        groups = self._get_groups()
+
+        results: list[dict[str, Any]] = []
+
+        for group in groups:
+            group_name = group.get("GroupName")
+
+            if not group_name:
+                continue
+
+            attached_policies = (
+                self._get_attached_group_policies(
+                    group_name
+                )
+            )
+
+            for attached_policy in attached_policies:
+                policy_name = attached_policy.get(
+                    "PolicyName"
+                )
+                policy_arn = attached_policy.get(
+                    "PolicyArn"
+                )
+
+                if (
+                    policy_name
+                    != "AdministratorAccess"
+                ):
+                    continue
+
+                if (
+                    policy_arn
+                    != "arn:aws:iam::aws:policy/"
+                    "AdministratorAccess"
+                ):
+                    continue
+
+                results.append(
+                    {
+                        "group_name": group_name,
+                        "policy_name": policy_name,
+                        "policy_arn": policy_arn,
+                    }
+                )
+
+        return results
+
     def collect_broad_user_policies(
         self,
     ) -> list[dict[str, Any]]:
