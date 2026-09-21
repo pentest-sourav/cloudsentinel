@@ -196,12 +196,20 @@ def test_iam_scanner_uses_registry_data_sources():
     service.list_access_keys.assert_called_once()
     service.get_credential_report.assert_called_once()
 
-    service.list_attached_user_policies.assert_called_once_with(
+    service.list_attached_user_policies.assert_any_call(
         "test-user"
     )
+    assert (
+        service.list_attached_user_policies.call_count
+        == 2
+    )
 
-    service.list_user_policies.assert_called_once_with(
+    service.list_user_policies.assert_any_call(
         "test-user"
+    )
+    assert (
+        service.list_user_policies.call_count
+        == 2
     )
 
     service.list_groups_for_user.assert_called_once_with(
@@ -567,9 +575,10 @@ def test_iam_scanner_returns_broad_user_inline_policy_finding():
         == "iam_user_inline"
     )
 
-    service.list_user_policies.assert_called_once_with(
+    service.list_user_policies.assert_any_call(
         "alice"
     )
+    assert service.list_user_policies.call_count == 2
 
     service.get_user_policy.assert_called_once_with(
         "alice",
@@ -922,9 +931,10 @@ def test_iam_scanner_detects_broad_action_on_scoped_user_managed_policy():
     assert finding.evidence["broad_action"] is True
     assert finding.evidence["scoped_resource"] is True
 
-    service.list_attached_user_policies.assert_called_once_with(
+    service.list_attached_user_policies.assert_any_call(
         "alice"
     )
+    assert service.list_attached_user_policies.call_count == 2
     service.get_policy.assert_called_once_with(
         "arn:aws:iam::123456789012:policy/"
         "ScopedAdmin"

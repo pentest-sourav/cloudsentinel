@@ -11,6 +11,14 @@ class IAMService:
         self.session = session
         self.iam_client = session.client("iam")
         self._account_summary_cache: dict[str, Any] | None = None
+        self._attached_user_policies_cache: dict[
+            str,
+            list[dict[str, Any]],
+        ] = {}
+        self._user_inline_policies_cache: dict[
+            str,
+            list[str],
+        ] = {}
 
     def get_account_summary(self) -> dict[str, Any]:
         """
@@ -288,6 +296,18 @@ class IAMService:
         self,
         username: str,
     ) -> list[dict[str, Any]]:
+        """
+        Return managed policies directly attached to an IAM user.
+
+        Results are cached per username for the lifetime of this
+        IAMService instance so multiple IAM rules can reuse the
+        same AWS API response during one scan.
+        """
+        if username in self._attached_user_policies_cache:
+            return self._attached_user_policies_cache[
+                username
+            ]
+
         try:
             paginator = self.iam_client.get_paginator(
                 "list_attached_user_policies"
@@ -304,6 +324,10 @@ class IAMService:
                         [],
                     )
                 )
+
+            self._attached_user_policies_cache[
+                username
+            ] = policies
 
             return policies
 
@@ -331,11 +355,18 @@ class IAMService:
         username: str,
     ) -> list[str]:
         """
-        Return all inline policy names directly attached to an IAM user.
+        Return all inline policy names directly attached to an
+        IAM user.
 
-        IAM can paginate inline policy names, so the service consumes
-        the paginator and returns one normalized list.
+        Results are cached per username for the lifetime of this
+        IAMService instance so multiple IAM rules can reuse the
+        same AWS API response during one scan.
         """
+        if username in self._user_inline_policies_cache:
+            return self._user_inline_policies_cache[
+                username
+            ]
+
         try:
             paginator = self.iam_client.get_paginator(
                 "list_user_policies"
@@ -352,6 +383,10 @@ class IAMService:
                         [],
                     )
                 )
+
+            self._user_inline_policies_cache[
+                username
+            ] = policy_names
 
             return policy_names
 

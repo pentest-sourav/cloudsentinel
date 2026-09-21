@@ -106,6 +106,19 @@ def collect_root_access_key(
     return collector.collect_root_access_key()
 
 
+def collect_user_attached_policies(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect direct IAM-user policy attachments for IAM-022.
+
+    The collector and IAM service reuse their existing per-scan
+    caches so this handler does not introduce duplicate AWS API
+    calls for policy attachment discovery.
+    """
+    return collector.collect_user_attached_policies()
+
+
 def collect_no_active_authentication_credentials(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -138,6 +151,9 @@ IAM_DATA_SOURCE_HANDLERS: dict[
 ] = {
     "root_mfa": IAMDataCollector.collect_root_mfa,
     "root_access_key": collect_root_access_key,
+    "user_attached_policies": (
+        collect_user_attached_policies
+    ),
     "iam_users": IAMDataCollector.collect_iam_users,
     "iam_access_keys": IAMDataCollector.collect_iam_access_keys,
     "password_policy": IAMDataCollector.collect_password_policy,

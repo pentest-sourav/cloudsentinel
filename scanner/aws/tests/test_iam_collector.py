@@ -1048,3 +1048,89 @@ def test_collect_root_access_key_returns_false_when_no_key_exists():
     }
 
     service.get_root_access_keys_present.assert_called_once_with()
+
+
+def test_collect_user_attached_policies_returns_normalized_state():
+    service = Mock()
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "ReadOnlyAccess",
+            "PolicyArn": (
+                "arn:aws:iam::aws:policy/ReadOnlyAccess"
+            ),
+        },
+        {
+            "PolicyName": "SecurityAudit",
+            "PolicyArn": (
+                "arn:aws:iam::aws:policy/SecurityAudit"
+            ),
+        },
+    ]
+
+    service.list_user_policies.return_value = [
+        "DeveloperInline",
+    ]
+
+    collector = IAMDataCollector(service)
+
+    collector._get_users = Mock(
+        return_value=[
+            {
+                "UserName": "alice",
+            }
+        ]
+    )
+
+    result = collector.collect_user_attached_policies()
+
+    assert result == [
+        {
+            "username": "alice",
+            "managed_policy_count": 2,
+            "managed_policy_names": [
+                "ReadOnlyAccess",
+                "SecurityAudit",
+            ],
+            "inline_policy_count": 1,
+            "inline_policy_names": [
+                "DeveloperInline",
+            ],
+        }
+    ]
+
+    service.list_attached_user_policies.assert_called_once_with(
+        "alice"
+    )
+    service.list_user_policies.assert_called_once_with(
+        "alice"
+    )
+
+
+def test_collect_user_attached_policies_handles_user_without_policies():
+    service = Mock()
+
+    service.list_attached_user_policies.return_value = []
+    service.list_user_policies.return_value = []
+
+    collector = IAMDataCollector(service)
+
+    collector._get_users = Mock(
+        return_value=[
+            {
+                "UserName": "alice",
+            }
+        ]
+    )
+
+    result = collector.collect_user_attached_policies()
+
+    assert result == [
+        {
+            "username": "alice",
+            "managed_policy_count": 0,
+            "managed_policy_names": [],
+            "inline_policy_count": 0,
+            "inline_policy_names": [],
+        }
+    ]

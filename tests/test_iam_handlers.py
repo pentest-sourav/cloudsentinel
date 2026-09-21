@@ -23,6 +23,7 @@ def test_iam_data_source_handlers_have_expected_sources():
         "multiple_authentication_methods",
         "access_key_last_used",
         "no_active_authentication_credentials",
+        "user_attached_policies",
     }
 
     assert set(IAM_DATA_SOURCE_HANDLERS) == expected_sources
@@ -70,3 +71,29 @@ def test_collect_root_access_key_delegates_to_collector():
     assert result == expected
 
     collector.collect_root_access_key.assert_called_once_with()
+
+
+def test_collect_user_attached_policies_delegates_to_collector():
+    collector = MagicMock()
+
+    expected = [
+        {
+            "username": "alice",
+            "managed_policy_count": 1,
+            "managed_policy_names": [
+                "ReadOnlyAccess",
+            ],
+            "inline_policy_count": 0,
+            "inline_policy_names": [],
+        }
+    ]
+
+    collector.collect_user_attached_policies.return_value = expected
+
+    result = IAM_DATA_SOURCE_HANDLERS[
+        "user_attached_policies"
+    ](collector)
+
+    assert result == expected
+
+    collector.collect_user_attached_policies.assert_called_once_with()

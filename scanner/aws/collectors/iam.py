@@ -401,6 +401,75 @@ class IAMDataCollector:
             ),
         }
 
+    def collect_user_attached_policies(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect directly attached managed and inline policies
+        for every IAM user.
+
+        The IAM service caches policy-list responses per user,
+        allowing IAM-012, IAM-014, IAM-016, and IAM-022 to reuse
+        the same underlying AWS API results.
+
+        This collector only gathers attachment state. It does not
+        evaluate whether the attached policies are overly broad.
+        """
+        users = self._get_users()
+
+        results: list[dict[str, Any]] = []
+
+        for user in users:
+            username = user.get(
+                "UserName"
+            )
+
+            if not username:
+                continue
+
+            managed_policies = (
+                self.service.list_attached_user_policies(
+                    username
+                )
+            )
+
+            inline_policy_names = (
+                self.service.list_user_policies(
+                    username
+                )
+            )
+
+            managed_policy_names = [
+                policy.get(
+                    "PolicyName",
+                    "",
+                )
+                for policy in managed_policies
+                if policy.get(
+                    "PolicyName"
+                )
+            ]
+
+            results.append(
+                {
+                    "username": username,
+                    "managed_policy_count": len(
+                        managed_policy_names
+                    ),
+                    "managed_policy_names": (
+                        managed_policy_names
+                    ),
+                    "inline_policy_count": len(
+                        inline_policy_names
+                    ),
+                    "inline_policy_names": (
+                        inline_policy_names
+                    ),
+                }
+            )
+
+        return results
+
     def collect_iam_users(self) -> list[dict[str, Any]]:
         users = self._get_users()
 

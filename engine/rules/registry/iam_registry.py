@@ -33,6 +33,10 @@ from engine.rules.aws.iam.root_access_key import (
     build_root_access_key_finding,
     check_root_access_key,
 )
+from engine.rules.aws.iam.user_attached_policy import (
+    build_user_attached_policy_finding,
+    check_user_attached_policy,
+)
 from engine.rules.aws.iam.user_mfa import (
     build_user_mfa_finding,
     check_user_mfa,
@@ -110,6 +114,21 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_root_access_key,
             build_finding=build_root_access_key_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-022",
+            name="user_attached_policy",
+            data_source="user_attached_policies",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "managed_policy_count",
+                "managed_policy_names",
+                "inline_policy_count",
+                "inline_policy_names",
+            ],
+            check=check_user_attached_policy,
+            build_finding=build_user_attached_policy_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-002",

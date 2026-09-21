@@ -39,6 +39,12 @@ def test_iam_registry_contains_root_access_key_rule():
     assert "CS-AWS-IAM-021" in rule_ids
 
 
+def test_iam_registry_contains_user_attached_policy_rule():
+    rule_ids = [rule.rule_id for rule in IAM_RULES]
+
+    assert "CS-AWS-IAM-022" in rule_ids
+
+
 def test_iam_registry_has_required_fields():
     for rule in IAM_RULES:
         assert isinstance(rule, RuleDefinition)
@@ -62,6 +68,7 @@ def test_iam_rules_have_valid_data_sources():
     allowed_data_sources = {
         "root_mfa",
         "root_access_key",
+        "user_attached_policies",
         "iam_users",
         "iam_access_keys",
         "password_policy",

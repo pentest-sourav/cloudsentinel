@@ -1312,3 +1312,76 @@ def test_get_root_access_keys_present_returns_false_when_no_root_access_key_exis
     assert result is False
 
     iam_client.get_account_summary.assert_called_once_with()
+
+
+def test_list_attached_user_policies_reuses_cached_result():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.return_value = [
+        {
+            "AttachedPolicies": [
+                {
+                    "PolicyName": "ReadOnlyAccess",
+                    "PolicyArn": (
+                        "arn:aws:iam::aws:policy/ReadOnlyAccess"
+                    ),
+                }
+            ]
+        }
+    ]
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    first = service.list_attached_user_policies("alice")
+    second = service.list_attached_user_policies("alice")
+
+    assert first == second
+    assert first[0]["PolicyName"] == "ReadOnlyAccess"
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_attached_user_policies"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        UserName="alice"
+    )
+
+
+def test_list_user_policies_reuses_cached_result():
+    session = Mock()
+    iam_client = Mock()
+    paginator = Mock()
+
+    paginator.paginate.return_value = [
+        {
+            "PolicyNames": [
+                "DeveloperInline",
+            ]
+        }
+    ]
+
+    iam_client.get_paginator.return_value = paginator
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    first = service.list_user_policies("alice")
+    second = service.list_user_policies("alice")
+
+    assert first == second
+    assert first == [
+        "DeveloperInline",
+    ]
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_user_policies"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        UserName="alice"
+    )
