@@ -39,6 +39,7 @@ def test_iam_rules_have_valid_data_sources():
         "broad_group_policies",
         "broad_user_inline_policies",
         "broad_group_inline_policies",
+        "broad_action_restricted_resources",
     }
 
     for rule in IAM_RULES:

@@ -12,12 +12,19 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     "iam_access_keys": IAMDataCollector.collect_iam_access_keys,
     "password_policy": IAMDataCollector.collect_password_policy,
     "credential_report": IAMDataCollector.collect_credential_report,
-    "broad_user_policies": IAMDataCollector.collect_broad_user_policies,
-    "broad_group_policies": IAMDataCollector.collect_broad_group_policies,
+    "broad_user_policies": (
+        IAMDataCollector.collect_broad_user_policies
+    ),
+    "broad_group_policies": (
+        IAMDataCollector.collect_broad_group_policies
+    ),
     "broad_user_inline_policies": (
         IAMDataCollector.collect_broad_user_inline_policies
     ),
     "broad_group_inline_policies": (
         IAMDataCollector.collect_broad_group_inline_policies
+    ),
+    "broad_action_restricted_resources": (
+        IAMDataCollector.collect_broad_action_restricted_resources
     ),
 }

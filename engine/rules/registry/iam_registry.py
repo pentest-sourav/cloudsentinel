@@ -61,6 +61,10 @@ from engine.rules.aws.iam.broad_group_inline_policy import (
     check_broad_group_inline_policy,
     build_broad_group_inline_policy_finding,
 )
+from engine.rules.aws.iam.broad_action_restricted_resource import (
+    check_broad_action_restricted_resource,
+    build_broad_action_restricted_resource_finding,
+)
 
 
 IAM_RULES = RuleRegistry(
@@ -267,6 +271,30 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_broad_group_inline_policy,
             build_finding=build_broad_group_inline_policy_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-016",
+            name="broad_action_restricted_resource",
+            data_source="broad_action_restricted_resources",
+            collection_mode="multiple",
+            check_arguments=[
+                "permission_source",
+                "resource_id",
+                "principal_type",
+                "principal_id",
+                "username",
+                "group_name",
+                "policy_name",
+                "policy_arn",
+                "policy_version_id",
+                "statement_index",
+                "effect",
+                "action",
+                "resource",
+                "condition",
+            ],
+            check=check_broad_action_restricted_resource,
+            build_finding=build_broad_action_restricted_resource_finding,
         ),
     ]
 )

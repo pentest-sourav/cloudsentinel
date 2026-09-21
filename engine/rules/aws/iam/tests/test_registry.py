@@ -25,6 +25,7 @@ def test_iam_registry_password_policy_symbols_rule_has_check_and_finding_builder
     assert callable(rule.check)
     assert callable(rule.build_finding)
 
+
 def test_iam_registry_contains_password_policy_numbers_rule():
     rule = IAM_RULES.get_rule("CS-AWS-IAM-007")
 
@@ -48,6 +49,7 @@ def test_iam_registry_password_policy_numbers_rule_has_check_and_finding_builder
 
     assert callable(rule.check)
     assert callable(rule.build_finding)
+
 
 def test_iam_registry_contains_password_policy_uppercase_rule():
     rule = IAM_RULES.get_rule("CS-AWS-IAM-008")
@@ -98,6 +100,7 @@ def test_iam_registry_password_policy_lowercase_rule_has_check_and_finding_build
     assert callable(rule.check)
     assert callable(rule.build_finding)
 
+
 def test_iam_registry_contains_password_reuse_rule():
     rule = IAM_RULES.get_rule("CS-AWS-IAM-010")
 
@@ -122,6 +125,7 @@ def test_iam_registry_password_reuse_rule_has_check_and_finding_builder():
     assert callable(rule.check)
     assert callable(rule.build_finding)
 
+
 def test_iam_registry_contains_unused_console_password_rule():
     rule = IAM_RULES.get_rule("CS-AWS-IAM-011")
 
@@ -145,6 +149,44 @@ def test_iam_registry_unused_console_password_rule_has_expected_arguments():
 
 def test_iam_registry_unused_console_password_rule_has_check_and_finding_builder():
     rule = IAM_RULES.get_rule("CS-AWS-IAM-011")
+
+    assert callable(rule.check)
+    assert callable(rule.build_finding)
+
+
+def test_iam_registry_contains_broad_action_restricted_resource_rule():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-016")
+
+    assert rule is not None
+    assert rule.rule_id == "CS-AWS-IAM-016"
+    assert rule.name == "broad_action_restricted_resource"
+    assert rule.data_source == "broad_action_restricted_resources"
+    assert rule.collection_mode == "multiple"
+
+
+def test_iam_registry_broad_action_restricted_resource_rule_has_expected_arguments():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-016")
+
+    assert rule.check_arguments == [
+        "permission_source",
+        "resource_id",
+        "principal_type",
+        "principal_id",
+        "username",
+        "group_name",
+        "policy_name",
+        "policy_arn",
+        "policy_version_id",
+        "statement_index",
+        "effect",
+        "action",
+        "resource",
+        "condition",
+    ]
+
+
+def test_iam_registry_broad_action_restricted_resource_rule_has_check_and_finding_builder():
+    rule = IAM_RULES.get_rule("CS-AWS-IAM-016")
 
     assert callable(rule.check)
     assert callable(rule.build_finding)

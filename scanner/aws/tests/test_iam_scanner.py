@@ -843,3 +843,408 @@ def test_iam_scanner_detects_broad_inline_policy_on_orphan_group():
     service.list_groups_for_user.assert_called_once_with(
         "alice"
     )
+
+def test_iam_scanner_detects_broad_action_on_scoped_user_managed_policy():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "ScopedAdmin",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "ScopedAdmin"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "ScopedAdmin",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "ScopedAdmin"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+            "IsDefaultVersion": True,
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "arn:aws:s3:::sensitive-bucket/*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_016_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-016"
+    ]
+
+    assert len(iam_016_findings) == 1
+
+    finding = iam_016_findings[0]
+
+    assert finding.title == (
+        "IAM Policy Grants Broad Actions on Scoped Resources"
+    )
+    assert finding.resource_id == "alice"
+    assert finding.severity.value == "medium"
+    assert finding.evidence["permission_source"] == (
+        "user_managed_policy"
+    )
+    assert finding.evidence["principal_type"] == "user"
+    assert finding.evidence["principal_id"] == "alice"
+    assert finding.evidence["policy_name"] == "ScopedAdmin"
+    assert finding.evidence["policy_version_id"] == "v1"
+    assert finding.evidence["effect"] == "Allow"
+    assert finding.evidence["action"] == "*"
+    assert finding.evidence["resource"] == (
+        "arn:aws:s3:::sensitive-bucket/*"
+    )
+    assert finding.evidence["broad_action"] is True
+    assert finding.evidence["scoped_resource"] is True
+
+    service.list_attached_user_policies.assert_called_once_with(
+        "alice"
+    )
+    service.get_policy.assert_called_once_with(
+        "arn:aws:iam::123456789012:policy/"
+        "ScopedAdmin"
+    )
+    service.get_policy_version.assert_called_once_with(
+        "arn:aws:iam::123456789012:policy/"
+        "ScopedAdmin",
+        "v1",
+    )
+
+
+def test_iam_scanner_detects_broad_action_on_scoped_group_managed_policy():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups_for_user.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
+    ]
+
+    service.list_attached_group_policies.return_value = [
+        {
+            "PolicyName": "ScopedGroupAdmin",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "ScopedGroupAdmin"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "ScopedGroupAdmin",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "ScopedGroupAdmin"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+            "IsDefaultVersion": True,
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": ["*"],
+                "Resource": [
+                    "arn:aws:s3:::sensitive-bucket/*",
+                ],
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_016_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-016"
+    ]
+
+    assert len(iam_016_findings) == 1
+
+    finding = iam_016_findings[0]
+
+    assert finding.resource_id == "Developers"
+    assert finding.evidence["permission_source"] == (
+        "group_managed_policy"
+    )
+    assert finding.evidence["principal_type"] == "group"
+    assert finding.evidence["principal_id"] == "Developers"
+    assert finding.evidence["username"] == "alice"
+    assert finding.evidence["group_name"] == "Developers"
+    assert finding.evidence["action"] == ["*"]
+    assert finding.evidence["resource"] == [
+        "arn:aws:s3:::sensitive-bucket/*",
+    ]
+
+
+def test_iam_scanner_detects_broad_action_on_scoped_user_inline_policy():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_user_policies.return_value = [
+        "ScopedInlinePolicy",
+    ]
+
+    service.get_user_policy.return_value = {
+        "policy_name": "ScopedInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": (
+                    "arn:aws:dynamodb:eu-north-1:"
+                    "123456789012:table/Users"
+                ),
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_016_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-016"
+    ]
+
+    assert len(iam_016_findings) == 1
+
+    finding = iam_016_findings[0]
+
+    assert finding.resource_id == "alice"
+    assert finding.evidence["permission_source"] == (
+        "user_inline_policy"
+    )
+    assert finding.evidence["principal_type"] == "user"
+    assert finding.evidence["principal_id"] == "alice"
+    assert finding.evidence["policy_name"] == "ScopedInlinePolicy"
+    assert finding.evidence["statement_index"] == 0
+    assert finding.evidence["action"] == "*"
+    assert finding.evidence["resource"] == (
+        "arn:aws:dynamodb:eu-north-1:"
+        "123456789012:table/Users"
+    )
+
+
+def test_iam_scanner_detects_broad_action_on_scoped_group_inline_policy():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_groups.return_value = [
+        {
+            "GroupName": "Developers",
+            "GroupId": "AGPAEXAMPLE",
+        }
+    ]
+
+    service.list_group_policies.return_value = [
+        "ScopedGroupInlinePolicy",
+    ]
+
+    service.get_group_policy.return_value = {
+        "policy_name": "ScopedGroupInlinePolicy",
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": (
+                    "arn:aws:s3:::sensitive-bucket/*"
+                ),
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_016_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-016"
+    ]
+
+    assert len(iam_016_findings) == 1
+
+    finding = iam_016_findings[0]
+
+    assert finding.resource_type == "iam_identity"
+    assert finding.resource_id == "Developers"
+    assert finding.severity.value == "medium"
+    assert finding.evidence["permission_source"] == (
+        "group_inline_policy"
+    )
+    assert finding.evidence["principal_type"] == "group"
+    assert finding.evidence["principal_id"] == "Developers"
+    assert finding.evidence["group_name"] == "Developers"
+    assert finding.evidence["policy_name"] == (
+        "ScopedGroupInlinePolicy"
+    )
+    assert finding.evidence["statement_index"] == 0
+    assert finding.evidence["broad_action"] is True
+    assert finding.evidence["scoped_resource"] is True
+
+
+def test_iam_scanner_does_not_duplicate_iam_012_to_015_for_full_wildcards():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "FullAdmin",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "FullAdmin"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "FullAdmin",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "FullAdmin"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+            "IsDefaultVersion": True,
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_016_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-016"
+    ]
+
+    iam_012_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-012"
+    ]
+
+    assert iam_016_findings == []
+    assert len(iam_012_findings) == 1
+
+
+def test_iam_scanner_does_not_report_broad_action_for_deny_statement():
+    service = Mock()
+
+    _configure_common_iam_service(
+        service,
+        "alice",
+    )
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "DeniedScopedAccess",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "DeniedScopedAccess"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "DeniedScopedAccess",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "DeniedScopedAccess"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {
+            "VersionId": "v1",
+            "IsDefaultVersion": True,
+        },
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Deny",
+                "Action": "*",
+                "Resource": "arn:aws:s3:::sensitive-bucket/*",
+            },
+        },
+    }
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam_016_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-016"
+    ]
+
+    assert iam_016_findings == []

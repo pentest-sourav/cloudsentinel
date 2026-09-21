@@ -54,6 +54,10 @@ class IAMDataCollector:
             dict[str, Any]
         ] | None = None
 
+        self._broad_action_restricted_resources_cache: list[
+            dict[str, Any]
+        ] | None = None
+
     def _get_users(self) -> list[dict[str, Any]]:
         """
         Return IAM users using a per-scan cache.
@@ -762,3 +766,255 @@ class IAMDataCollector:
             )
 
         return self._group_inline_policies_cache
+
+    def _normalize_broad_action_restricted_resource(
+        self,
+        *,
+        permission_source: str,
+        principal_type: str,
+        principal_id: str,
+        username: str | None,
+        group_name: str | None,
+        policy_name: str,
+        policy_arn: str | None,
+        policy_version_id: str | None,
+        statement_index: int | None,
+        effect: Any,
+        action: Any,
+        resource: Any,
+        condition: Any,
+    ) -> dict[str, Any]:
+        """
+        Normalize a permission statement into the common IAM-016
+        schema.
+
+        The normalized record intentionally contains only collection
+        data. Detection logic remains in the IAM-016 rule layer.
+        """
+        return {
+            "permission_source": permission_source,
+            "resource_id": principal_id,
+            "principal_type": principal_type,
+            "principal_id": principal_id,
+            "username": username,
+            "group_name": group_name,
+            "policy_name": policy_name,
+            "policy_arn": policy_arn,
+            "policy_version_id": policy_version_id,
+            "statement_index": statement_index,
+            "effect": effect,
+            "action": action,
+            "resource": resource,
+            "condition": condition,
+        }
+
+    def collect_broad_action_restricted_resources(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM permission statements from all four permission
+        sources required by CS-AWS-IAM-016.
+
+        Sources:
+
+        1. Directly attached managed policies on IAM users.
+        2. Managed policies attached to IAM groups assigned to users.
+        3. Inline policies directly attached to IAM users.
+        4. Inline policies directly attached to IAM groups.
+
+        Every source is normalized into one common schema so the
+        IAM-016 rule can evaluate all permission sources through one
+        RuleDefinition.
+
+        Existing collector methods and their caches are reused to
+        avoid unnecessary duplicate AWS API calls during a scan.
+
+        The collector does not decide whether a permission is broad.
+        It only gathers and normalizes the permission statements.
+        """
+        if self._broad_action_restricted_resources_cache is None:
+            collected_resources: list[dict[str, Any]] = []
+
+            user_managed_policies = (
+                self.collect_broad_user_policies()
+            )
+
+            for statement in user_managed_policies:
+                username = statement.get(
+                    "username"
+                )
+
+                if not username:
+                    continue
+
+                collected_resources.append(
+                    self._normalize_broad_action_restricted_resource(
+                        permission_source="user_managed_policy",
+                        principal_type="user",
+                        principal_id=username,
+                        username=username,
+                        group_name=None,
+                        policy_name=statement.get(
+                            "policy_name",
+                            "",
+                        ),
+                        policy_arn=statement.get(
+                            "policy_arn"
+                        ),
+                        policy_version_id=statement.get(
+                            "policy_version_id"
+                        ),
+                        statement_index=None,
+                        effect=statement.get(
+                            "effect"
+                        ),
+                        action=statement.get(
+                            "action"
+                        ),
+                        resource=statement.get(
+                            "resource"
+                        ),
+                        condition=statement.get(
+                            "condition"
+                        ),
+                    )
+                )
+
+            group_managed_policies = (
+                self.collect_broad_group_policies()
+            )
+
+            for statement in group_managed_policies:
+                group_name = statement.get(
+                    "group_name"
+                )
+
+                if not group_name:
+                    continue
+
+                collected_resources.append(
+                    self._normalize_broad_action_restricted_resource(
+                        permission_source="group_managed_policy",
+                        principal_type="group",
+                        principal_id=group_name,
+                        username=statement.get(
+                            "username"
+                        ),
+                        group_name=group_name,
+                        policy_name=statement.get(
+                            "policy_name",
+                            "",
+                        ),
+                        policy_arn=statement.get(
+                            "policy_arn"
+                        ),
+                        policy_version_id=statement.get(
+                            "policy_version_id"
+                        ),
+                        statement_index=None,
+                        effect=statement.get(
+                            "effect"
+                        ),
+                        action=statement.get(
+                            "action"
+                        ),
+                        resource=statement.get(
+                            "resource"
+                        ),
+                        condition=statement.get(
+                            "condition"
+                        ),
+                    )
+                )
+
+            user_inline_policies = (
+                self.collect_broad_user_inline_policies()
+            )
+
+            for statement in user_inline_policies:
+                username = statement.get(
+                    "username"
+                )
+
+                if not username:
+                    continue
+
+                collected_resources.append(
+                    self._normalize_broad_action_restricted_resource(
+                        permission_source="user_inline_policy",
+                        principal_type="user",
+                        principal_id=username,
+                        username=username,
+                        group_name=None,
+                        policy_name=statement.get(
+                            "policy_name",
+                            "",
+                        ),
+                        policy_arn=None,
+                        policy_version_id=None,
+                        statement_index=statement.get(
+                            "statement_index"
+                        ),
+                        effect=statement.get(
+                            "effect"
+                        ),
+                        action=statement.get(
+                            "action"
+                        ),
+                        resource=statement.get(
+                            "resource"
+                        ),
+                        condition=statement.get(
+                            "condition"
+                        ),
+                    )
+                )
+
+            group_inline_policies = (
+                self.collect_broad_group_inline_policies()
+            )
+
+            for statement in group_inline_policies:
+                group_name = statement.get(
+                    "group_name"
+                )
+
+                if not group_name:
+                    continue
+
+                collected_resources.append(
+                    self._normalize_broad_action_restricted_resource(
+                        permission_source="group_inline_policy",
+                        principal_type="group",
+                        principal_id=group_name,
+                        username=None,
+                        group_name=group_name,
+                        policy_name=statement.get(
+                            "policy_name",
+                            "",
+                        ),
+                        policy_arn=None,
+                        policy_version_id=None,
+                        statement_index=statement.get(
+                            "statement_index"
+                        ),
+                        effect=statement.get(
+                            "effect"
+                        ),
+                        action=statement.get(
+                            "action"
+                        ),
+                        resource=statement.get(
+                            "resource"
+                        ),
+                        condition=statement.get(
+                            "condition"
+                        ),
+                    )
+                )
+
+            self._broad_action_restricted_resources_cache = (
+                collected_resources
+            )
+
+        return self._broad_action_restricted_resources_cache
