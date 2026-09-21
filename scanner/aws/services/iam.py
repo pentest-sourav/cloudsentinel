@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Any
 from urllib.parse import unquote
 
@@ -138,6 +139,43 @@ class IAMService:
             raise RuntimeError(
                 f"AWS SDK error while listing access keys "
                 f"for user '{username}': {exc}"
+            ) from exc
+
+    def get_access_key_last_used(
+        self,
+        access_key_id: str,
+    ) -> datetime | None:
+        try:
+            response = self.iam_client.get_access_key_last_used(
+                AccessKeyId=access_key_id,
+            )
+
+            last_used = response.get(
+                "AccessKeyLastUsed",
+                {},
+            )
+
+            return last_used.get(
+                "LastUsedDate",
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM access key last-used lookup failed for "
+                f"'{access_key_id}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while checking last-used status "
+                f"for access key '{access_key_id}': {exc}"
             ) from exc
 
     def get_account_password_policy(self) -> dict[str, Any]:

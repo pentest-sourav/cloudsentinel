@@ -5,6 +5,10 @@ from engine.rules.aws.iam.access_key_age import (
     build_access_key_age_finding,
     check_access_key_age,
 )
+from engine.rules.aws.iam.access_key_never_used import (
+    build_access_key_never_used_finding,
+    check_access_key_never_used,
+)
 from engine.rules.aws.iam.inactive_access_key import (
     build_inactive_access_key_finding,
     check_inactive_access_key,
@@ -330,6 +334,20 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_multiple_authentication_methods,
             build_finding=build_multiple_authentication_methods_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-019",
+            name="access_key_never_used",
+            data_source="access_key_last_used",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "access_key_id",
+                "status",
+                "last_used_at",
+            ],
+            check=check_access_key_never_used,
+            build_finding=build_access_key_never_used_finding,
         ),
     ]
 )

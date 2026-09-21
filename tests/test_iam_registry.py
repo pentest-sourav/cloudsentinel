@@ -21,6 +21,12 @@ def test_iam_registry_contains_multiple_authentication_methods_rule():
     assert "CS-AWS-IAM-018" in rule_ids
 
 
+def test_iam_registry_contains_access_key_never_used_rule():
+    rule_ids = [rule.rule_id for rule in IAM_RULES]
+
+    assert "CS-AWS-IAM-019" in rule_ids
+
+
 def test_iam_registry_has_required_fields():
     for rule in IAM_RULES:
         assert isinstance(rule, RuleDefinition)
@@ -54,6 +60,7 @@ def test_iam_rules_have_valid_data_sources():
         "broad_action_restricted_resources",
         "multiple_active_access_keys",
         "multiple_authentication_methods",
+        "access_key_last_used",
     }
 
     for rule in IAM_RULES:

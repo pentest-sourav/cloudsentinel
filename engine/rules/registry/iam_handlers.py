@@ -94,6 +94,19 @@ def collect_multiple_authentication_methods(
     return results
 
 
+def collect_access_key_last_used(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect last-used timestamps for active IAM access keys.
+
+    IAMDataCollector caches the AWS GetAccessKeyLastUsed response
+    per access key, so repeated rule execution does not introduce
+    duplicate AWS API calls during the same scan.
+    """
+    return collector.collect_access_key_last_used()
+
+
 IAM_DATA_SOURCE_HANDLERS: dict[
     str,
     Callable[[IAMDataCollector], Any],
@@ -123,5 +136,8 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "multiple_authentication_methods": (
         collect_multiple_authentication_methods
+    ),
+    "access_key_last_used": (
+        collect_access_key_last_used
     ),
 }

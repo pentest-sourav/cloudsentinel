@@ -13,9 +13,9 @@ class IAMDataCollector:
     The collector caches IAM users, access-key data, password
     policy data, credential-report data, attached-user-policy
     data, user-group membership data, attached-group-policy
-    data, inline-user-policy data, and inline-group-policy data
-    so multiple IAM rules can reuse the same AWS API responses
-    during a single scan.
+    data, inline-user-policy data, inline-group-policy data,
+    and access-key last-used data so multiple IAM rules can reuse
+    the same AWS API responses during a single scan.
     """
 
     def __init__(self, service: IAMService):
@@ -23,6 +23,10 @@ class IAMDataCollector:
 
         self._users_cache: list[dict[str, Any]] | None = None
         self._access_keys_cache: list[dict[str, Any]] | None = None
+        self._access_key_last_used_cache: dict[
+            str,
+            datetime | None,
+        ] = {}
         self._password_policy_cache: dict[str, Any] | None = None
         self._credential_report_cache: list[dict[str, Any]] | None = None
 
@@ -406,6 +410,46 @@ class IAMDataCollector:
 
     def collect_iam_access_keys(self) -> list[dict[str, Any]]:
         return self._get_access_keys()
+
+    def collect_access_key_last_used(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect last-used metadata for active IAM access keys.
+
+        Existing access-key metadata is reused from the per-scan cache.
+        The AWS GetAccessKeyLastUsed API is called only for active
+        access keys, and the result is cached by access-key ID.
+        """
+        collected: list[dict[str, Any]] = []
+
+        for access_key in self._get_access_keys():
+            if access_key["status"] != "Active":
+                continue
+
+            access_key_id = access_key["access_key_id"]
+
+            if access_key_id not in self._access_key_last_used_cache:
+                self._access_key_last_used_cache[access_key_id] = (
+                    self.service.get_access_key_last_used(
+                        access_key_id
+                    )
+                )
+
+            collected.append(
+                {
+                    "username": access_key["username"],
+                    "access_key_id": access_key_id,
+                    "status": access_key["status"],
+                    "last_used_at": (
+                        self._access_key_last_used_cache[
+                            access_key_id
+                        ]
+                    ),
+                }
+            )
+
+        return collected
 
     def collect_password_policy(self) -> dict[str, Any]:
         """
