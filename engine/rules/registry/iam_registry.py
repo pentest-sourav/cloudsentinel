@@ -13,6 +13,10 @@ from engine.rules.aws.iam.multiple_active_access_keys import (
     build_multiple_active_access_keys_finding,
     check_multiple_active_access_keys,
 )
+from engine.rules.aws.iam.multiple_authentication_methods import (
+    build_multiple_authentication_methods_finding,
+    check_multiple_authentication_methods,
+)
 from engine.rules.aws.iam.root_mfa import (
     build_root_mfa_finding,
     check_root_mfa,
@@ -312,6 +316,20 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_multiple_active_access_keys,
             build_finding=build_multiple_active_access_keys_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-018",
+            name="multiple_authentication_methods",
+            data_source="multiple_authentication_methods",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "password_enabled",
+                "active_access_key_count",
+                "active_access_key_ids",
+            ],
+            check=check_multiple_authentication_methods,
+            build_finding=build_multiple_authentication_methods_finding,
         ),
     ]
 )

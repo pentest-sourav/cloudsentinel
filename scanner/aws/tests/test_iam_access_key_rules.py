@@ -255,3 +255,198 @@ def test_iam_scanner_does_not_detect_single_active_access_key():
     ]
 
     assert iam017_findings == []
+
+
+def test_iam_scanner_detects_multiple_authentication_methods():
+    service = Mock()
+
+    service.get_root_mfa_status.return_value = True
+
+    service.list_users.return_value = [
+        {"UserName": "test-user"},
+    ]
+
+    service.list_mfa_devices.return_value = [
+        {
+            "SerialNumber": (
+                "arn:aws:iam::123456789012:mfa/test-user"
+            )
+        }
+    ]
+
+    service.list_access_keys.return_value = [
+        {
+            "AccessKeyId": "AKIAACTIVE001",
+            "Status": "Active",
+            "CreateDate": datetime(
+                2026,
+                1,
+                1,
+                tzinfo=timezone.utc,
+            ),
+        },
+    ]
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
+
+    service.list_attached_user_policies.return_value = []
+
+    service.get_credential_report.return_value = {
+        "Content": (
+            b"user,password_enabled,password_last_used\n"
+            b"test-user,true,2026-09-01T00:00:00+00:00\n"
+        ),
+        "ReportFormat": "text/csv",
+    }
+
+    _configure_broad_user_inline_policies(service)
+    _configure_broad_group_policies(service)
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam018_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-018"
+    ]
+
+    assert len(iam018_findings) == 1
+
+    finding = iam018_findings[0]
+
+    assert finding.resource_id == "test-user"
+    assert finding.resource_type == "iam_user"
+    assert finding.severity.value == "medium"
+
+    assert finding.evidence == {
+        "username": "test-user",
+        "password_enabled": True,
+        "active_access_key_count": 1,
+        "active_access_key_ids": [
+            "AKIAACTIVE001",
+        ],
+    }
+
+
+def test_iam_scanner_does_not_detect_multiple_authentication_methods_when_password_disabled():
+    service = Mock()
+
+    service.get_root_mfa_status.return_value = True
+
+    service.list_users.return_value = [
+        {"UserName": "test-user"},
+    ]
+
+    service.list_mfa_devices.return_value = [
+        {
+            "SerialNumber": (
+                "arn:aws:iam::123456789012:mfa/test-user"
+            )
+        }
+    ]
+
+    service.list_access_keys.return_value = [
+        {
+            "AccessKeyId": "AKIAACTIVE001",
+            "Status": "Active",
+            "CreateDate": datetime(
+                2026,
+                1,
+                1,
+                tzinfo=timezone.utc,
+            ),
+        },
+    ]
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
+
+    service.list_attached_user_policies.return_value = []
+
+    service.get_credential_report.return_value = {
+        "Content": (
+            b"user,password_enabled,password_last_used\n"
+            b"test-user,false,N/A\n"
+        ),
+        "ReportFormat": "text/csv",
+    }
+
+    _configure_broad_user_inline_policies(service)
+    _configure_broad_group_policies(service)
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam018_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-018"
+    ]
+
+    assert iam018_findings == []
+
+
+def test_iam_scanner_does_not_detect_multiple_authentication_methods_without_active_key():
+    service = Mock()
+
+    service.get_root_mfa_status.return_value = True
+
+    service.list_users.return_value = [
+        {"UserName": "test-user"},
+    ]
+
+    service.list_mfa_devices.return_value = [
+        {
+            "SerialNumber": (
+                "arn:aws:iam::123456789012:mfa/test-user"
+            )
+        }
+    ]
+
+    service.list_access_keys.return_value = [
+        {
+            "AccessKeyId": "AKIAINACTIVE001",
+            "Status": "Inactive",
+            "CreateDate": datetime(
+                2026,
+                1,
+                1,
+                tzinfo=timezone.utc,
+            ),
+        },
+    ]
+
+    service.get_account_password_policy.return_value = {
+        "MinimumPasswordLength": 14,
+    }
+
+    service.list_attached_user_policies.return_value = []
+
+    service.get_credential_report.return_value = {
+        "Content": (
+            b"user,password_enabled,password_last_used\n"
+            b"test-user,true,2026-09-01T00:00:00+00:00\n"
+        ),
+        "ReportFormat": "text/csv",
+    }
+
+    _configure_broad_user_inline_policies(service)
+    _configure_broad_group_policies(service)
+
+    scanner = IAMScanner(service)
+
+    findings = scanner.scan()
+
+    iam018_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-IAM-018"
+    ]
+
+    assert iam018_findings == []

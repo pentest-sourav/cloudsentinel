@@ -41,6 +41,59 @@ def collect_multiple_active_access_keys(
     return list(aggregated.values())
 
 
+def collect_multiple_authentication_methods(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Combine IAM credential-report data with existing access-key data.
+
+    Both data sources are already cached by IAMDataCollector, so
+    IAM-018 does not introduce additional AWS API calls.
+    """
+    credential_report = collector.collect_credential_report()
+    access_keys = collector.collect_iam_access_keys()
+
+    active_keys_by_user: dict[str, list[str]] = {}
+
+    for access_key in access_keys:
+        if access_key["status"] != "Active":
+            continue
+
+        username = access_key["username"]
+
+        active_keys_by_user.setdefault(
+            username,
+            [],
+        ).append(
+            access_key["access_key_id"]
+        )
+
+    results: list[dict[str, Any]] = []
+
+    for user in credential_report:
+        username = user["username"]
+
+        active_access_key_ids = active_keys_by_user.get(
+            username,
+            [],
+        )
+
+        results.append(
+            {
+                "username": username,
+                "password_enabled": user[
+                    "password_enabled"
+                ],
+                "active_access_key_count": len(
+                    active_access_key_ids
+                ),
+                "active_access_key_ids": active_access_key_ids,
+            }
+        )
+
+    return results
+
+
 IAM_DATA_SOURCE_HANDLERS: dict[
     str,
     Callable[[IAMDataCollector], Any],
@@ -67,5 +120,8 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "multiple_active_access_keys": (
         collect_multiple_active_access_keys
+    ),
+    "multiple_authentication_methods": (
+        collect_multiple_authentication_methods
     ),
 }

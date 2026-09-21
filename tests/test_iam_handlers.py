@@ -16,4 +16,5 @@ def test_iam_data_source_handlers_have_required_sources():
         "broad_group_inline_policies",
         "broad_action_restricted_resources",
         "multiple_active_access_keys",
+        "multiple_authentication_methods",
     }
