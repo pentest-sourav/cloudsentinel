@@ -131,6 +131,10 @@ from engine.rules.aws.iam.wildcard_role_trust_principal import (
     check_wildcard_role_trust_principal,
     build_wildcard_role_trust_principal_finding,
 )
+from engine.rules.aws.iam.self_modifiable_policy import (
+    check_self_modifiable_policy,
+    build_self_modifiable_policy_finding,
+)
 
 
 IAM_RULES = RuleRegistry(
@@ -667,6 +671,30 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_wildcard_role_trust_principal,
             build_finding=build_wildcard_role_trust_principal_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-034",
+            name="self_modifiable_policy",
+            data_source="self_modifiable_policies",
+            collection_mode="multiple",
+            check_arguments=[
+                "permission_source",
+                "resource_id",
+                "principal_type",
+                "principal_id",
+                "username",
+                "group_name",
+                "policy_name",
+                "policy_arn",
+                "policy_version_id",
+                "statement_index",
+                "effect",
+                "action",
+                "resource",
+                "condition",
+            ],
+            check=check_self_modifiable_policy,
+            build_finding=build_self_modifiable_policy_finding,
         ),
     ]
 )

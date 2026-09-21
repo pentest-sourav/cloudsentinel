@@ -157,6 +157,27 @@ def collect_wildcard_role_trust_principals(
     return collector.collect_wildcard_role_trust_principals()
 
 
+def collect_self_modifiable_policies(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Derive IAM-034 from the existing broad IAM policy dataset.
+
+    No additional AWS API calls are performed. The collector already
+    caches and normalizes managed and inline IAM policy statements
+    used by the other policy-analysis rules.
+    """
+    statements = (
+        collector.collect_broad_action_restricted_resources()
+    )
+
+    return [
+        statement
+        for statement in statements
+        if statement.get("policy_arn")
+    ]
+
+
 def collect_stale_iam_users(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -231,6 +252,9 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "wildcard_role_trust_principals": (
         collect_wildcard_role_trust_principals
+    ),
+    "self_modifiable_policies": (
+        collect_self_modifiable_policies
     ),
     "access_key_last_used": (
         collect_access_key_last_used

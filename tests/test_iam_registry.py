@@ -86,7 +86,8 @@ def test_iam_rules_have_valid_data_sources():
         "administrative_group_policies",
         "privileged_users_without_boundary",
         "wildcard_role_trust_principals",
-        }
+        "self_modifiable_policies",
+    }
 
     for rule in IAM_RULES:
         assert rule.data_source in allowed_data_sources
@@ -100,6 +101,12 @@ def test_iam_rules_have_valid_collection_modes():
 
     for rule in IAM_RULES:
         assert rule.collection_mode in allowed_modes
+
+
+def test_iam_registry_contains_iam_034():
+    rule_ids = {rule.rule_id for rule in IAM_RULES}
+
+    assert "CS-AWS-IAM-034" in rule_ids
 
 
 def test_iam_registry_contains_024_to_028():
