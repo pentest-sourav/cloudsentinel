@@ -111,6 +111,26 @@ from engine.rules.aws.iam.passrole_wildcard_resource import (
     check_passrole_wildcard_resource,
     build_passrole_wildcard_resource_finding,
 )
+from engine.rules.aws.iam.service_wildcard_action import (
+    check_service_wildcard_action,
+    build_service_wildcard_action_finding,
+)
+from engine.rules.aws.iam.notaction_wildcard_resource import (
+    check_notaction_wildcard_resource,
+    build_notaction_wildcard_resource_finding,
+)
+from engine.rules.aws.iam.notresource_broad_action import (
+    check_notresource_broad_action,
+    build_notresource_broad_action_finding,
+)
+from engine.rules.aws.iam.privileged_user_without_boundary import (
+    check_privileged_user_without_boundary,
+    build_privileged_user_without_boundary_finding,
+)
+from engine.rules.aws.iam.wildcard_role_trust_principal import (
+    check_wildcard_role_trust_principal,
+    build_wildcard_role_trust_principal_finding,
+)
 
 
 IAM_RULES = RuleRegistry(
@@ -540,6 +560,113 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_passrole_wildcard_resource,
             build_finding=build_passrole_wildcard_resource_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-029",
+            name="service_wildcard_action",
+            data_source="broad_action_restricted_resources",
+            collection_mode="multiple",
+            check_arguments=[
+                "permission_source",
+                "resource_id",
+                "principal_type",
+                "principal_id",
+                "username",
+                "group_name",
+                "policy_name",
+                "policy_arn",
+                "policy_version_id",
+                "statement_index",
+                "effect",
+                "action",
+                "resource",
+                "condition",
+            ],
+            check=check_service_wildcard_action,
+            build_finding=build_service_wildcard_action_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-030",
+            name="notaction_wildcard_resource",
+            data_source="broad_action_restricted_resources",
+            collection_mode="multiple",
+            check_arguments=[
+                "permission_source",
+                "resource_id",
+                "principal_type",
+                "principal_id",
+                "username",
+                "group_name",
+                "policy_name",
+                "policy_arn",
+                "policy_version_id",
+                "statement_index",
+                "effect",
+                "not_action",
+                "resource",
+                "condition",
+            ],
+            check=check_notaction_wildcard_resource,
+            build_finding=build_notaction_wildcard_resource_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-031",
+            name="notresource_broad_action",
+            data_source="broad_action_restricted_resources",
+            collection_mode="multiple",
+            check_arguments=[
+                "permission_source",
+                "resource_id",
+                "principal_type",
+                "principal_id",
+                "username",
+                "group_name",
+                "policy_name",
+                "policy_arn",
+                "policy_version_id",
+                "statement_index",
+                "effect",
+                "action",
+                "not_resource",
+                "condition",
+            ],
+            check=check_notresource_broad_action,
+            build_finding=build_notresource_broad_action_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-032",
+            name="privileged_user_without_boundary",
+            data_source="privileged_users_without_boundary",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "permissions_boundary",
+                "policy_name",
+                "policy_arn",
+                "action",
+                "resource",
+                "permission_source",
+                "condition",
+            ],
+            check=check_privileged_user_without_boundary,
+            build_finding=build_privileged_user_without_boundary_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-033",
+            name="wildcard_role_trust_principal",
+            data_source="wildcard_role_trust_principals",
+            collection_mode="multiple",
+            check_arguments=[
+                "role_name",
+                "role_arn",
+                "statement_index",
+                "effect",
+                "principal",
+                "action",
+                "condition",
+            ],
+            check=check_wildcard_role_trust_principal,
+            build_finding=build_wildcard_role_trust_principal_finding,
         ),
     ]
 )

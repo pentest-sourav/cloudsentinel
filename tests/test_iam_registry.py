@@ -84,6 +84,8 @@ def test_iam_rules_have_valid_data_sources():
         "no_active_authentication_credentials",
         "stale_iam_users",
         "administrative_group_policies",
+        "privileged_users_without_boundary",
+        "wildcard_role_trust_principals",
         }
 
     for rule in IAM_RULES:

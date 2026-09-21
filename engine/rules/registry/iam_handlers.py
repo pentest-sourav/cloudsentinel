@@ -145,6 +145,18 @@ def collect_no_active_authentication_credentials(
     return collector.collect_no_active_authentication_credentials()
 
 
+def collect_privileged_users_without_boundary(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_privileged_users_without_boundary()
+
+
+def collect_wildcard_role_trust_principals(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_wildcard_role_trust_principals()
+
+
 def collect_stale_iam_users(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -213,6 +225,12 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "stale_iam_users": (
         collect_stale_iam_users
+    ),
+    "privileged_users_without_boundary": (
+        collect_privileged_users_without_boundary
+    ),
+    "wildcard_role_trust_principals": (
+        collect_wildcard_role_trust_principals
     ),
     "access_key_last_used": (
         collect_access_key_last_used

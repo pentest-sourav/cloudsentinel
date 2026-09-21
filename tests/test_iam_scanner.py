@@ -78,6 +78,7 @@ def _configure_common_iam_service(service, username):
 
 def test_iam_scanner_returns_root_and_user_mfa_findings():
     service = Mock()
+    service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = False
 
@@ -110,6 +111,7 @@ def test_iam_scanner_returns_root_and_user_mfa_findings():
 
 def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -127,6 +129,7 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
 
 def test_iam_scanner_uses_registry_data_sources():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -168,6 +171,7 @@ def test_iam_scanner_uses_registry_data_sources():
 
 def test_iam_scanner_returns_broad_group_policy_finding():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -265,6 +269,7 @@ def test_iam_scanner_returns_broad_group_policy_finding():
 
 def test_iam_scanner_does_not_report_specific_group_permissions():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -329,6 +334,7 @@ def test_iam_scanner_does_not_report_specific_group_permissions():
 
 def test_iam_scanner_does_not_report_group_deny_statement():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -391,6 +397,7 @@ def test_iam_scanner_does_not_report_group_deny_statement():
 
 def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
     service = Mock()
+    service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
     service.get_root_access_keys_present.return_value = False
@@ -463,6 +470,7 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
 
 def test_iam_scanner_returns_broad_user_inline_policy_finding():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -530,6 +538,7 @@ def test_iam_scanner_returns_broad_user_inline_policy_finding():
 
 def test_iam_scanner_returns_broad_group_inline_policy_finding():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -610,6 +619,7 @@ def test_iam_scanner_returns_broad_group_inline_policy_finding():
 
 def test_iam_scanner_does_not_report_broad_group_inline_policy_for_specific_action():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -665,6 +675,7 @@ def test_iam_scanner_does_not_report_broad_group_inline_policy_for_specific_acti
 
 def test_iam_scanner_does_not_report_broad_group_inline_policy_for_deny_statement():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,
@@ -720,6 +731,7 @@ def test_iam_scanner_does_not_report_broad_group_inline_policy_for_deny_statemen
 
 def test_iam_scanner_detects_broad_inline_policy_on_orphan_group():
     service = Mock()
+    service.list_roles.return_value = []
 
     _configure_common_iam_service(
         service,

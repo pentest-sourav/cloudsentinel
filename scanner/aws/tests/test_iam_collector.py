@@ -269,6 +269,8 @@ def test_collect_broad_user_policies_normalizes_single_statement():
             "action": "*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         }
     ]
 
@@ -536,6 +538,8 @@ def test_collect_broad_user_inline_policies_normalizes_multiple_users_policies_a
         "action": "*",
         "resource": "*",
         "condition": None,
+        "not_action": None,
+        "not_resource": None,
     }
 
     assert result[1] == {
@@ -546,6 +550,8 @@ def test_collect_broad_user_inline_policies_normalizes_multiple_users_policies_a
         "action": "s3:DeleteBucket",
         "resource": "*",
         "condition": None,
+        "not_action": None,
+        "not_resource": None,
     }
 
     assert result[2] == {
@@ -556,6 +562,8 @@ def test_collect_broad_user_inline_policies_normalizes_multiple_users_policies_a
         "action": "logs:*",
         "resource": "*",
         "condition": None,
+        "not_action": None,
+        "not_resource": None,
     }
 
     assert result[3] == {
@@ -566,6 +574,8 @@ def test_collect_broad_user_inline_policies_normalizes_multiple_users_policies_a
         "action": "ec2:Describe*",
         "resource": "*",
         "condition": None,
+        "not_action": None,
+        "not_resource": None,
     }
 
     assert service.list_users.call_count == 1
@@ -635,6 +645,8 @@ def test_collect_broad_user_inline_policies_skips_invalid_statements():
             "action": "*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
         {
             "username": "alice",
@@ -644,6 +656,8 @@ def test_collect_broad_user_inline_policies_skips_invalid_statements():
             "action": "s3:*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
     ]
 
@@ -777,6 +791,8 @@ def test_collect_broad_group_inline_policies_normalizes_multiple_groups_policies
             "action": "*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
         {
             "group_name": "Developers",
@@ -786,6 +802,8 @@ def test_collect_broad_group_inline_policies_normalizes_multiple_groups_policies
             "action": "s3:DeleteBucket",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
         {
             "group_name": "Developers",
@@ -795,6 +813,8 @@ def test_collect_broad_group_inline_policies_normalizes_multiple_groups_policies
             "action": "logs:*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
         {
             "group_name": "Security",
@@ -804,6 +824,8 @@ def test_collect_broad_group_inline_policies_normalizes_multiple_groups_policies
             "action": "ec2:Describe*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
         {
             "group_name": "Security",
@@ -813,6 +835,8 @@ def test_collect_broad_group_inline_policies_normalizes_multiple_groups_policies
             "action": "*",
             "resource": "arn:aws:s3:::example/*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
     ]
 
@@ -888,6 +912,8 @@ def test_collect_broad_group_inline_policies_preserves_statement_indexes_when_in
             "action": "*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
         {
             "group_name": "Developers",
@@ -897,6 +923,8 @@ def test_collect_broad_group_inline_policies_preserves_statement_indexes_when_in
             "action": "s3:*",
             "resource": "*",
             "condition": None,
+            "not_action": None,
+            "not_resource": None,
         },
     ]
 
@@ -948,6 +976,8 @@ def test_collect_broad_group_inline_policies_handles_single_statement_dict():
                     "aws:SecureTransport": "false",
                 }
             },
+            "not_action": None,
+            "not_resource": None,
         }
     ]
 
@@ -1238,3 +1268,226 @@ def test_collect_administrative_group_policies_reuses_group_caches():
 
     assert service.list_groups.call_count == 1
     assert service.list_attached_group_policies.call_count == 1
+
+
+def test_collect_broad_user_policies_preserves_notaction_and_notresource():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "RestrictedPolicy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "RestrictedPolicy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "RestrictedPolicy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "RestrictedPolicy"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {"VersionId": "v1"},
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "NotAction": "iam:*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_policies()
+
+    assert result[0]["action"] is None
+    assert result[0]["not_action"] == "iam:*"
+    assert result[0]["resource"] == "*"
+    assert result[0]["not_resource"] is None
+
+
+def test_collect_broad_user_policies_preserves_notresource():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "ExcludedResourcePolicy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "ExcludedResourcePolicy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "ExcludedResourcePolicy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "ExcludedResourcePolicy"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {"VersionId": "v1"},
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "*",
+                "NotResource": "arn:aws:s3:::safe-bucket/*",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_user_policies()
+
+    assert result[0]["action"] == "*"
+    assert result[0]["resource"] is None
+    assert result[0]["not_action"] is None
+    assert (
+        result[0]["not_resource"]
+        == "arn:aws:s3:::safe-bucket/*"
+    )
+
+
+def test_collect_broad_action_restricted_resources_preserves_not_fields():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_user_policies.return_value = []
+    service.list_groups_for_user.return_value = []
+    service.list_groups.return_value = []
+
+    service.list_groups_for_user.return_value = []
+    service.list_groups.return_value = []
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "RestrictedPolicy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/"
+                "RestrictedPolicy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "RestrictedPolicy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/"
+            "RestrictedPolicy"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {"VersionId": "v1"},
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "NotAction": "iam:*",
+                    "Resource": "*",
+                },
+                {
+                    "Effect": "Allow",
+                    "Action": "*",
+                    "NotResource": "arn:aws:s3:::safe/*",
+                },
+            ],
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_broad_action_restricted_resources()
+
+    assert len(result) == 2
+
+    assert result[0]["not_action"] == "iam:*"
+    assert result[0]["resource"] == "*"
+
+    assert result[1]["action"] == "*"
+    assert (
+        result[1]["not_resource"]
+        == "arn:aws:s3:::safe/*"
+    )
+
+
+def test_collect_broad_action_restricted_resources_uses_shared_cache():
+    service = Mock()
+
+    service.list_users.return_value = [
+        {"UserName": "alice"},
+    ]
+
+    service.list_user_policies.return_value = []
+    service.list_groups_for_user.return_value = []
+    service.list_groups.return_value = []
+
+    service.list_groups_for_user.return_value = []
+    service.list_groups.return_value = []
+
+    service.list_attached_user_policies.return_value = [
+        {
+            "PolicyName": "Policy",
+            "PolicyArn": (
+                "arn:aws:iam::123456789012:policy/Policy"
+            ),
+        }
+    ]
+
+    service.get_policy.return_value = {
+        "PolicyName": "Policy",
+        "Arn": (
+            "arn:aws:iam::123456789012:policy/Policy"
+        ),
+        "DefaultVersionId": "v1",
+    }
+
+    service.get_policy_version.return_value = {
+        "policy_version": {"VersionId": "v1"},
+        "document": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Action": "s3:*",
+                "Resource": "*",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    first = collector.collect_broad_action_restricted_resources()
+    second = collector.collect_broad_action_restricted_resources()
+
+    assert first == second
+
+    assert service.list_users.call_count == 1
+    assert service.list_attached_user_policies.call_count == 1
+    assert service.get_policy.call_count == 1
+    assert service.get_policy_version.call_count == 1

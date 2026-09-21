@@ -26,6 +26,8 @@ def test_iam_data_source_handlers_have_expected_sources():
         "user_attached_policies",
         "stale_iam_users",
         "administrative_group_policies",
+        "privileged_users_without_boundary",
+        "wildcard_role_trust_principals",
     }
 
     assert set(IAM_DATA_SOURCE_HANDLERS) == expected_sources

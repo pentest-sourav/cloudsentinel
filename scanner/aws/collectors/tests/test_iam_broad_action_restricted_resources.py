@@ -181,6 +181,8 @@ def test_user_managed_policy_is_normalized_correctly():
                 "aws:PrincipalTag/Environment": "prod",
             }
         },
+        "not_action": None,
+        "not_resource": None,
     }
 
 

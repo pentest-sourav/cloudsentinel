@@ -796,3 +796,89 @@ class IAMService:
                 f"AWS SDK error while retrieving IAM policy version "
                 f"'{policy_arn}' version '{version_id}': {exc}"
             ) from exc
+
+
+    def list_roles(self) -> list[dict[str, Any]]:
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_roles"
+            )
+
+            roles: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                roles.extend(
+                    page.get(
+                        "Roles",
+                        [],
+                    )
+                )
+
+            return roles
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM role listing failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing IAM roles: "
+                f"{exc}"
+            ) from exc
+
+    def get_role(
+        self,
+        role_name: str,
+    ) -> dict[str, Any]:
+        try:
+            response = self.iam_client.get_role(
+                RoleName=role_name,
+            )
+
+            role = response.get(
+                "Role",
+                {},
+            )
+
+            trust_policy = role.get(
+                "AssumeRolePolicyDocument",
+                {},
+            )
+
+            if isinstance(trust_policy, str):
+                trust_policy = json.loads(
+                    unquote(trust_policy)
+                )
+
+            return {
+                "role": role,
+                "trust_policy": trust_policy,
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM role retrieval failed for "
+                f"'{role_name}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while retrieving IAM role "
+                f"'{role_name}': {exc}"
+            ) from exc

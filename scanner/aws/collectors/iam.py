@@ -62,6 +62,13 @@ class IAMDataCollector:
             dict[str, Any]
         ] | None = None
 
+        self._roles_cache: list[dict[str, Any]] | None = None
+
+        self._role_trust_policy_cache: dict[
+            str,
+            dict[str, Any],
+        ] = {}
+
     def _get_users(self) -> list[dict[str, Any]]:
         """
         Return IAM users using a per-scan cache.
@@ -242,6 +249,12 @@ class IAMDataCollector:
                         "condition": statement.get(
                             "Condition"
                         ),
+                        "not_action": statement.get(
+                            "NotAction"
+                        ),
+                        "not_resource": statement.get(
+                            "NotResource"
+                        ),
                     }
                 )
 
@@ -310,6 +323,12 @@ class IAMDataCollector:
                     "condition": statement.get(
                         "Condition"
                     ),
+                    "not_action": statement.get(
+                        "NotAction"
+                    ),
+                    "not_resource": statement.get(
+                        "NotResource"
+                    ),
                 }
             )
 
@@ -376,6 +395,12 @@ class IAMDataCollector:
                     ),
                     "condition": statement.get(
                         "Condition"
+                    ),
+                    "not_action": statement.get(
+                        "NotAction"
+                    ),
+                    "not_resource": statement.get(
+                        "NotResource"
                     ),
                 }
             )
@@ -1014,6 +1039,12 @@ class IAMDataCollector:
                                 "condition": statement.get(
                                     "Condition"
                                 ),
+                                "not_action": statement.get(
+                                    "NotAction"
+                                ),
+                                "not_resource": statement.get(
+                                    "NotResource"
+                                ),
                             }
                         )
 
@@ -1183,6 +1214,8 @@ class IAMDataCollector:
         action: Any,
         resource: Any,
         condition: Any,
+        not_action: Any,
+        not_resource: Any,
     ) -> dict[str, Any]:
         """
         Normalize a permission statement into the common IAM-016
@@ -1206,6 +1239,8 @@ class IAMDataCollector:
             "action": action,
             "resource": resource,
             "condition": condition,
+            "not_action": not_action,
+            "not_resource": not_resource,
         }
 
     def collect_broad_action_restricted_resources(
@@ -1277,6 +1312,12 @@ class IAMDataCollector:
                         condition=statement.get(
                             "condition"
                         ),
+                        not_action=statement.get(
+                            "not_action"
+                        ),
+                        not_resource=statement.get(
+                            "not_resource"
+                        ),
                     )
                 )
 
@@ -1324,6 +1365,12 @@ class IAMDataCollector:
                         condition=statement.get(
                             "condition"
                         ),
+                        not_action=statement.get(
+                            "not_action"
+                        ),
+                        not_resource=statement.get(
+                            "not_resource"
+                        ),
                     )
                 )
 
@@ -1366,6 +1413,12 @@ class IAMDataCollector:
                         ),
                         condition=statement.get(
                             "condition"
+                        ),
+                        not_action=statement.get(
+                            "not_action"
+                        ),
+                        not_resource=statement.get(
+                            "not_resource"
                         ),
                     )
                 )
@@ -1410,6 +1463,12 @@ class IAMDataCollector:
                         condition=statement.get(
                             "condition"
                         ),
+                        not_action=statement.get(
+                            "not_action"
+                        ),
+                        not_resource=statement.get(
+                            "not_resource"
+                        ),
                     )
                 )
 
@@ -1418,3 +1477,160 @@ class IAMDataCollector:
             )
 
         return self._broad_action_restricted_resources_cache
+
+
+    def collect_privileged_users_without_boundary(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Reuse normalized IAM policy statements and IAM user metadata
+        to identify privileged users without a permissions boundary.
+
+        No additional AWS policy API calls are introduced here.
+        """
+        users = self._get_users()
+
+        boundaries = {
+            user.get("UserName"): (
+                user.get("PermissionsBoundary", {})
+                .get("PermissionsBoundaryArn")
+                if isinstance(
+                    user.get("PermissionsBoundary"),
+                    dict,
+                )
+                else None
+            )
+            for user in users
+            if user.get("UserName")
+        }
+
+        policy_statements = (
+            self.collect_broad_action_restricted_resources()
+        )
+
+        results: list[dict[str, Any]] = []
+
+        for statement in policy_statements:
+            username = statement.get("username")
+
+            if not username:
+                continue
+
+            if boundaries.get(username):
+                continue
+
+            results.append(
+                {
+                    "username": username,
+                    "permissions_boundary": None,
+                    "policy_name": statement.get(
+                        "policy_name",
+                        "",
+                    ),
+                    "policy_arn": statement.get(
+                        "policy_arn"
+                    ),
+                    "action": statement.get(
+                        "action"
+                    ),
+                    "resource": statement.get(
+                        "resource"
+                    ),
+                    "permission_source": statement.get(
+                        "permission_source",
+                        "",
+                    ),
+                    "condition": statement.get(
+                        "condition"
+                    ),
+                }
+            )
+
+        return results
+
+
+    def _get_roles(self) -> list[dict[str, Any]]:
+        if self._roles_cache is None:
+            self._roles_cache = self.service.list_roles()
+
+        return self._roles_cache
+
+
+    def _get_role_trust_policy(
+        self,
+        role_name: str,
+    ) -> dict[str, Any]:
+        if role_name not in self._role_trust_policy_cache:
+            self._role_trust_policy_cache[role_name] = (
+                self.service.get_role(
+                    role_name
+                )
+            )
+
+        return self._role_trust_policy_cache[role_name]
+
+
+    def collect_wildcard_role_trust_principals(
+        self,
+    ) -> list[dict[str, Any]]:
+        roles = self._get_roles()
+
+        results: list[dict[str, Any]] = []
+
+        for role in roles:
+            role_name = role.get("RoleName")
+            role_arn = role.get("Arn")
+
+            if not role_name or not role_arn:
+                continue
+
+            role_data = self._get_role_trust_policy(
+                role_name
+            )
+
+            document = role_data.get(
+                "trust_policy",
+                {},
+            )
+
+            if not isinstance(document, dict):
+                continue
+
+            statements = document.get(
+                "Statement",
+                [],
+            )
+
+            if isinstance(statements, dict):
+                statements = [statements]
+
+            if not isinstance(statements, list):
+                continue
+
+            for statement_index, statement in enumerate(
+                statements
+            ):
+                if not isinstance(statement, dict):
+                    continue
+
+                results.append(
+                    {
+                        "role_name": role_name,
+                        "role_arn": role_arn,
+                        "statement_index": statement_index,
+                        "effect": statement.get(
+                            "Effect"
+                        ),
+                        "principal": statement.get(
+                            "Principal"
+                        ),
+                        "action": statement.get(
+                            "Action"
+                        ),
+                        "condition": statement.get(
+                            "Condition"
+                        ),
+                    }
+                )
+
+        return results
