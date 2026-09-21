@@ -97,7 +97,9 @@ def test_iam_scanner_evaluates_access_key_rules_together():
     assert len(iam003_findings) == 1
     assert len(iam004_findings) == 1
 
-    assert iam003_findings[0].resource_id == "AKIAOLD123"
+    assert iam003_findings[0].resource_type == "aws_iam_user"
+    assert iam003_findings[0].resource_id == "test-user"
+    assert iam003_findings[0].evidence["access_key_id"] == "AKIAOLD123"
     assert iam004_findings[0].resource_id == "AKIAINACTIVE123"
 
     service.list_users.assert_called_once()
