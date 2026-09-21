@@ -1016,3 +1016,35 @@ def test_collect_broad_group_inline_policies_uses_cache():
         "Developers",
         "AdminInline",
     )
+
+
+def test_collect_root_access_key_returns_normalized_state():
+    service = Mock()
+
+    service.get_root_access_keys_present.return_value = True
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_root_access_key()
+
+    assert result == {
+        "access_keys_present": True,
+    }
+
+    service.get_root_access_keys_present.assert_called_once_with()
+
+
+def test_collect_root_access_key_returns_false_when_no_key_exists():
+    service = Mock()
+
+    service.get_root_access_keys_present.return_value = False
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_root_access_key()
+
+    assert result == {
+        "access_keys_present": False,
+    }
+
+    service.get_root_access_keys_present.assert_called_once_with()

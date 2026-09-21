@@ -29,6 +29,10 @@ from engine.rules.aws.iam.root_mfa import (
     build_root_mfa_finding,
     check_root_mfa,
 )
+from engine.rules.aws.iam.root_access_key import (
+    build_root_access_key_finding,
+    check_root_access_key,
+)
 from engine.rules.aws.iam.user_mfa import (
     build_user_mfa_finding,
     check_user_mfa,
@@ -95,6 +99,17 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_root_mfa,
             build_finding=build_root_mfa_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-021",
+            name="root_access_key",
+            data_source="root_access_key",
+            collection_mode="single",
+            check_arguments=[
+                "access_keys_present",
+            ],
+            check=check_root_access_key,
+            build_finding=build_root_access_key_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-002",

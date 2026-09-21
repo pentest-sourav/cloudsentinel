@@ -94,6 +94,18 @@ def collect_multiple_authentication_methods(
     return results
 
 
+def collect_root_access_key(
+    collector: IAMDataCollector,
+) -> dict[str, Any]:
+    """
+    Collect root access-key state for IAM-021.
+
+    IAMDataCollector delegates the account-summary reuse to
+    IAMService, preventing duplicate AWS GetAccountSummary calls.
+    """
+    return collector.collect_root_access_key()
+
+
 def collect_no_active_authentication_credentials(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -125,6 +137,7 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     Callable[[IAMDataCollector], Any],
 ] = {
     "root_mfa": IAMDataCollector.collect_root_mfa,
+    "root_access_key": collect_root_access_key,
     "iam_users": IAMDataCollector.collect_iam_users,
     "iam_access_keys": IAMDataCollector.collect_iam_access_keys,
     "password_policy": IAMDataCollector.collect_password_policy,

@@ -387,6 +387,20 @@ class IAMDataCollector:
             "root_mfa_enabled": self.service.get_root_mfa_status(),
         }
 
+    def collect_root_access_key(self) -> dict[str, Any]:
+        """
+        Collect root-user access-key state for IAM-021.
+
+        The IAM service reuses its cached account summary, so this
+        does not introduce an additional GetAccountSummary call
+        when root MFA is also evaluated during the same scan.
+        """
+        return {
+            "access_keys_present": (
+                self.service.get_root_access_keys_present()
+            ),
+        }
+
     def collect_iam_users(self) -> list[dict[str, Any]]:
         users = self._get_users()
 

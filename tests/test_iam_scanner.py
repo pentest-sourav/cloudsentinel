@@ -45,6 +45,7 @@ def _configure_broad_group_policies(service):
 
 def _configure_common_iam_service(service, username):
     service.get_root_mfa_status.return_value = True
+    service.get_root_access_keys_present.return_value = False
 
     service.list_users.return_value = [
         {"UserName": username},
@@ -390,6 +391,7 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
     service = Mock()
 
     service.get_root_mfa_status.return_value = True
+    service.get_root_access_keys_present.return_value = False
 
     service.list_users.return_value = [
         {"UserName": "alice"},

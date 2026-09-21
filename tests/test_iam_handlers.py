@@ -9,6 +9,7 @@ from engine.rules.registry.iam_handlers import (
 def test_iam_data_source_handlers_have_expected_sources():
     expected_sources = {
         "root_mfa",
+        "root_access_key",
         "iam_users",
         "iam_access_keys",
         "password_policy",
@@ -53,3 +54,19 @@ def test_collect_no_active_authentication_credentials_delegates_to_collector():
     assert result == expected
 
     collector.collect_no_active_authentication_credentials.assert_called_once_with()
+
+
+def test_collect_root_access_key_delegates_to_collector():
+    collector = MagicMock()
+
+    expected = {
+        "access_keys_present": True,
+    }
+
+    collector.collect_root_access_key.return_value = expected
+
+    result = IAM_DATA_SOURCE_HANDLERS["root_access_key"](collector)
+
+    assert result == expected
+
+    collector.collect_root_access_key.assert_called_once_with()

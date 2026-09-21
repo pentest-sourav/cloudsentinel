@@ -1247,3 +1247,68 @@ def test_get_group_policy_wraps_malformed_json_error():
             "Developers",
             "BrokenPolicy",
         )
+
+
+def test_get_root_mfa_status_and_root_access_keys_share_account_summary_call():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_account_summary.return_value = {
+        "SummaryMap": {
+            "AccountMFAEnabled": 1,
+            "AccountAccessKeysPresent": 0,
+        }
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    assert service.get_root_mfa_status() is True
+    assert service.get_root_access_keys_present() is False
+
+    iam_client.get_account_summary.assert_called_once_with()
+
+
+def test_get_root_access_keys_present_returns_true_when_root_access_key_exists():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_account_summary.return_value = {
+        "SummaryMap": {
+            "AccountMFAEnabled": 1,
+            "AccountAccessKeysPresent": 1,
+        }
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.get_root_access_keys_present()
+
+    assert result is True
+
+    iam_client.get_account_summary.assert_called_once_with()
+
+
+def test_get_root_access_keys_present_returns_false_when_no_root_access_key_exists():
+    session = Mock()
+    iam_client = Mock()
+
+    iam_client.get_account_summary.return_value = {
+        "SummaryMap": {
+            "AccountMFAEnabled": 1,
+            "AccountAccessKeysPresent": 0,
+        }
+    }
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.get_root_access_keys_present()
+
+    assert result is False
+
+    iam_client.get_account_summary.assert_called_once_with()

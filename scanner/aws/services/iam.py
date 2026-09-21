@@ -10,15 +10,28 @@ class IAMService:
     def __init__(self, session):
         self.session = session
         self.iam_client = session.client("iam")
+        self._account_summary_cache: dict[str, Any] | None = None
 
     def get_account_summary(self) -> dict[str, Any]:
+        """
+        Return the IAM account summary using a per-service cache.
+
+        Root-level IAM controls such as root MFA and root access-key
+        detection share the same AWS GetAccountSummary response.
+        This prevents duplicate API calls during a scan.
+        """
+        if self._account_summary_cache is not None:
+            return self._account_summary_cache
+
         try:
             response = self.iam_client.get_account_summary()
 
-            return response.get(
+            self._account_summary_cache = response.get(
                 "SummaryMap",
                 {},
             )
+
+            return self._account_summary_cache
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
@@ -46,6 +59,21 @@ class IAMService:
             "AccountMFAEnabled",
             0,
         ) == 1
+
+    def get_root_access_keys_present(self) -> bool:
+        """
+        Return whether the AWS account has root-user access keys.
+
+        AWS exposes this account-level state through GetAccountSummary.
+        The account summary is cached so this check can reuse the same
+        API response as the root MFA check.
+        """
+        summary = self.get_account_summary()
+
+        return summary.get(
+            "AccountAccessKeysPresent",
+            0,
+        ) > 0
 
     def list_users(self) -> list[dict[str, Any]]:
         try:
