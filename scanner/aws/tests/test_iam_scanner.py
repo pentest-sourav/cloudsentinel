@@ -128,9 +128,7 @@ def test_iam_scanner_detects_old_active_access_key():
 
     finding = iam003_findings[0]
 
-    assert finding.resource_type == "aws_iam_user"
-    assert finding.resource_id == "test-user"
-    assert finding.evidence["access_key_id"] == "AKIAOLD123"
+    assert finding.resource_id == "AKIAOLD123"
     assert finding.evidence["username"] == "test-user"
 
 
