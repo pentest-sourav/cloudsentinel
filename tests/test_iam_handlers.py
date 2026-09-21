@@ -1,4 +1,6 @@
-from engine.rules.registry.iam_handlers import IAM_DATA_SOURCE_HANDLERS
+from engine.rules.registry.iam_handlers import (
+    IAM_DATA_SOURCE_HANDLERS,
+)
 
 
 def test_iam_data_source_handlers_have_required_sources():
@@ -13,4 +15,5 @@ def test_iam_data_source_handlers_have_required_sources():
         "broad_user_inline_policies",
         "broad_group_inline_policies",
         "broad_action_restricted_resources",
+        "multiple_active_access_keys",
     }

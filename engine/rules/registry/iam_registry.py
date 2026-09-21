@@ -9,6 +9,10 @@ from engine.rules.aws.iam.inactive_access_key import (
     build_inactive_access_key_finding,
     check_inactive_access_key,
 )
+from engine.rules.aws.iam.multiple_active_access_keys import (
+    build_multiple_active_access_keys_finding,
+    check_multiple_active_access_keys,
+)
 from engine.rules.aws.iam.root_mfa import (
     build_root_mfa_finding,
     check_root_mfa,
@@ -295,6 +299,19 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_broad_action_restricted_resource,
             build_finding=build_broad_action_restricted_resource_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-017",
+            name="multiple_active_access_keys",
+            data_source="multiple_active_access_keys",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "active_access_key_count",
+                "active_access_key_ids",
+            ],
+            check=check_multiple_active_access_keys,
+            build_finding=build_multiple_active_access_keys_finding,
         ),
     ]
 )

@@ -9,6 +9,12 @@ def test_iam_registry_contains_root_mfa_rule():
     assert "CS-AWS-IAM-002" in rule_ids
 
 
+def test_iam_registry_contains_multiple_active_access_keys_rule():
+    rule_ids = [rule.rule_id for rule in IAM_RULES]
+
+    assert "CS-AWS-IAM-017" in rule_ids
+
+
 def test_iam_registry_has_required_fields():
     for rule in IAM_RULES:
         assert isinstance(rule, RuleDefinition)
@@ -40,6 +46,7 @@ def test_iam_rules_have_valid_data_sources():
         "broad_user_inline_policies",
         "broad_group_inline_policies",
         "broad_action_restricted_resources",
+        "multiple_active_access_keys",
     }
 
     for rule in IAM_RULES:
