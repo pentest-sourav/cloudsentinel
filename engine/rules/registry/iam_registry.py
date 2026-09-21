@@ -135,6 +135,10 @@ from engine.rules.aws.iam.self_modifiable_policy import (
     check_self_modifiable_policy,
     build_self_modifiable_policy_finding,
 )
+from engine.rules.aws.iam.cross_account_trust_without_condition import (
+    check_cross_account_trust_without_condition,
+    build_cross_account_trust_without_condition_finding,
+)
 
 
 IAM_RULES = RuleRegistry(
@@ -695,6 +699,25 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_self_modifiable_policy,
             build_finding=build_self_modifiable_policy_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-035",
+            name="cross_account_trust_without_condition",
+            data_source="cross_account_role_trusts",
+            collection_mode="multiple",
+            check_arguments=[
+                "role_name",
+                "role_arn",
+                "statement_index",
+                "effect",
+                "principal",
+                "action",
+                "condition",
+            ],
+            check=check_cross_account_trust_without_condition,
+            build_finding=(
+                build_cross_account_trust_without_condition_finding
+            ),
         ),
     ]
 )

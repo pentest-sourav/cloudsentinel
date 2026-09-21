@@ -29,6 +29,7 @@ def test_iam_data_source_handlers_have_expected_sources():
         "privileged_users_without_boundary",
         "wildcard_role_trust_principals",
         "self_modifiable_policies",
+        "cross_account_role_trusts",
     }
 
     assert set(IAM_DATA_SOURCE_HANDLERS) == expected_sources
@@ -131,3 +132,38 @@ def test_collect_administrative_group_policies_delegates_to_collector():
     assert result == expected
 
     collector.collect_administrative_group_policies.assert_called_once_with()
+
+
+def test_collect_cross_account_role_trusts_delegates_to_collector():
+    collector = MagicMock()
+
+    expected = [
+        {
+            "role_name": "ProductionRole",
+            "role_arn": (
+                "arn:aws:iam::111111111111:"
+                "role/ProductionRole"
+            ),
+            "statement_index": 0,
+            "effect": "Allow",
+            "principal": {
+                "AWS": "222222222222",
+            },
+            "action": "sts:AssumeRole",
+            "condition": None,
+        }
+    ]
+
+    collector.collect_cross_account_role_trusts.return_value = (
+        expected
+    )
+
+    from engine.rules.registry.iam_handlers import (
+        collect_cross_account_role_trusts,
+    )
+
+    result = collect_cross_account_role_trusts(collector)
+
+    assert result == expected
+
+    collector.collect_cross_account_role_trusts.assert_called_once_with()

@@ -178,6 +178,18 @@ def collect_self_modifiable_policies(
     ]
 
 
+
+def collect_cross_account_role_trusts(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect IAM-035 role trust statements.
+
+    IAMDataCollector reuses the role and trust-policy caches shared
+    with IAM-033, preventing duplicate AWS API calls.
+    """
+    return collector.collect_cross_account_role_trusts()
+
 def collect_stale_iam_users(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -255,6 +267,9 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "self_modifiable_policies": (
         collect_self_modifiable_policies
+    ),
+    "cross_account_role_trusts": (
+        collect_cross_account_role_trusts
     ),
     "access_key_last_used": (
         collect_access_key_last_used

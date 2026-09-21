@@ -1491,3 +1491,138 @@ def test_collect_broad_action_restricted_resources_uses_shared_cache():
     assert service.list_attached_user_policies.call_count == 1
     assert service.get_policy.call_count == 1
     assert service.get_policy_version.call_count == 1
+
+
+def test_collect_cross_account_role_trusts_uses_shared_role_cache():
+    service = Mock()
+
+    service.list_roles.return_value = [
+        {
+            "RoleName": "ProductionRole",
+            "Arn": (
+                "arn:aws:iam::111111111111:"
+                "role/ProductionRole"
+            ),
+        }
+    ]
+
+    service.get_role.return_value = {
+        "role": {
+            "RoleName": "ProductionRole",
+            "Arn": (
+                "arn:aws:iam::111111111111:"
+                "role/ProductionRole"
+            ),
+        },
+        "trust_policy": {
+            "Version": "2012-10-17",
+            "Statement": {
+                "Effect": "Allow",
+                "Principal": {
+                    "AWS": "222222222222",
+                },
+                "Action": "sts:AssumeRole",
+            },
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    first = collector.collect_cross_account_role_trusts()
+    second = collector.collect_cross_account_role_trusts()
+
+    assert first == second
+    assert len(first) == 1
+
+    assert first[0]["role_name"] == "ProductionRole"
+    assert (
+        first[0]["role_arn"]
+        == "arn:aws:iam::111111111111:role/ProductionRole"
+    )
+    assert first[0]["statement_index"] == 0
+    assert first[0]["effect"] == "Allow"
+    assert first[0]["principal"] == {
+        "AWS": "222222222222",
+    }
+    assert first[0]["action"] == "sts:AssumeRole"
+    assert first[0]["condition"] is None
+
+    assert service.list_roles.call_count == 1
+    assert service.get_role.call_count == 1
+
+    service.get_role.assert_called_once_with(
+        "ProductionRole"
+    )
+
+
+def test_collect_cross_account_role_trusts_handles_statement_list():
+    service = Mock()
+
+    service.list_roles.return_value = [
+        {
+            "RoleName": "ProductionRole",
+            "Arn": (
+                "arn:aws:iam::111111111111:"
+                "role/ProductionRole"
+            ),
+        }
+    ]
+
+    service.get_role.return_value = {
+        "role": {
+            "RoleName": "ProductionRole",
+            "Arn": (
+                "arn:aws:iam::111111111111:"
+                "role/ProductionRole"
+            ),
+        },
+        "trust_policy": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "222222222222",
+                    },
+                    "Action": "sts:AssumeRole",
+                },
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "AWS": "333333333333",
+                    },
+                    "Action": "sts:AssumeRole",
+                    "Condition": {
+                        "StringEquals": {
+                            "aws:PrincipalOrgID": "o-example"
+                        }
+                    },
+                },
+            ],
+        },
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_cross_account_role_trusts()
+
+    assert len(result) == 2
+
+    assert result[0]["statement_index"] == 0
+    assert result[0]["principal"] == {
+        "AWS": "222222222222",
+    }
+    assert result[0]["condition"] is None
+
+    assert result[1]["statement_index"] == 1
+    assert result[1]["principal"] == {
+        "AWS": "333333333333",
+    }
+    assert result[1]["condition"] == {
+        "StringEquals": {
+            "aws:PrincipalOrgID": "o-example"
+        }
+    }
+
+    assert service.list_roles.call_count == 1
+    assert service.get_role.call_count == 1

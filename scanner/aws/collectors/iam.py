@@ -1634,3 +1634,74 @@ class IAMDataCollector:
                 )
 
         return results
+
+
+    def collect_cross_account_role_trusts(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM role trust-policy statements for IAM-035.
+
+        Reuses the same role and trust-policy caches used by IAM-033,
+        so this collector does not introduce additional AWS API calls
+        for roles already inspected during the scan.
+        """
+        results: list[dict[str, Any]] = []
+
+        for role in self._get_roles():
+            role_name = role.get("RoleName")
+            role_arn = role.get("Arn")
+
+            if not role_name or not role_arn:
+                continue
+
+            role_data = self._get_role_trust_policy(
+                role_name
+            )
+
+            document = role_data.get(
+                "trust_policy",
+                {},
+            )
+
+            if not isinstance(document, dict):
+                continue
+
+            statements = document.get(
+                "Statement",
+                [],
+            )
+
+            if isinstance(statements, dict):
+                statements = [statements]
+
+            if not isinstance(statements, list):
+                continue
+
+            for statement_index, statement in enumerate(
+                statements
+            ):
+                if not isinstance(statement, dict):
+                    continue
+
+                results.append(
+                    {
+                        "role_name": role_name,
+                        "role_arn": role_arn,
+                        "statement_index": statement_index,
+                        "effect": statement.get(
+                            "Effect"
+                        ),
+                        "principal": statement.get(
+                            "Principal"
+                        ),
+                        "action": statement.get(
+                            "Action"
+                        ),
+                        "condition": statement.get(
+                            "Condition"
+                        ),
+                    }
+                )
+
+        return results
