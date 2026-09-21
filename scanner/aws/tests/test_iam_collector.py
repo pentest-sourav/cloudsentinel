@@ -163,6 +163,34 @@ def test_collect_credential_report_returns_normalized_users():
     service.get_credential_report.assert_called_once_with()
 
 
+
+def test_collect_credential_report_normalizes_no_information():
+    service = Mock()
+
+    service.get_credential_report.return_value = {
+        "Content": (
+            b"user,password_enabled,password_last_used\n"
+            b"alice,true,no_information\n"
+        ),
+        "ReportFormat": "text/csv",
+    }
+
+    collector = IAMDataCollector(service)
+
+    result = collector.collect_credential_report()
+
+    assert result == [
+        {
+            "username": "alice",
+            "password_enabled": True,
+            "password_last_used": None,
+            "current_time": result[0]["current_time"],
+        }
+    ]
+
+    assert result[0]["current_time"].tzinfo == timezone.utc
+    service.get_credential_report.assert_called_once_with()
+
 def test_collect_credential_report_uses_cache():
     service = Mock()
 

@@ -33,6 +33,10 @@ from engine.rules.aws.iam.root_access_key import (
     build_root_access_key_finding,
     check_root_access_key,
 )
+from engine.rules.aws.iam.stale_user import (
+    build_stale_iam_user_finding,
+    check_stale_iam_user,
+)
 from engine.rules.aws.iam.user_attached_policy import (
     build_user_attached_policy_finding,
     check_user_attached_policy,
@@ -400,6 +404,21 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_no_active_authentication_credential,
             build_finding=build_no_active_authentication_credential_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-023",
+            name="stale_iam_user",
+            data_source="stale_iam_users",
+            collection_mode="multiple",
+            check_arguments=[
+                "username",
+                "last_activity_at",
+                "last_activity_type",
+                "last_activity_access_key_id",
+                "current_time",
+            ],
+            check=check_stale_iam_user,
+            build_finding=build_stale_iam_user_finding,
         ),
     ]
 )

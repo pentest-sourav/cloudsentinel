@@ -82,7 +82,8 @@ def test_iam_rules_have_valid_data_sources():
         "multiple_authentication_methods",
         "access_key_last_used",
         "no_active_authentication_credentials",
-    }
+            "stale_iam_users",
+        }
 
     for rule in IAM_RULES:
         assert rule.data_source in allowed_data_sources

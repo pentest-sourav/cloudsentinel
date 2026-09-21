@@ -609,6 +609,7 @@ class IAMDataCollector:
                     None,
                     "",
                     "N/A",
+                    "no_information",
                 ):
                     password_last_used = None
                 else:
@@ -649,6 +650,162 @@ class IAMDataCollector:
             self._credential_report_cache = collected_users
 
         return self._credential_report_cache
+
+    def collect_stale_iam_users(
+        self,
+        threshold_days: int = 90,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM users whose latest known authentication activity
+        is older than the stale-user threshold.
+
+        IAM-023 evaluates the latest known activity from:
+        - console password usage
+        - active access-key usage
+
+        Users with no known historical authentication activity are
+        intentionally excluded here because IAM-019 and IAM-020
+        already cover never-used credentials and users with no active
+        authentication credentials.
+
+        Existing credential-report and access-key caches are reused,
+        and active access-key last-used information is obtained through
+        the existing per-access-key cache.
+        """
+        credential_report = self.collect_credential_report()
+        access_key_last_used = self.collect_access_key_last_used()
+
+        access_key_activity_by_user: dict[
+            str,
+            list[dict[str, Any]],
+        ] = {}
+
+        for access_key in access_key_last_used:
+            last_used_at = access_key.get(
+                "last_used_at"
+            )
+
+            if last_used_at is None:
+                continue
+
+            username = access_key.get(
+                "username"
+            )
+
+            if not username:
+                continue
+
+            access_key_activity_by_user.setdefault(
+                username,
+                [],
+            ).append(
+                {
+                    "last_activity_at": last_used_at,
+                    "access_key_id": access_key.get(
+                        "access_key_id"
+                    ),
+                }
+            )
+
+        results: list[dict[str, Any]] = []
+
+        for user in credential_report:
+            username = user.get(
+                "username"
+            )
+
+            if not username:
+                continue
+
+            current_time = user.get(
+                "current_time"
+            )
+
+            if not isinstance(current_time, datetime):
+                continue
+
+            activity_candidates: list[
+                tuple[datetime, str, str | None]
+            ] = []
+
+            password_last_used = user.get(
+                "password_last_used"
+            )
+
+            if isinstance(password_last_used, datetime):
+                activity_candidates.append(
+                    (
+                        password_last_used,
+                        "console_password",
+                        None,
+                    )
+                )
+
+            for access_key_activity in (
+                access_key_activity_by_user.get(
+                    username,
+                    [],
+                )
+            ):
+                last_used_at = access_key_activity.get(
+                    "last_activity_at"
+                )
+
+                if not isinstance(last_used_at, datetime):
+                    continue
+
+                activity_candidates.append(
+                    (
+                        last_used_at,
+                        "access_key",
+                        access_key_activity.get(
+                            "access_key_id"
+                        ),
+                    )
+                )
+
+            # No known activity:
+            # intentionally leave this user for IAM-019/IAM-020.
+            if not activity_candidates:
+                continue
+
+            last_activity_at, last_activity_type, access_key_id = (
+                max(
+                    activity_candidates,
+                    key=lambda item: item[0],
+                )
+            )
+
+            if last_activity_at.tzinfo is None:
+                last_activity_at = last_activity_at.replace(
+                    tzinfo=timezone.utc
+                )
+
+            if current_time.tzinfo is None:
+                current_time = current_time.replace(
+                    tzinfo=timezone.utc
+                )
+
+            age_days = (
+                current_time - last_activity_at
+            ).days
+
+            if age_days <= threshold_days:
+                continue
+
+            results.append(
+                {
+                    "username": username,
+                    "last_activity_at": last_activity_at,
+                    "last_activity_type": last_activity_type,
+                    "last_activity_access_key_id": (
+                        access_key_id
+                    ),
+                    "current_time": current_time,
+                }
+            )
+
+        return results
 
     def collect_no_active_authentication_credentials(
         self,

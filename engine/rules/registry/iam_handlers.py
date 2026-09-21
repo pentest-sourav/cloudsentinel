@@ -132,6 +132,19 @@ def collect_no_active_authentication_credentials(
     return collector.collect_no_active_authentication_credentials()
 
 
+def collect_stale_iam_users(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect stale IAM users for IAM-023.
+
+    The collector reuses existing credential-report and access-key
+    last-used caches, so this handler does not introduce duplicate
+    AWS API calls during the same scan.
+    """
+    return collector.collect_stale_iam_users()
+
+
 def collect_access_key_last_used(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -181,6 +194,9 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "no_active_authentication_credentials": (
         collect_no_active_authentication_credentials
+    ),
+    "stale_iam_users": (
+        collect_stale_iam_users
     ),
     "access_key_last_used": (
         collect_access_key_last_used

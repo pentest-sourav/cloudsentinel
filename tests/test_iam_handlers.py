@@ -24,6 +24,7 @@ def test_iam_data_source_handlers_have_expected_sources():
         "access_key_last_used",
         "no_active_authentication_credentials",
         "user_attached_policies",
+            "stale_iam_users",
     }
 
     assert set(IAM_DATA_SOURCE_HANDLERS) == expected_sources
