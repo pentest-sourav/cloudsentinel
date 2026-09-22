@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, JSON, Float, String, Text
+from sqlalchemy import DateTime, ForeignKey, JSON, Float, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.core.database import Base
@@ -8,6 +8,17 @@ from backend.app.core.database import Base
 
 class Finding(Base):
     __tablename__ = "findings"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "scan_id",
+            "provider",
+            "rule_id",
+            "resource_type",
+            "resource_id",
+            name="uq_findings_scan_identity",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,

@@ -7,15 +7,16 @@ from backend.app.schemas.scan_history import (
     ScanHistoryListResponse,
 )
 from backend.app.schemas.scan_summary import ScanSummaryResponse
-from backend.app.services.aws_scan_service import run_aws_scan
-from backend.app.services.scan_runner import ScanRunner
+from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_service import (
     create_scan,
+    get_scan,
     list_scans,
 )
 from backend.app.services.scan_summary_service import (
     get_scan_summary,
 )
+
 
 router = APIRouter(
     prefix="/api/v1/scans",
@@ -32,22 +33,45 @@ def create_new_scan(
     scan_data: ScanCreate,
     db: Session = Depends(get_db),
 ):
+    if scan_data.provider != "aws":
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=(
+                f"Provider '{scan_data.provider}' is not yet "
+                "supported for scanning."
+            ),
+        )
+
     scan = create_scan(
         db=db,
         provider=scan_data.provider,
     )
 
-    if scan_data.provider == "aws":
-        scanner = run_aws_scan
-    else:
-        scanner = lambda: []
+    queue = ScanQueue()
 
-    runner = ScanRunner(db=db)
+    try:
+        queue.enqueue(
+            ScanJob(
+                scan_id=scan.id,
+                provider=scan.provider,
+            )
+        )
+    except Exception as exc:
+        scan.status = "failed"
+        scan.error_message = (
+            f"Unable to enqueue scan job: {exc}"
+        )[:4000]
+        db.commit()
+        db.refresh(scan)
 
-    return runner.run(
-        scan=scan,
-        scanner=scanner,
-    )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Scan queue is unavailable.",
+        ) from exc
+    finally:
+        queue.close()
+
+    return scan
 
 
 @router.get(
@@ -71,6 +95,28 @@ def get_scans(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/{scan_id}",
+    response_model=ScanResponse,
+)
+def get_scan_by_id(
+    scan_id: int,
+    db: Session = Depends(get_db),
+):
+    scan = get_scan(
+        db=db,
+        scan_id=scan_id,
+    )
+
+    if scan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scan not found",
+        )
+
+    return scan
 
 
 @router.get(

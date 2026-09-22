@@ -162,3 +162,412 @@ def test_create_finding_persists_risk_data():
 
     finally:
         db.close()
+
+
+def test_persist_finding_is_idempotent_for_same_logical_finding():
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+    )
+
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is publicly accessible.",
+            evidence={
+                "public": True,
+            },
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=finding,
+        )
+
+        assert second.id == first.id
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 1
+
+    finally:
+        db.close()
+
+
+def test_persist_finding_allows_different_resources():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        first_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="bucket-one",
+            description="Bucket is public.",
+        )
+
+        second_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="bucket-two",
+            description="Bucket is public.",
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=first_finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=second_finding,
+        )
+
+        assert first.id != second.id
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 2
+
+    finally:
+        db.close()
+
+
+def test_persist_finding_allows_same_resource_for_different_rules():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        first_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        second_finding = Finding(
+            rule_id="CS-AWS-S3-002",
+            title="S3 Versioning Disabled",
+            severity=Severity.MEDIUM,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket versioning is disabled.",
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=first_finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=second_finding,
+        )
+
+        assert first.id != second.id
+
+    finally:
+        db.close()
+
+
+def test_persist_finding_allows_same_finding_in_different_scans():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        first_scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        second_scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        db.add_all([first_scan, second_scan])
+        db.commit()
+        db.refresh(first_scan)
+        db.refresh(second_scan)
+
+        finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=first_scan.id,
+            finding=finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=second_scan.id,
+            finding=finding,
+        )
+
+        assert first.id != second.id
+        assert first.scan_id != second.scan_id
+
+    finally:
+        db.close()
+
+
+def test_persist_findings_persists_multiple_findings_in_one_batch():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        findings = [
+            Finding(
+                rule_id="CS-AWS-S3-001",
+                title="S3 Public Access",
+                severity=Severity.HIGH,
+                provider="aws",
+                resource_type="s3_bucket",
+                resource_id="bucket-one",
+                description="Bucket one is public.",
+            ),
+            Finding(
+                rule_id="CS-AWS-S3-002",
+                title="S3 Versioning Disabled",
+                severity=Severity.MEDIUM,
+                provider="aws",
+                resource_type="s3_bucket",
+                resource_id="bucket-two",
+                description="Bucket two has versioning disabled.",
+            ),
+        ]
+
+        from backend.app.services.finding_service import persist_findings
+
+        result = persist_findings(
+            db=db,
+            scan_id=scan.id,
+            findings=findings,
+        )
+
+        assert len(result) == 2
+        assert all(item.id is not None for item in result)
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 2
+
+    finally:
+        db.close()
+
+
+def test_persist_findings_is_idempotent():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        findings = [
+            Finding(
+                rule_id="CS-AWS-S3-001",
+                title="S3 Public Access",
+                severity=Severity.HIGH,
+                provider="aws",
+                resource_type="s3_bucket",
+                resource_id="bucket-one",
+                description="Bucket one is public.",
+            ),
+            Finding(
+                rule_id="CS-AWS-S3-002",
+                title="S3 Versioning Disabled",
+                severity=Severity.MEDIUM,
+                provider="aws",
+                resource_type="s3_bucket",
+                resource_id="bucket-two",
+                description="Bucket two has versioning disabled.",
+            ),
+        ]
+
+        from backend.app.services.finding_service import persist_findings
+
+        first = persist_findings(
+            db=db,
+            scan_id=scan.id,
+            findings=findings,
+        )
+
+        second = persist_findings(
+            db=db,
+            scan_id=scan.id,
+            findings=findings,
+        )
+
+        assert [item.id for item in second] == [
+            item.id for item in first
+        ]
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 2
+
+    finally:
+        db.close()
+
+
+def test_persist_findings_handles_duplicate_engine_findings_in_same_batch():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    try:
+        scan = Scan(
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="bucket-one",
+            description="Bucket one is public.",
+        )
+
+        from backend.app.services.finding_service import persist_findings
+
+        result = persist_findings(
+            db=db,
+            scan_id=scan.id,
+            findings=[finding, finding],
+        )
+
+        assert len(result) == 2
+        assert result[0].id == result[1].id
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 1
+
+    finally:
+        db.close()

@@ -5,12 +5,23 @@ from sqlalchemy.pool import StaticPool
 
 from backend.app.core.database import Base, get_db
 from backend.app.main import app
-from backend.app.models.finding import Finding as FindingModel
 from backend.app.models.scan import Scan
-from engine.findings.model import Finding, Severity
+from backend.app.services.scan_queue import ScanJob
 
 
-def test_aws_scan_api_persists_findings(monkeypatch):
+class FakeScanQueue:
+    def __init__(self, *args, **kwargs):
+        self.jobs: list[ScanJob] = []
+
+    def enqueue(self, job: ScanJob) -> str:
+        self.jobs.append(job)
+        return "1-0"
+
+    def close(self) -> None:
+        pass
+
+
+def create_test_database():
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -19,7 +30,11 @@ def test_aws_scan_api_persists_findings(monkeypatch):
 
     Base.metadata.create_all(engine)
 
-    SessionLocal = sessionmaker(bind=engine)
+    return engine, sessionmaker(bind=engine)
+
+
+def test_aws_scan_api_enqueues_scan(monkeypatch):
+    _, SessionLocal = create_test_database()
 
     def override_get_db():
         db = SessionLocal()
@@ -30,25 +45,11 @@ def test_aws_scan_api_persists_findings(monkeypatch):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    fake_finding = Finding(
-        rule_id="CS-AWS-S3-001",
-        title="S3 Public Access Block Not Fully Enabled",
-        severity=Severity.HIGH,
-        provider="aws",
-        resource_type="s3_bucket",
-        resource_id="test-insecure-bucket",
-        description="S3 Public Access Block is not fully enabled.",
-        evidence={
-            "BlockPublicAcls": False,
-            "IgnorePublicAcls": False,
-        },
-        remediation="Enable all S3 Public Access Block settings.",
-        compliance=["CIS AWS Foundations"],
-    )
+    queue = FakeScanQueue()
 
     monkeypatch.setattr(
-        "backend.app.api.routes.scans.run_aws_scan",
-        lambda: [fake_finding],
+        "backend.app.api.routes.scans.ScanQueue",
+        lambda: queue,
     )
 
     client = TestClient(app)
@@ -64,9 +65,18 @@ def test_aws_scan_api_persists_findings(monkeypatch):
         data = response.json()
 
         assert data["provider"] == "aws"
-        assert data["status"] == "completed"
+        assert data["status"] == "pending"
+        assert data["started_at"] is None
+        assert data["completed_at"] is None
         assert data["error_message"] is None
 
+        assert len(queue.jobs) == 1
+
+        job = queue.jobs[0]
+
+        assert job.scan_id == data["id"]
+        assert job.provider == "aws"
+
         db = SessionLocal()
 
         try:
@@ -77,20 +87,7 @@ def test_aws_scan_api_persists_findings(monkeypatch):
             )
 
             assert scan is not None
-            assert scan.status == "completed"
-
-            findings = (
-                db.query(FindingModel)
-                .filter(FindingModel.scan_id == scan.id)
-                .all()
-            )
-
-            assert len(findings) == 1
-            assert findings[0].rule_id == "CS-AWS-S3-001"
-            assert findings[0].severity == "high"
-            assert findings[0].risk_score == 7.0
-            assert findings[0].risk_level == "high"
-            assert findings[0].resource_id == "test-insecure-bucket"
+            assert scan.status == "pending"
 
         finally:
             db.close()
@@ -98,16 +95,9 @@ def test_aws_scan_api_persists_findings(monkeypatch):
     finally:
         app.dependency_overrides.clear()
 
-def test_aws_scan_api_marks_scan_failed_when_scanner_fails(monkeypatch):
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
 
-    Base.metadata.create_all(engine)
-
-    SessionLocal = sessionmaker(bind=engine)
+def test_scan_api_returns_scan_status(monkeypatch):
+    _, SessionLocal = create_test_database()
 
     def override_get_db():
         db = SessionLocal()
@@ -118,50 +108,98 @@ def test_aws_scan_api_marks_scan_failed_when_scanner_fails(monkeypatch):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    def failing_scan():
-        raise RuntimeError("AWS scan failed")
+    queue = FakeScanQueue()
 
     monkeypatch.setattr(
-        "backend.app.api.routes.scans.run_aws_scan",
-        failing_scan,
+        "backend.app.api.routes.scans.ScanQueue",
+        lambda: queue,
     )
+
+    client = TestClient(app)
+
+    try:
+        create_response = client.post(
+            "/api/v1/scans",
+            json={"provider": "aws"},
+        )
+
+        assert create_response.status_code == 201
+
+        scan_id = create_response.json()["id"]
+
+        status_response = client.get(
+            f"/api/v1/scans/{scan_id}",
+        )
+
+        assert status_response.status_code == 200
+
+        data = status_response.json()
+
+        assert data["id"] == scan_id
+        assert data["provider"] == "aws"
+        assert data["status"] == "pending"
+        assert data["started_at"] is None
+        assert data["completed_at"] is None
+        assert data["error_message"] is None
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_scan_api_returns_404_for_unknown_scan():
+    _, SessionLocal = create_test_database()
+
+    def override_get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    client = TestClient(app)
+
+    try:
+        response = client.get(
+            "/api/v1/scans/999999",
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Scan not found"
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_scan_api_rejects_unsupported_provider():
+    _, SessionLocal = create_test_database()
+
+    def override_get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
 
     client = TestClient(app)
 
     try:
         response = client.post(
             "/api/v1/scans",
-            json={"provider": "aws"},
+            json={"provider": "azure"},
         )
 
-        assert response.status_code == 201
-
-        data = response.json()
-
-        assert data["provider"] == "aws"
-        assert data["status"] == "failed"
-        assert data["error_message"] == "AWS scan failed"
-
-        db = SessionLocal()
-
-        try:
-            scan = (
-                db.query(Scan)
-                .filter(Scan.id == data["id"])
-                .first()
-            )
-
-            assert scan is not None
-            assert scan.status == "failed"
-            assert scan.error_message == "AWS scan failed"
-            assert scan.started_at is not None
-            assert scan.completed_at is not None
-
-        finally:
-            db.close()
+        assert response.status_code == 501
+        assert response.json()["detail"] == (
+            "Provider 'azure' is not yet supported for scanning."
+        )
 
     finally:
         app.dependency_overrides.clear()
+
 
 def test_scan_api_rejects_invalid_provider():
     client = TestClient(app)

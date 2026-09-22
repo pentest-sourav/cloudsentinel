@@ -16,10 +16,98 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cloudsentinel -d cloudsentinel"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U cloudsentinel -d cloudsentinel",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:8-alpine
+    container_name: cloudsentinel-redis
+    restart: unless-stopped
+
+    ports:
+      - "16379:6379"
+
+    volumes:
+      - redis_data:/data
+
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+
+    healthcheck:
+      test:
+        ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: cloudsentinel-api
+    restart: unless-stopped
+
+    environment:
+      DATABASE_URL: postgresql+psycopg://cloudsentinel:cloudsentinel_dev_password@postgres:5432/cloudsentinel
+      REDIS_URL: redis://redis:6379/0
+      SCAN_QUEUE_STREAM: cloudsentinel:scan_jobs
+      SCAN_QUEUE_GROUP: cloudsentinel:scan_workers
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command:
+      [
+        "uvicorn",
+        "backend.app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: cloudsentinel-worker
+    restart: unless-stopped
+
+    environment:
+      DATABASE_URL: postgresql+psycopg://cloudsentinel:cloudsentinel_dev_password@postgres:5432/cloudsentinel
+      REDIS_URL: redis://redis:6379/0
+      SCAN_QUEUE_STREAM: cloudsentinel:scan_jobs
+      SCAN_QUEUE_GROUP: cloudsentinel:scan_workers
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    command:
+      [
+        "python",
+        "-m",
+        "backend.worker",
+      ]
+
 volumes:
   postgres_data:
+  redis_data:

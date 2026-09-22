@@ -3,15 +3,33 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.app.models.scan import Scan
 from backend.app.models.finding import Finding
-from backend.app.services.scan_summary_service import build_finding_counts
+from backend.app.models.scan import Scan
+from backend.app.services.scan_summary_service import (
+    build_finding_counts,
+)
 
 
-def create_scan(db: Session, provider: str) -> Scan:
+SCAN_STATUS_PENDING = "pending"
+SCAN_STATUS_RUNNING = "running"
+SCAN_STATUS_COMPLETED = "completed"
+SCAN_STATUS_FAILED = "failed"
+
+VALID_SCAN_STATUSES = {
+    SCAN_STATUS_PENDING,
+    SCAN_STATUS_RUNNING,
+    SCAN_STATUS_COMPLETED,
+    SCAN_STATUS_FAILED,
+}
+
+
+def create_scan(
+    db: Session,
+    provider: str,
+) -> Scan:
     scan = Scan(
         provider=provider,
-        status="pending",
+        status=SCAN_STATUS_PENDING,
     )
 
     db.add(scan)
@@ -21,9 +39,30 @@ def create_scan(db: Session, provider: str) -> Scan:
     return scan
 
 
-def start_scan(db: Session, scan: Scan) -> Scan:
-    scan.status = "running"
+def get_scan(
+    db: Session,
+    scan_id: int,
+) -> Scan | None:
+    return (
+        db.query(Scan)
+        .filter(Scan.id == scan_id)
+        .first()
+    )
+
+
+def start_scan(
+    db: Session,
+    scan: Scan,
+) -> Scan:
+    if scan.status != SCAN_STATUS_PENDING:
+        raise ValueError(
+            f"Cannot start scan {scan.id} from status "
+            f"'{scan.status}'."
+        )
+
+    scan.status = SCAN_STATUS_RUNNING
     scan.started_at = datetime.now(timezone.utc)
+    scan.error_message = None
 
     db.commit()
     db.refresh(scan)
@@ -31,9 +70,19 @@ def start_scan(db: Session, scan: Scan) -> Scan:
     return scan
 
 
-def complete_scan(db: Session, scan: Scan) -> Scan:
-    scan.status = "completed"
+def complete_scan(
+    db: Session,
+    scan: Scan,
+) -> Scan:
+    if scan.status != SCAN_STATUS_RUNNING:
+        raise ValueError(
+            f"Cannot complete scan {scan.id} from status "
+            f"'{scan.status}'."
+        )
+
+    scan.status = SCAN_STATUS_COMPLETED
     scan.completed_at = datetime.now(timezone.utc)
+    scan.error_message = None
 
     db.commit()
     db.refresh(scan)
@@ -46,9 +95,46 @@ def fail_scan(
     scan: Scan,
     error_message: str,
 ) -> Scan:
-    scan.status = "failed"
-    scan.error_message = error_message
+    if scan.status not in {
+        SCAN_STATUS_PENDING,
+        SCAN_STATUS_RUNNING,
+    }:
+        raise ValueError(
+            f"Cannot fail scan {scan.id} from status "
+            f"'{scan.status}'."
+        )
+
+    scan.status = SCAN_STATUS_FAILED
+    scan.error_message = error_message[:4000]
     scan.completed_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(scan)
+
+    return scan
+
+
+def retry_scan(
+    db: Session,
+    scan: Scan,
+) -> Scan:
+    """
+    Requeue a failed scan for another execution attempt.
+
+    Retry orchestration is intentionally separate from start_scan()
+    so normal scans can only start from pending while recovered
+    failed jobs have an explicit, auditable transition back to pending.
+    """
+    if scan.status != SCAN_STATUS_FAILED:
+        raise ValueError(
+            f"Cannot retry scan {scan.id} from status "
+            f"'{scan.status}'."
+        )
+
+    scan.status = SCAN_STATUS_PENDING
+    scan.started_at = None
+    scan.completed_at = None
+    scan.error_message = None
 
     db.commit()
     db.refresh(scan)
