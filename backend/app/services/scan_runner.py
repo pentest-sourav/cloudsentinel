@@ -4,6 +4,9 @@ from sqlalchemy.orm import Session
 
 from backend.app.models.scan import Scan
 from backend.app.services.finding_service import persist_findings
+from backend.app.services.scan_execution_error_service import (
+    persist_execution_errors,
+)
 from backend.app.services.scan_service import (
     SCAN_STATUS_COMPLETED,
     SCAN_STATUS_FAILED,
@@ -16,51 +19,36 @@ from backend.app.services.scan_service import (
 
 
 class ScanRunner:
-    """
-    Executes one accepted scan job.
-
-    Pending scans are started normally. Running scans are treated as
-    recovered jobs and resumed without resetting their lifecycle.
-
-    Completed and failed scans are terminal states and are never
-    executed directly by the runner. Retry orchestration belongs to
-    the queue/worker layer.
-    """
-
     def __init__(self, db: Session):
         self.db = db
 
-    def run(
-        self,
-        scan: Scan,
-        scanner: Callable[[], list],
-    ) -> Scan:
+    def run(self, scan: Scan, scanner: Callable[[], object]) -> Scan:
         try:
             if scan.status == SCAN_STATUS_COMPLETED:
                 raise ValueError(
-                    f"Scan {scan.id} is already completed and "
-                    "cannot be executed again."
+                    f"Scan {scan.id} is already completed and cannot be executed again."
                 )
 
             if scan.status == SCAN_STATUS_FAILED:
                 raise ValueError(
-                    f"Scan {scan.id} is failed and cannot be "
-                    "executed directly."
+                    f"Scan {scan.id} is failed and cannot be executed directly."
                 )
 
             if scan.status == SCAN_STATUS_PENDING:
-                start_scan(
-                    db=self.db,
-                    scan=scan,
-                )
-
+                start_scan(db=self.db, scan=scan)
             elif scan.status != SCAN_STATUS_RUNNING:
                 raise ValueError(
-                    f"Scan {scan.id} has unsupported status "
-                    f"'{scan.status}'."
+                    f"Scan {scan.id} has unsupported status '{scan.status}'."
                 )
 
-            findings = scanner()
+            result = scanner()
+
+            if hasattr(result, "findings") and hasattr(result, "errors"):
+                findings = result.findings
+                execution_errors = result.errors
+            else:
+                findings = result
+                execution_errors = []
 
             persist_findings(
                 db=self.db,
@@ -68,10 +56,13 @@ class ScanRunner:
                 findings=findings,
             )
 
-            return complete_scan(
+            persist_execution_errors(
                 db=self.db,
-                scan=scan,
+                scan_id=scan.id,
+                errors=execution_errors,
             )
+
+            return complete_scan(db=self.db, scan=scan)
 
         except ValueError:
             self.db.rollback()
