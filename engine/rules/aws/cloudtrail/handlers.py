@@ -1,4 +1,65 @@
+from typing import Any
+
 from scanner.aws.collectors.cloudtrail import CloudTrailDataCollector
+
+
+def _includes_management_events(
+    event_selector_config: dict[str, Any],
+) -> bool:
+    """
+    Determine whether the trail configuration includes
+    CloudTrail management events.
+
+    Supports both basic EventSelectors and
+    AdvancedEventSelectors.
+    """
+    if not isinstance(event_selector_config, dict):
+        return False
+
+    event_selectors = event_selector_config.get(
+        "EventSelectors",
+        []
+    )
+
+    if not isinstance(event_selectors, list):
+        event_selectors = []
+
+    for selector in event_selectors:
+        if not isinstance(selector, dict):
+            continue
+
+        if selector.get("IncludeManagementEvents", False):
+            return True
+
+    advanced_selectors = event_selector_config.get(
+        "AdvancedEventSelectors",
+        []
+    )
+
+    if not isinstance(advanced_selectors, list):
+        advanced_selectors = []
+
+    for selector in advanced_selectors:
+        if not isinstance(selector, dict):
+            continue
+
+        for field_selector in selector.get(
+            "FieldSelectors",
+            [],
+        ):
+            if not isinstance(field_selector, dict):
+                continue
+
+            if field_selector.get("Field") != "eventCategory":
+                continue
+
+            if "Management" in field_selector.get(
+                "Equals",
+                [],
+            ):
+                return True
+
+    return False
 
 
 def collect_cloudtrail_trails(
@@ -6,7 +67,7 @@ def collect_cloudtrail_trails(
 ) -> list[dict]:
     """
     Collect normalized CloudTrail trails and enrich each trail
-    with its current logging status.
+    with its current logging status and management-event coverage.
     """
     trails = collector.collect_trails()
 
@@ -17,10 +78,19 @@ def collect_cloudtrail_trails(
 
         status = collector.get_trail_status(trail_arn)
 
+        event_selector_config = collector.get_event_selectors(
+            trail_arn
+        )
+
         normalized_trails.append(
             {
                 **trail,
                 "is_logging": status.get("IsLogging", False),
+                "includes_management_events": (
+                    _includes_management_events(
+                        event_selector_config
+                    )
+                ),
             }
         )
 

@@ -197,3 +197,60 @@ def test_collect_account_ignores_trails_without_arn():
     assert result == {
         "trail_count": 1,
     }
+
+
+def test_get_event_selectors_returns_configuration():
+    collector, service = create_collector()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    service.get_event_selectors.return_value = {
+        "EventSelectors": [
+            {
+                "ReadWriteType": "All",
+                "IncludeManagementEvents": True,
+            }
+        ],
+    }
+
+    selectors = collector.get_event_selectors(trail_arn)
+
+    assert selectors["EventSelectors"][0][
+        "IncludeManagementEvents"
+    ] is True
+
+    service.get_event_selectors.assert_called_once_with(
+        trail_arn
+    )
+
+
+def test_get_event_selectors_uses_cache():
+    collector, service = create_collector()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    response = {
+        "EventSelectors": [
+            {
+                "ReadWriteType": "All",
+                "IncludeManagementEvents": True,
+            }
+        ]
+    }
+
+    service.get_event_selectors.return_value = response
+
+    first_result = collector.get_event_selectors(trail_arn)
+    second_result = collector.get_event_selectors(trail_arn)
+
+    assert first_result == second_result
+
+    service.get_event_selectors.assert_called_once_with(
+        trail_arn
+    )

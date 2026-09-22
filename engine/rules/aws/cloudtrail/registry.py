@@ -31,6 +31,11 @@ from engine.rules.aws.cloudtrail.encryption import (
     check_cloudtrail_encryption,
 )
 
+from engine.rules.aws.cloudtrail.management_events import (
+    build_cloudtrail_management_events_finding,
+    check_cloudtrail_management_events,
+)
+
 CLOUDTRAIL_RULES = RuleRegistry(
     [
         RuleDefinition(
@@ -108,6 +113,19 @@ CLOUDTRAIL_RULES = RuleRegistry(
             ],
             check=check_cloudtrail_encryption,
             build_finding=build_cloudtrail_encryption_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-007",
+            name="cloudtrail_management_events",
+            data_source="cloudtrail_trails",
+            collection_mode="multiple",
+            check_arguments=[
+                "trail_arn",
+                "name",
+                "includes_management_events",
+            ],
+            check=check_cloudtrail_management_events,
+            build_finding=build_cloudtrail_management_events_finding,
         ),
     ]
 )

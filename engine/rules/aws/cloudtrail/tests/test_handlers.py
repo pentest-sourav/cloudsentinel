@@ -29,6 +29,8 @@ def test_collect_cloudtrail_trails_enriches_logging_status():
         "IsLogging": True,
     }
 
+    collector.get_event_selectors.return_value = {}
+
     trails = collect_cloudtrail_trails(collector)
 
     assert len(trails) == 1
@@ -60,6 +62,8 @@ def test_collect_cloudtrail_trails_handles_not_logging():
         "IsLogging": False,
     }
 
+    collector.get_event_selectors.return_value = {}
+
     trails = collect_cloudtrail_trails(collector)
 
     assert len(trails) == 1
@@ -82,6 +86,7 @@ def test_collect_cloudtrail_trails_defaults_missing_logging_status_to_false():
     ]
 
     collector.get_trail_status.return_value = {}
+    collector.get_event_selectors.return_value = {}
 
     trails = collect_cloudtrail_trails(collector)
 
@@ -118,6 +123,8 @@ def test_collect_cloudtrail_trails_handles_multiple_trails():
         {"IsLogging": False},
     ]
 
+    collector.get_event_selectors.return_value = {}
+
     trails = collect_cloudtrail_trails(collector)
 
     assert len(trails) == 2
@@ -148,3 +155,169 @@ def test_cloudtrail_account_handler_is_registered():
         CLOUDTRAIL_DATA_SOURCE_HANDLERS["cloudtrail_account"]
         is collect_cloudtrail_account
     )
+
+
+def test_collect_cloudtrail_trails_detects_basic_management_events():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {
+        "EventSelectors": [
+            {
+                "ReadWriteType": "All",
+                "IncludeManagementEvents": True,
+            }
+        ]
+    }
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["includes_management_events"] is True
+
+
+def test_collect_cloudtrail_trails_detects_disabled_basic_management_events():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {
+        "EventSelectors": [
+            {
+                "ReadWriteType": "All",
+                "IncludeManagementEvents": False,
+            }
+        ]
+    }
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["includes_management_events"] is False
+
+
+def test_collect_cloudtrail_trails_detects_advanced_management_events():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {
+        "AdvancedEventSelectors": [
+            {
+                "FieldSelectors": [
+                    {
+                        "Field": "eventCategory",
+                        "Equals": ["Management"],
+                    }
+                ]
+            }
+        ]
+    }
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["includes_management_events"] is True
+
+
+def test_collect_cloudtrail_trails_ignores_advanced_non_management_events():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {
+        "AdvancedEventSelectors": [
+            {
+                "FieldSelectors": [
+                    {
+                        "Field": "eventCategory",
+                        "Equals": ["Data"],
+                    }
+                ]
+            }
+        ]
+    }
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["includes_management_events"] is False
+
+
+def test_collect_cloudtrail_trails_defaults_missing_management_events_to_false():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {}
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["includes_management_events"] is False

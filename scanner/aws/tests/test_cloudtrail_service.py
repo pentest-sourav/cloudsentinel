@@ -123,3 +123,75 @@ def test_get_trail_status_handles_client_error():
         service.get_trail_status(
             "arn:aws:cloudtrail:eu-north-1:123456789012:trail/cloudtrail-main"
         )
+
+
+def test_get_event_selectors_returns_configuration():
+    service, client = create_service()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    client.get_event_selectors.return_value = {
+        "TrailARN": trail_arn,
+        "EventSelectors": [
+            {
+                "ReadWriteType": "All",
+                "IncludeManagementEvents": True,
+            }
+        ],
+    }
+
+    selectors = service.get_event_selectors(trail_arn)
+
+    assert selectors["TrailARN"] == trail_arn
+    assert selectors["EventSelectors"][0][
+        "IncludeManagementEvents"
+    ] is True
+
+    client.get_event_selectors.assert_called_once_with(
+        TrailName=trail_arn
+    )
+
+
+def test_get_event_selectors_handles_client_error():
+    service, client = create_service()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    client.get_event_selectors.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDeniedException",
+                "Message": "Access denied",
+            }
+        },
+        "GetEventSelectors",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="AccessDeniedException: Access denied",
+    ):
+        service.get_event_selectors(trail_arn)
+
+
+def test_get_event_selectors_handles_botocore_error():
+    service, client = create_service()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    client.get_event_selectors.side_effect = BotoCoreError()
+
+    with pytest.raises(
+        RuntimeError,
+        match="AWS SDK error during CloudTrail event selector discovery",
+    ):
+        service.get_event_selectors(trail_arn)

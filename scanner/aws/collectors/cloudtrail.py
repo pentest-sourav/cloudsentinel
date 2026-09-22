@@ -13,6 +13,7 @@ class CloudTrailDataCollector:
         self.service = service
         self._trails_cache: list[dict[str, Any]] | None = None
         self._trail_status_cache: dict[str, dict[str, Any]] = {}
+        self._event_selectors_cache: dict[str, dict[str, Any]] = {}
 
     def _get_trails(self) -> list[dict[str, Any]]:
         """
@@ -96,3 +97,18 @@ class CloudTrailDataCollector:
             )
 
         return self._trail_status_cache[trail_arn]
+
+    def get_event_selectors(
+        self,
+        trail_arn: str,
+    ) -> dict[str, Any]:
+        """
+        Return and cache event selector configuration
+        for a CloudTrail trail.
+        """
+        if trail_arn not in self._event_selectors_cache:
+            self._event_selectors_cache[trail_arn] = (
+                self.service.get_event_selectors(trail_arn)
+            )
+
+        return self._event_selectors_cache[trail_arn]

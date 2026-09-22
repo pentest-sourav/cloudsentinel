@@ -114,3 +114,26 @@ def test_cloudtrail_registry_encryption_rule_has_expected_arguments():
 
     assert callable(rule.check)
     assert callable(rule.build_finding)
+
+
+def test_cloudtrail_registry_contains_management_events_rule():
+    rule = CLOUDTRAIL_RULES.get_rule("CS-AWS-CT-007")
+
+    assert rule is not None
+    assert rule.rule_id == "CS-AWS-CT-007"
+    assert rule.name == "cloudtrail_management_events"
+    assert rule.data_source == "cloudtrail_trails"
+    assert rule.collection_mode == "multiple"
+
+
+def test_cloudtrail_registry_management_events_rule_has_expected_arguments():
+    rule = CLOUDTRAIL_RULES.get_rule("CS-AWS-CT-007")
+
+    assert rule.check_arguments == [
+        "trail_arn",
+        "name",
+        "includes_management_events",
+    ]
+
+    assert callable(rule.check)
+    assert callable(rule.build_finding)
