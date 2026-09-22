@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.app.api.dependencies import get_current_user
 from backend.app.core.database import get_db
+from backend.app.models.user import User
 from backend.app.schemas.cloud_account import (
     CloudAccountCreate,
     CloudAccountResponse,
@@ -27,8 +29,13 @@ router = APIRouter(
 def add_cloud_account(
     account_data: CloudAccountCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return create_cloud_account(db, account_data)
+    return create_cloud_account(
+        db=db,
+        account_data=account_data,
+        tenant_id=current_user.tenant_id,
+    )
 
 
 @router.get(
@@ -37,8 +44,12 @@ def add_cloud_account(
 )
 def list_cloud_accounts(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return get_cloud_accounts(db)
+    return get_cloud_accounts(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
 
 
 @router.get(
@@ -48,8 +59,13 @@ def list_cloud_accounts(
 def get_cloud_account_by_id(
     account_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    account = get_cloud_account(db, account_id)
+    account = get_cloud_account(
+        db=db,
+        account_id=account_id,
+        tenant_id=current_user.tenant_id,
+    )
 
     if account is None:
         raise HTTPException(

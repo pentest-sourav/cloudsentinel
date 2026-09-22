@@ -1,3 +1,7 @@
+from dataclasses import dataclass
+from typing import Callable
+
+from scanner.aws.provider import AWSProvider
 from scanner.aws.scanners.cloudtrail_scanner import CloudTrailScanner
 from scanner.aws.scanners.ec2 import EC2Scanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -21,71 +25,157 @@ from scanner.aws.services.route_tables import RouteTableService
 from scanner.aws.session import create_aws_session
 
 
-def run_aws_scan() -> list:
+@dataclass(frozen=True)
+class ScannerExecutionError:
+    service: str
+    error_type: str
+    error_code: str | None
+    message: str
+
+
+@dataclass(frozen=True)
+class AWSScanResult:
+    findings: list
+    errors: list[ScannerExecutionError]
+
+
+def _extract_error_code(error: Exception) -> str | None:
+    response = getattr(error, "response", None)
+
+    if isinstance(response, dict):
+        error_data = response.get("Error")
+
+        if isinstance(error_data, dict):
+            code = error_data.get("Code")
+
+            if code:
+                return str(code)
+
+    return None
+
+
+def _run_scanner(
+    service_name: str,
+    scanner_factory: Callable[[], object],
+) -> tuple[list, ScannerExecutionError | None]:
+    try:
+        scanner = scanner_factory()
+        findings = scanner.scan()
+        return findings, None
+    except Exception as exc:
+        return [], ScannerExecutionError(
+            service=service_name,
+            error_type=type(exc).__name__,
+            error_code=_extract_error_code(exc),
+            message=str(exc),
+        )
+
+
+def run_aws_scan(
+    role_arn: str | None,
+    external_id: str | None,
+    region_name: str | None,
+    expected_account_id: str | None,
+) -> AWSScanResult:
     """
-    Run all enabled AWS security scanners.
+    Run all enabled AWS security scanners against a configured
+    CloudSentinel AWS account.
 
-    The scan is read-only:
-    AWS services are queried for configuration data,
-    security rules analyze the collected data,
-    and findings are returned for persistence.
+    AWS access is established through STS AssumeRole. The returned
+    temporary credentials are used by one boto3 session shared by
+    all scanners.
+
+    AWS account identity is verified through STS before any security
+    scanner is executed.
+
+    Individual security scanners are isolated from one another.
+    A failure in one scanner is recorded as an execution error and
+    does not prevent the remaining scanners from running.
     """
 
-    session = create_aws_session()
+    if not role_arn:
+        raise RuntimeError(
+            "AWS IAM role ARN is not configured for this cloud account."
+        )
 
-    # S3
-    s3_service = S3Service(session)
-    s3_scanner = S3Scanner(s3_service)
-    s3_findings = s3_scanner.scan()
+    session = create_aws_session(
+        role_arn=role_arn,
+        external_id=external_id,
+        region_name=region_name,
+    )
 
-    # IAM
-    iam_service = IAMService(session)
-    iam_scanner = IAMScanner(iam_service)
-    iam_findings = iam_scanner.scan()
+    provider = AWSProvider(session)
+    identity = provider.verify_identity()
 
-    # EC2
-    ec2_service = EC2Service(session)
-    ec2_scanner = EC2Scanner(ec2_service)
-    ec2_findings = ec2_scanner.scan()
+    if (
+        expected_account_id
+        and identity.account_id != expected_account_id
+    ):
+        raise RuntimeError(
+            "AWS account identity mismatch: expected "
+            f"{expected_account_id}, got {identity.account_id}."
+        )
 
-    # RDS
-    rds_service = RDSService(session)
-    rds_scanner = RDSScanner(rds_service)
-    rds_findings = rds_scanner.scan()
+    scanners = (
+        (
+            "s3",
+            lambda: S3Scanner(S3Service(session)),
+        ),
+        (
+            "iam",
+            lambda: IAMScanner(IAMService(session)),
+        ),
+        (
+            "ec2",
+            lambda: EC2Scanner(EC2Service(session)),
+        ),
+        (
+            "rds",
+            lambda: RDSScanner(RDSService(session)),
+        ),
+        (
+            "lambda",
+            lambda: LambdaScanner(LambdaService(session)),
+        ),
+        (
+            "vpc",
+            lambda: VPCScanner(VPCService(session)),
+        ),
+        (
+            "security_group",
+            lambda: SecurityGroupScanner(
+                SecurityGroupService(session)
+            ),
+        ),
+        (
+            "route_table",
+            lambda: RouteTableScanner(
+                RouteTableService(session)
+            ),
+        ),
+        (
+            "cloudtrail",
+            lambda: CloudTrailScanner(
+                CloudTrailService(session)
+            ),
+        ),
+    )
 
-    # Lambda
-    lambda_service = LambdaService(session)
-    lambda_scanner = LambdaScanner(lambda_service)
-    lambda_findings = lambda_scanner.scan()
+    findings = []
+    errors: list[ScannerExecutionError] = []
 
-    # VPC
-    vpc_service = VPCService(session)
-    vpc_scanner = VPCScanner(vpc_service)
-    vpc_findings = vpc_scanner.scan()
+    for service_name, scanner_factory in scanners:
+        service_findings, execution_error = _run_scanner(
+            service_name=service_name,
+            scanner_factory=scanner_factory,
+        )
 
-    # Security Groups
-    security_group_service = SecurityGroupService(session)
-    security_group_scanner = SecurityGroupScanner(security_group_service)
-    security_group_findings = security_group_scanner.scan()
+        findings.extend(service_findings)
 
-    # Route Tables
-    route_table_service = RouteTableService(session)
-    route_table_scanner = RouteTableScanner(route_table_service)
-    route_table_findings = route_table_scanner.scan()
+        if execution_error is not None:
+            errors.append(execution_error)
 
-    # CloudTrail
-    cloudtrail_service = CloudTrailService(session)
-    cloudtrail_scanner = CloudTrailScanner(cloudtrail_service)
-    cloudtrail_findings = cloudtrail_scanner.scan()
-
-    return (
-        s3_findings
-        + iam_findings
-        + ec2_findings
-        + rds_findings
-        + lambda_findings
-        + vpc_findings
-        + security_group_findings
-        + route_table_findings
-        + cloudtrail_findings
+    return AWSScanResult(
+        findings=findings,
+        errors=errors,
     )
