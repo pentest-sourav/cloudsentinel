@@ -56,6 +56,12 @@ class CloudTrailDataCollector:
                     "is_organization_trail": trail.get(
                         "IsOrganizationTrail"
                     ),
+                    "cloudwatch_logs_log_group_arn": trail.get(
+                        "CloudWatchLogsLogGroupArn"
+                    ),
+                    "cloudwatch_logs_role_arn": trail.get(
+                        "CloudWatchLogsRoleArn"
+                    ),
                     "has_insight_selectors": bool(
                         trail.get("InsightSelectors")
                     ),

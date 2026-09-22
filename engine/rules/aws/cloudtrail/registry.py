@@ -36,6 +36,11 @@ from engine.rules.aws.cloudtrail.management_events import (
     check_cloudtrail_management_events,
 )
 
+from engine.rules.aws.cloudtrail.cloudwatch_logs import (
+    build_cloudtrail_cloudwatch_logs_finding,
+    check_cloudtrail_cloudwatch_logs,
+)
+
 CLOUDTRAIL_RULES = RuleRegistry(
     [
         RuleDefinition(
@@ -126,6 +131,20 @@ CLOUDTRAIL_RULES = RuleRegistry(
             ],
             check=check_cloudtrail_management_events,
             build_finding=build_cloudtrail_management_events_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-008",
+            name="cloudtrail_cloudwatch_logs",
+            data_source="cloudtrail_trails",
+            collection_mode="multiple",
+            check_arguments=[
+                "trail_arn",
+                "name",
+                "cloudwatch_logs_log_group_arn",
+                "cloudwatch_logs_role_arn",
+            ],
+            check=check_cloudtrail_cloudwatch_logs,
+            build_finding=build_cloudtrail_cloudwatch_logs_finding,
         ),
     ]
 )

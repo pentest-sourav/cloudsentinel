@@ -137,3 +137,26 @@ def test_cloudtrail_registry_management_events_rule_has_expected_arguments():
 
     assert callable(rule.check)
     assert callable(rule.build_finding)
+
+def test_cloudtrail_registry_contains_cloudwatch_logs_rule():
+    rule = CLOUDTRAIL_RULES.get_rule("CS-AWS-CT-008")
+
+    assert rule is not None
+    assert rule.rule_id == "CS-AWS-CT-008"
+    assert rule.name == "cloudtrail_cloudwatch_logs"
+    assert rule.data_source == "cloudtrail_trails"
+    assert rule.collection_mode == "multiple"
+
+
+def test_cloudtrail_registry_cloudwatch_logs_rule_has_expected_arguments():
+    rule = CLOUDTRAIL_RULES.get_rule("CS-AWS-CT-008")
+
+    assert rule.check_arguments == [
+        "trail_arn",
+        "name",
+        "cloudwatch_logs_log_group_arn",
+        "cloudwatch_logs_role_arn",
+    ]
+
+    assert callable(rule.check)
+    assert callable(rule.build_finding)
