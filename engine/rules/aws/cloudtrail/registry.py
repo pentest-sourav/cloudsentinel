@@ -11,6 +11,21 @@ from engine.rules.aws.cloudtrail.no_trail import (
     check_cloudtrail_no_trail,
 )
 
+from engine.rules.aws.cloudtrail.log_file_validation import (
+    build_cloudtrail_log_file_validation_finding,
+    check_cloudtrail_log_file_validation,
+)
+
+from engine.rules.aws.cloudtrail.multi_region import (
+    build_cloudtrail_multi_region_finding,
+    check_cloudtrail_multi_region,
+)
+
+from engine.rules.aws.cloudtrail.global_service_events import (
+    build_cloudtrail_global_service_events_finding,
+    check_cloudtrail_global_service_events,
+)
+
 CLOUDTRAIL_RULES = RuleRegistry(
     [
         RuleDefinition(
@@ -36,6 +51,45 @@ CLOUDTRAIL_RULES = RuleRegistry(
             ],
             check=check_cloudtrail_no_trail,
             build_finding=build_cloudtrail_no_trail_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-003",
+            name="cloudtrail_log_file_validation",
+            data_source="cloudtrail_trails",
+            collection_mode="multiple",
+            check_arguments=[
+                "trail_arn",
+                "name",
+                "enable_log_file_validation",
+            ],
+            check=check_cloudtrail_log_file_validation,
+            build_finding=build_cloudtrail_log_file_validation_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-004",
+            name="cloudtrail_multi_region",
+            data_source="cloudtrail_trails",
+            collection_mode="multiple",
+            check_arguments=[
+                "trail_arn",
+                "name",
+                "is_multi_region_trail",
+            ],
+            check=check_cloudtrail_multi_region,
+            build_finding=build_cloudtrail_multi_region_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-005",
+            name="cloudtrail_global_service_events",
+            data_source="cloudtrail_trails",
+            collection_mode="multiple",
+            check_arguments=[
+                "trail_arn",
+                "name",
+                "include_global_service_events",
+            ],
+            check=check_cloudtrail_global_service_events,
+            build_finding=build_cloudtrail_global_service_events_finding,
         ),
     ]
 )
