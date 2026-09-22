@@ -42,6 +42,7 @@ class CloudTrailDataCollector:
                     "home_region": trail.get("HomeRegion"),
                     "s3_bucket_name": trail.get("S3BucketName"),
                     "s3_key_prefix": trail.get("S3KeyPrefix"),
+                    "kms_key_id": trail.get("KmsKeyId"),
                     "include_global_service_events": trail.get(
                         "IncludeGlobalServiceEvents"
                     ),
