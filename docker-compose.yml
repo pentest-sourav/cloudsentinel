@@ -5,9 +5,9 @@ services:
     restart: unless-stopped
 
     environment:
-      POSTGRES_DB: cloudsentinel
-      POSTGRES_USER: cloudsentinel
-      POSTGRES_PASSWORD: cloudsentinel_dev_password
+      POSTGRES_DB: ${POSTGRES_DB:-cloudsentinel}
+      POSTGRES_USER: ${POSTGRES_USER:-cloudsentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
 
     ports:
       - "15432:5432"
@@ -19,7 +19,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U cloudsentinel -d cloudsentinel",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
         ]
       interval: 10s
       timeout: 5s
@@ -57,10 +57,13 @@ services:
     restart: unless-stopped
 
     environment:
-      DATABASE_URL: postgresql+psycopg://cloudsentinel:cloudsentinel_dev_password@postgres:5432/cloudsentinel
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
       REDIS_URL: redis://redis:6379/0
-      SCAN_QUEUE_STREAM: cloudsentinel:scan_jobs
-      SCAN_QUEUE_GROUP: cloudsentinel:scan_workers
+      SCAN_QUEUE_STREAM: ${SCAN_QUEUE_STREAM:-cloudsentinel:scan_jobs}
+      SCAN_QUEUE_GROUP: ${SCAN_QUEUE_GROUP:-cloudsentinel:scan_workers}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
 
     ports:
       - "8000:8000"
@@ -90,10 +93,13 @@ services:
     restart: unless-stopped
 
     environment:
-      DATABASE_URL: postgresql+psycopg://cloudsentinel:cloudsentinel_dev_password@postgres:5432/cloudsentinel
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
       REDIS_URL: redis://redis:6379/0
-      SCAN_QUEUE_STREAM: cloudsentinel:scan_jobs
-      SCAN_QUEUE_GROUP: cloudsentinel:scan_workers
+      SCAN_QUEUE_STREAM: ${SCAN_QUEUE_STREAM:-cloudsentinel:scan_jobs}
+      SCAN_QUEUE_GROUP: ${SCAN_QUEUE_GROUP:-cloudsentinel:scan_workers}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
 
     depends_on:
       postgres:

@@ -1,12 +1,16 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import create_engine
+from sqlalchemy.pool import NullPool
 
+from backend.app.core.config import settings
 from backend.app.core.database import Base
 from backend.app.models.cloud_account import CloudAccount
-from backend.app.models.scan import Scan
 from backend.app.models.finding import Finding
+from backend.app.models.scan import Scan
+from backend.app.models.tenant import Tenant
+from backend.app.models.user import User
 
 
 config = context.config
@@ -19,7 +23,7 @@ target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = settings.database_url
 
     context.configure(
         url=url,
@@ -33,10 +37,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+    connectable = create_engine(
+        settings.database_url,
+        poolclass=NullPool,
     )
 
     with connectable.connect() as connection:
@@ -47,6 +50,8 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             context.run_migrations()
+
+    connectable.dispose()
 
 
 if context.is_offline_mode():
