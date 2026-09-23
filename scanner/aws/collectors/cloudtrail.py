@@ -15,6 +15,7 @@ class CloudTrailDataCollector:
         self._trail_status_cache: dict[str, dict[str, Any]] = {}
         self._event_selectors_cache: dict[str, dict[str, Any]] = {}
         self._trail_tags_cache: dict[str, list[dict[str, str]]] | None = None
+        self._event_data_stores_cache: list[dict[str, Any]] | None = None
 
     def _get_trails(self) -> list[dict[str, Any]]:
         """
@@ -133,3 +134,14 @@ class CloudTrailDataCollector:
             )
 
         return self._trail_tags_cache
+
+    def get_event_data_stores(self) -> list[dict[str, Any]]:
+        """
+        Return and cache detailed CloudTrail Lake event data stores.
+        """
+        if self._event_data_stores_cache is None:
+            self._event_data_stores_cache = (
+                self.service.list_event_data_stores()
+            )
+
+        return self._event_data_stores_cache

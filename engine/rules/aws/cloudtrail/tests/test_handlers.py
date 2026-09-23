@@ -410,3 +410,45 @@ def test_collect_cloudtrail_trails_normalizes_tags():
 
 
 
+
+
+def test_collect_cloudtrail_event_data_stores_normalizes_encryption():
+    collector = Mock()
+
+    event_data_store_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:eventdatastore/"
+        "11111111-2222-3333-4444-555555555555"
+    )
+
+    collector.get_event_data_stores.return_value = [
+        {
+            "EventDataStoreArn": event_data_store_arn,
+            "Name": "security-events",
+            "Status": "ENABLED",
+            "KmsKeyId": None,
+            "MultiRegionEnabled": True,
+            "OrganizationEnabled": False,
+            "RetentionPeriod": 366,
+        }
+    ]
+
+    from engine.rules.aws.cloudtrail.handlers import (
+        collect_cloudtrail_event_data_stores,
+    )
+
+    result = collect_cloudtrail_event_data_stores(collector)
+
+    assert result == [
+        {
+            "event_data_store_arn": event_data_store_arn,
+            "name": "security-events",
+            "kms_key_id": None,
+            "status": "ENABLED",
+            "multi_region_enabled": True,
+            "organization_enabled": False,
+            "retention_period": 366,
+        }
+    ]
+
+    collector.get_event_data_stores.assert_called_once()

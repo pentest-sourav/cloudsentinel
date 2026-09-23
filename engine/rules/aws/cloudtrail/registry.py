@@ -42,6 +42,11 @@ from engine.rules.aws.cloudtrail.cloudwatch_logs import (
 )
 
 
+from engine.rules.aws.cloudtrail.event_data_store_encryption import (
+    build_cloudtrail_event_data_store_encryption_finding,
+    check_cloudtrail_event_data_store_encryption,
+)
+
 from engine.rules.aws.cloudtrail.tagging import (
     build_cloudtrail_tagging_finding,
     check_cloudtrail_tagging,
@@ -164,6 +169,21 @@ CLOUDTRAIL_RULES = RuleRegistry(
             ],
             check=check_cloudtrail_tagging,
             build_finding=build_cloudtrail_tagging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-010",
+            name="cloudtrail_event_data_store_encryption",
+            data_source="cloudtrail_event_data_stores",
+            collection_mode="multiple",
+            check_arguments=[
+                "event_data_store_arn",
+                "name",
+                "kms_key_id",
+            ],
+            check=check_cloudtrail_event_data_store_encryption,
+            build_finding=(
+                build_cloudtrail_event_data_store_encryption_finding
+            ),
         ),
     ]
 )

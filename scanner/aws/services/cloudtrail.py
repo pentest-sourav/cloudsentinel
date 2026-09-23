@@ -75,8 +75,8 @@ class CloudTrailService:
 
         except BotoCoreError as exc:
             raise RuntimeError(
-                "AWS SDK error during CloudTrail status discovery: "
-                f"{exc}"
+                "AWS SDK error during CloudTrail trail status "
+                f"discovery: {exc}"
             ) from exc
 
     def get_event_selectors(
@@ -166,3 +166,111 @@ class CloudTrailService:
                 tags_by_trail[resource_id] = tags
 
         return tags_by_trail
+
+    def get_event_data_store(
+        self,
+        event_data_store_arn: str,
+    ) -> dict[str, Any]:
+        """
+        Return detailed configuration for a CloudTrail Lake
+        event data store.
+        """
+        try:
+            return self.cloudtrail_client.get_event_data_store(
+                EventDataStore=event_data_store_arn
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"CloudTrail event data store discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during CloudTrail event data store "
+                f"discovery: {exc}"
+            ) from exc
+
+    def list_event_data_stores(self) -> list[dict[str, Any]]:
+        """
+        Return detailed configuration for all CloudTrail Lake
+        event data stores.
+
+        ListEventDataStores is paginated. Each returned event data
+        store is enriched with GetEventDataStore so encryption
+        configuration such as KmsKeyId is available to the rules.
+        """
+        event_data_stores: list[dict[str, Any]] = []
+        next_token: str | None = None
+
+        try:
+            while True:
+                request: dict[str, Any] = {
+                    "MaxResults": 50,
+                }
+
+                if next_token:
+                    request["NextToken"] = next_token
+
+                response = self.cloudtrail_client.list_event_data_stores(
+                    **request
+                )
+
+                stores = response.get("EventDataStores", [])
+
+                if isinstance(stores, list):
+                    for store in stores:
+                        event_data_store_arn = store.get(
+                            "EventDataStoreArn"
+                        )
+
+                        if not event_data_store_arn:
+                            continue
+
+                        details = self.get_event_data_store(
+                            event_data_store_arn
+                        )
+
+                        merged_store = {
+                            **store,
+                            **details,
+                        }
+
+                        event_data_stores.append(merged_store)
+
+                next_token = response.get("NextToken")
+
+                if not next_token:
+                    break
+
+            return event_data_stores
+
+        except RuntimeError:
+            raise
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"CloudTrail event data store discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during CloudTrail event data store "
+                f"discovery: {exc}"
+            ) from exc

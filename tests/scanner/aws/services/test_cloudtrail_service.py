@@ -92,3 +92,231 @@ def test_cloudtrail_service_batches_trail_tag_requests():
 
     assert first_call.kwargs["ResourceIdList"] == trail_arns[:20]
     assert second_call.kwargs["ResourceIdList"] == trail_arns[20:]
+
+
+def test_cloudtrail_service_lists_event_data_stores_and_fetches_details():
+    fake_session = Mock(spec=boto3.Session)
+    fake_cloudtrail = Mock()
+    fake_session.client.return_value = fake_cloudtrail
+
+    event_data_store_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:eventdatastore/"
+        "11111111-2222-3333-4444-555555555555"
+    )
+
+    fake_cloudtrail.list_event_data_stores.return_value = {
+        "EventDataStores": [
+            {
+                "EventDataStoreArn": event_data_store_arn,
+                "Name": "security-events",
+                "Status": "ENABLED",
+            }
+        ]
+    }
+
+    fake_cloudtrail.get_event_data_store.return_value = {
+        "EventDataStoreArn": event_data_store_arn,
+        "Name": "security-events",
+        "Status": "ENABLED",
+        "KmsKeyId": (
+            "arn:aws:kms:eu-north-1:"
+            "123456789012:key/"
+            "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        ),
+    }
+
+    service = CloudTrailService(fake_session)
+
+    result = service.list_event_data_stores()
+
+    assert result == [
+        {
+            "EventDataStoreArn": event_data_store_arn,
+            "Name": "security-events",
+            "Status": "ENABLED",
+            "KmsKeyId": (
+                "arn:aws:kms:eu-north-1:"
+                "123456789012:key/"
+                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+            ),
+        }
+    ]
+
+    fake_cloudtrail.list_event_data_stores.assert_called_once_with(
+        MaxResults=50,
+    )
+    fake_cloudtrail.get_event_data_store.assert_called_once_with(
+        EventDataStore=event_data_store_arn,
+    )
+
+
+def test_cloudtrail_service_paginates_event_data_stores():
+    fake_session = Mock(spec=boto3.Session)
+    fake_cloudtrail = Mock()
+    fake_session.client.return_value = fake_cloudtrail
+
+    first_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:eventdatastore/first"
+    )
+    second_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:eventdatastore/second"
+    )
+
+    fake_cloudtrail.list_event_data_stores.side_effect = [
+        {
+            "EventDataStores": [
+                {
+                    "EventDataStoreArn": first_arn,
+                }
+            ],
+            "NextToken": "next-page",
+        },
+        {
+            "EventDataStores": [
+                {
+                    "EventDataStoreArn": second_arn,
+                }
+            ],
+        },
+    ]
+
+    fake_cloudtrail.get_event_data_store.side_effect = [
+        {
+            "EventDataStoreArn": first_arn,
+            "Name": "first",
+            "KmsKeyId": "arn:aws:kms:eu-north-1:123456789012:key/first",
+        },
+        {
+            "EventDataStoreArn": second_arn,
+            "Name": "second",
+            "KmsKeyId": None,
+        },
+    ]
+
+    service = CloudTrailService(fake_session)
+
+    result = service.list_event_data_stores()
+
+    assert [item["Name"] for item in result] == [
+        "first",
+        "second",
+    ]
+
+    assert fake_cloudtrail.list_event_data_stores.call_count == 2
+
+    first_call = fake_cloudtrail.list_event_data_stores.call_args_list[0]
+    second_call = fake_cloudtrail.list_event_data_stores.call_args_list[1]
+
+    assert first_call.kwargs == {
+        "MaxResults": 50,
+    }
+    assert second_call.kwargs == {
+        "MaxResults": 50,
+        "NextToken": "next-page",
+    }
+
+    assert fake_cloudtrail.get_event_data_store.call_count == 2
+
+
+def test_cloudtrail_service_gets_event_data_store_details():
+    fake_session = Mock(spec=boto3.Session)
+    fake_cloudtrail = Mock()
+    fake_session.client.return_value = fake_cloudtrail
+
+    event_data_store_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:eventdatastore/"
+        "11111111-2222-3333-4444-555555555555"
+    )
+
+    expected = {
+        "EventDataStoreArn": event_data_store_arn,
+        "Name": "security-events",
+        "Status": "ENABLED",
+        "KmsKeyId": None,
+    }
+
+    fake_cloudtrail.get_event_data_store.return_value = expected
+
+    service = CloudTrailService(fake_session)
+
+    result = service.get_event_data_store(event_data_store_arn)
+
+    assert result == expected
+
+    fake_cloudtrail.get_event_data_store.assert_called_once_with(
+        EventDataStore=event_data_store_arn,
+    )
+
+
+def test_cloudtrail_service_get_event_data_store_handles_client_error():
+    from botocore.exceptions import ClientError
+
+    fake_session = Mock(spec=boto3.Session)
+    fake_cloudtrail = Mock()
+    fake_session.client.return_value = fake_cloudtrail
+
+    fake_cloudtrail.get_event_data_store.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "ResourceNotFoundException",
+                "Message": "Event data store not found",
+            }
+        },
+        "GetEventDataStore",
+    )
+
+    service = CloudTrailService(fake_session)
+
+    try:
+        service.get_event_data_store("missing")
+        assert False, "Expected RuntimeError"
+    except RuntimeError as exc:
+        assert str(exc) == (
+            "CloudTrail event data store discovery failed: "
+            "ResourceNotFoundException: Event data store not found"
+        )
+
+
+def test_cloudtrail_service_get_event_data_store_handles_sdk_error():
+    from botocore.exceptions import BotoCoreError
+
+    fake_session = Mock(spec=boto3.Session)
+    fake_cloudtrail = Mock()
+    fake_session.client.return_value = fake_cloudtrail
+
+    fake_cloudtrail.get_event_data_store.side_effect = BotoCoreError()
+
+    service = CloudTrailService(fake_session)
+
+    try:
+        service.get_event_data_store("arn:test")
+        assert False, "Expected RuntimeError"
+    except RuntimeError as exc:
+        assert str(exc).startswith(
+            "AWS SDK error during CloudTrail event data store discovery:"
+        )
+
+
+def test_cloudtrail_service_skips_event_data_stores_without_arn():
+    fake_session = Mock(spec=boto3.Session)
+    fake_cloudtrail = Mock()
+    fake_session.client.return_value = fake_cloudtrail
+
+    fake_cloudtrail.list_event_data_stores.return_value = {
+        "EventDataStores": [
+            {
+                "Name": "invalid-store",
+            }
+        ]
+    }
+
+    service = CloudTrailService(fake_session)
+
+    result = service.list_event_data_stores()
+
+    assert result == []
+    fake_cloudtrail.get_event_data_store.assert_not_called()

@@ -114,7 +114,43 @@ def collect_cloudtrail_account(
     return collector.collect_account()
 
 
+def collect_cloudtrail_event_data_stores(
+    collector: CloudTrailDataCollector,
+) -> list[dict]:
+    """
+    Collect normalized CloudTrail Lake event data stores.
+    """
+    normalized = []
+
+    for store in collector.get_event_data_stores():
+        event_data_store_arn = store.get("EventDataStoreArn")
+
+        if not event_data_store_arn:
+            continue
+
+        normalized.append(
+            {
+                "event_data_store_arn": event_data_store_arn,
+                "name": store.get("Name"),
+                "kms_key_id": store.get("KmsKeyId"),
+                "status": store.get("Status"),
+                "multi_region_enabled": store.get(
+                    "MultiRegionEnabled"
+                ),
+                "organization_enabled": store.get(
+                    "OrganizationEnabled"
+                ),
+                "retention_period": store.get(
+                    "RetentionPeriod"
+                ),
+            }
+        )
+
+    return normalized
+
+
 CLOUDTRAIL_DATA_SOURCE_HANDLERS = {
     "cloudtrail_trails": collect_cloudtrail_trails,
     "cloudtrail_account": collect_cloudtrail_account,
+    "cloudtrail_event_data_stores": collect_cloudtrail_event_data_stores,
 }
