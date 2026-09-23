@@ -240,3 +240,26 @@ def test_cloudtrail_registry_event_data_store_termination_protection_rule_has_ex
 
     assert callable(rule.check)
     assert callable(rule.build_finding)
+
+
+def test_cloudtrail_registry_contains_event_data_store_retention_rule():
+    rule = CLOUDTRAIL_RULES.get_rule("CS-AWS-CT-012")
+
+    assert rule is not None
+    assert rule.rule_id == "CS-AWS-CT-012"
+    assert rule.name == "cloudtrail_event_data_store_retention"
+    assert rule.data_source == "cloudtrail_event_data_stores"
+    assert rule.collection_mode == "multiple"
+
+
+def test_cloudtrail_registry_event_data_store_retention_rule_has_expected_arguments():
+    rule = CLOUDTRAIL_RULES.get_rule("CS-AWS-CT-012")
+
+    assert rule.check_arguments == [
+        "event_data_store_arn",
+        "name",
+        "retention_period",
+    ]
+
+    assert callable(rule.check)
+    assert callable(rule.build_finding)
