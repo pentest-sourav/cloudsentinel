@@ -7,8 +7,8 @@ def _includes_management_events(
     event_selector_config: dict[str, Any],
 ) -> bool:
     """
-    Determine whether the trail configuration includes
-    CloudTrail management events.
+    Determine whether a CloudTrail trail configuration includes
+    management events.
 
     Supports both basic EventSelectors and
     AdvancedEventSelectors.
@@ -18,7 +18,7 @@ def _includes_management_events(
 
     event_selectors = event_selector_config.get(
         "EventSelectors",
-        []
+        [],
     )
 
     if not isinstance(event_selectors, list):
@@ -33,7 +33,7 @@ def _includes_management_events(
 
     advanced_selectors = event_selector_config.get(
         "AdvancedEventSelectors",
-        []
+        [],
     )
 
     if not isinstance(advanced_selectors, list):
@@ -57,6 +57,53 @@ def _includes_management_events(
                 "Equals",
                 [],
             ):
+                return True
+
+    return False
+
+
+def _includes_event_data_store_management_events(
+    advanced_event_selectors: Any,
+) -> bool:
+    """
+    Determine whether a CloudTrail Lake event data store includes
+    management events.
+
+    CloudTrail event data stores use AdvancedEventSelectors.
+    If no selectors are returned, CloudTrail's default event
+    data store configuration includes management events.
+    """
+    if advanced_event_selectors is None:
+        return True
+
+    if not isinstance(advanced_event_selectors, list):
+        return False
+
+    if not advanced_event_selectors:
+        return True
+
+    for selector in advanced_event_selectors:
+        if not isinstance(selector, dict):
+            continue
+
+        field_selectors = selector.get(
+            "FieldSelectors",
+            [],
+        )
+
+        if not isinstance(field_selectors, list):
+            continue
+
+        for field_selector in field_selectors:
+            if not isinstance(field_selector, dict):
+                continue
+
+            if field_selector.get("Field") != "eventCategory":
+                continue
+
+            equals = field_selector.get("Equals", [])
+
+            if isinstance(equals, list) and "Management" in equals:
                 return True
 
     return False
@@ -145,6 +192,11 @@ def collect_cloudtrail_event_data_stores(
                 ),
                 "termination_protection_enabled": store.get(
                     "TerminationProtectionEnabled"
+                ),
+                "management_events_enabled": (
+                    _includes_event_data_store_management_events(
+                        store.get("AdvancedEventSelectors")
+                    )
                 ),
             }
         )

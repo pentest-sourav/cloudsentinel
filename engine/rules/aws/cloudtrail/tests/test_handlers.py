@@ -450,6 +450,7 @@ def test_collect_cloudtrail_event_data_stores_normalizes_encryption():
             "organization_enabled": False,
             "retention_period": 366,
             "termination_protection_enabled": True,
+            "management_events_enabled": True,
         }
     ]
 

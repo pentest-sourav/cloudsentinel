@@ -5,63 +5,67 @@ from engine.rules.aws.cloudtrail.logging import (
     build_cloudtrail_logging_finding,
     check_cloudtrail_logging,
 )
-
 from engine.rules.aws.cloudtrail.no_trail import (
     build_cloudtrail_no_trail_finding,
     check_cloudtrail_no_trail,
 )
-
 from engine.rules.aws.cloudtrail.log_file_validation import (
     build_cloudtrail_log_file_validation_finding,
     check_cloudtrail_log_file_validation,
 )
-
 from engine.rules.aws.cloudtrail.multi_region import (
     build_cloudtrail_multi_region_finding,
     check_cloudtrail_multi_region,
 )
-
 from engine.rules.aws.cloudtrail.global_service_events import (
     build_cloudtrail_global_service_events_finding,
     check_cloudtrail_global_service_events,
 )
-
 from engine.rules.aws.cloudtrail.encryption import (
     build_cloudtrail_encryption_finding,
     check_cloudtrail_encryption,
 )
-
 from engine.rules.aws.cloudtrail.management_events import (
     build_cloudtrail_management_events_finding,
     check_cloudtrail_management_events,
 )
-
 from engine.rules.aws.cloudtrail.cloudwatch_logs import (
     build_cloudtrail_cloudwatch_logs_finding,
     check_cloudtrail_cloudwatch_logs,
 )
-
-
 from engine.rules.aws.cloudtrail.event_data_store_encryption import (
     build_cloudtrail_event_data_store_encryption_finding,
     check_cloudtrail_event_data_store_encryption,
 )
-
 from engine.rules.aws.cloudtrail.event_data_store_termination_protection import (
     build_cloudtrail_event_data_store_termination_protection_finding,
     check_cloudtrail_event_data_store_termination_protection,
 )
-
 from engine.rules.aws.cloudtrail.event_data_store_retention import (
     build_cloudtrail_event_data_store_retention_finding,
     check_cloudtrail_event_data_store_retention,
 )
-
-
+from engine.rules.aws.cloudtrail.event_data_store_ingestion import (
+    build_cloudtrail_event_data_store_ingestion_finding,
+    check_cloudtrail_event_data_store_ingestion,
+)
+from engine.rules.aws.cloudtrail.event_data_store_management_events import (
+    build_cloudtrail_event_data_store_management_events_finding,
+    check_cloudtrail_event_data_store_management_events,
+)
+from engine.rules.aws.cloudtrail.event_data_store_multi_region import (
+    build_cloudtrail_event_data_store_multi_region_finding,
+    check_cloudtrail_event_data_store_multi_region,
+)
+from engine.rules.aws.cloudtrail.event_data_store_organization import (
+    build_cloudtrail_event_data_store_organization_finding,
+    check_cloudtrail_event_data_store_organization,
+)
 from engine.rules.aws.cloudtrail.tagging import (
     build_cloudtrail_tagging_finding,
     check_cloudtrail_tagging,
 )
+
 
 CLOUDTRAIL_RULES = RuleRegistry(
     [
@@ -224,6 +228,66 @@ CLOUDTRAIL_RULES = RuleRegistry(
             check=check_cloudtrail_event_data_store_retention,
             build_finding=(
                 build_cloudtrail_event_data_store_retention_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-013",
+            name="cloudtrail_event_data_store_ingestion",
+            data_source="cloudtrail_event_data_stores",
+            collection_mode="multiple",
+            check_arguments=[
+                "event_data_store_arn",
+                "name",
+                "status",
+            ],
+            check=check_cloudtrail_event_data_store_ingestion,
+            build_finding=(
+                build_cloudtrail_event_data_store_ingestion_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-014",
+            name="cloudtrail_event_data_store_management_events",
+            data_source="cloudtrail_event_data_stores",
+            collection_mode="multiple",
+            check_arguments=[
+                "event_data_store_arn",
+                "name",
+                "management_events_enabled",
+            ],
+            check=check_cloudtrail_event_data_store_management_events,
+            build_finding=(
+                build_cloudtrail_event_data_store_management_events_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-015",
+            name="cloudtrail_event_data_store_multi_region",
+            data_source="cloudtrail_event_data_stores",
+            collection_mode="multiple",
+            check_arguments=[
+                "event_data_store_arn",
+                "name",
+                "multi_region_enabled",
+            ],
+            check=check_cloudtrail_event_data_store_multi_region,
+            build_finding=(
+                build_cloudtrail_event_data_store_multi_region_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-016",
+            name="cloudtrail_event_data_store_organization",
+            data_source="cloudtrail_event_data_stores",
+            collection_mode="multiple",
+            check_arguments=[
+                "event_data_store_arn",
+                "name",
+                "organization_enabled",
+            ],
+            check=check_cloudtrail_event_data_store_organization,
+            build_finding=(
+                build_cloudtrail_event_data_store_organization_finding
             ),
         ),
     ]
