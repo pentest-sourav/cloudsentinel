@@ -3,6 +3,7 @@ from typing import Any
 from scanner.aws.collectors.s3 import S3DataCollector
 from scanner.aws.services.cloudtrail import CloudTrailService
 from scanner.aws.services.s3 import S3Service
+from scanner.aws.services.sns import SNSService
 
 
 class CloudTrailDataCollector:
@@ -20,6 +21,8 @@ class CloudTrailDataCollector:
         self._event_data_stores_cache: list[dict[str, Any]] | None = None
         self._s3_collector: S3DataCollector | None = None
         self._destination_bucket_cache: dict[str, dict[str, Any]] = {}
+        self._sns_services: dict[str, SNSService] = {}
+        self._sns_topic_policy_cache: dict[str, dict[str, Any]] = {}
 
     def _get_trails(self) -> list[dict[str, Any]]:
         """
@@ -49,6 +52,7 @@ class CloudTrailDataCollector:
                     "home_region": trail.get("HomeRegion"),
                     "s3_bucket_name": trail.get("S3BucketName"),
                     "s3_key_prefix": trail.get("S3KeyPrefix"),
+                    "sns_topic_arn": trail.get("SnsTopicARN"),
                     "kms_key_id": trail.get("KmsKeyId"),
                     "include_global_service_events": trail.get(
                         "IncludeGlobalServiceEvents"
@@ -145,6 +149,84 @@ class CloudTrailDataCollector:
             )
 
         return self._event_data_stores_cache
+
+    def _get_sns_service(
+        self,
+        topic_arn: str,
+    ) -> SNSService:
+        """
+        Lazily create and cache an SNS service for the topic region.
+        """
+        arn_parts = topic_arn.split(":")
+
+        if len(arn_parts) < 4 or not arn_parts[3]:
+            raise RuntimeError(
+                f"Invalid SNS topic ARN: {topic_arn}"
+            )
+
+        region_name = arn_parts[3]
+
+        if region_name not in self._sns_services:
+            self._sns_services[region_name] = SNSService(
+                self.service.session,
+                region_name,
+            )
+
+        return self._sns_services[region_name]
+
+    def _get_sns_topic_policy(
+        self,
+        topic_arn: str,
+    ) -> dict[str, Any]:
+        """
+        Collect and cache the SNS topic access policy.
+        """
+        if topic_arn not in self._sns_topic_policy_cache:
+            sns_service = self._get_sns_service(topic_arn)
+
+            self._sns_topic_policy_cache[topic_arn] = (
+                sns_service.get_topic_policy(topic_arn)
+            )
+
+        return self._sns_topic_policy_cache[topic_arn]
+
+    def collect_sns_topic_security(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect SNS topic policies used by CloudTrail trails.
+
+        Multiple trails may use the same SNS topic, so each topic
+        policy is retrieved only once.
+        """
+        topics: dict[str, set[str]] = {}
+
+        for trail in self.collect_trails():
+            topic_arn = trail.get("sns_topic_arn")
+            trail_arn = trail.get("trail_arn")
+
+            if not topic_arn or not trail_arn:
+                continue
+
+            topics.setdefault(
+                topic_arn,
+                set(),
+            ).add(trail_arn)
+
+        collected = []
+
+        for topic_arn, trail_arns in topics.items():
+            collected.append(
+                {
+                    "topic_arn": topic_arn,
+                    "trail_arns": sorted(trail_arns),
+                    "policy": self._get_sns_topic_policy(
+                        topic_arn
+                    ),
+                }
+            )
+
+        return collected
 
     def _get_s3_collector(self) -> S3DataCollector:
         """

@@ -73,6 +73,10 @@ from engine.rules.aws.cloudtrail.destination_bucket_logging import (
     build_cloudtrail_destination_bucket_logging_finding,
     check_cloudtrail_destination_bucket_logging,
 )
+from engine.rules.aws.cloudtrail.sns_topic_policy import (
+    build_cloudtrail_sns_topic_policy_finding,
+    check_cloudtrail_sns_topic_policy,
+)
 
 
 CLOUDTRAIL_RULES = RuleRegistry(
@@ -324,6 +328,21 @@ CLOUDTRAIL_RULES = RuleRegistry(
             check=check_cloudtrail_destination_bucket_logging,
             build_finding=(
                 build_cloudtrail_destination_bucket_logging_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-019",
+            name="cloudtrail_sns_topic_policy_source_arn",
+            data_source="cloudtrail_sns_topic_security",
+            collection_mode="multiple",
+            check_arguments=[
+                "topic_arn",
+                "trail_arns",
+                "policy",
+            ],
+            check=check_cloudtrail_sns_topic_policy,
+            build_finding=(
+                build_cloudtrail_sns_topic_policy_finding
             ),
         ),
     ]
