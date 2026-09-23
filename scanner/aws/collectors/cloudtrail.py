@@ -263,6 +263,11 @@ class CloudTrailDataCollector:
                     bucket_name
                 )
             ),
+            "bucket_policy": (
+                s3_collector.service.get_bucket_policy(
+                    bucket_name
+                )
+            ),
         }
 
         self._destination_bucket_cache[bucket_name] = result

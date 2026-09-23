@@ -210,6 +210,25 @@ def collect_cloudtrail_destination_bucket_security(
     return collector.collect_destination_bucket_security()
 
 
+def collect_cloudtrail_destination_bucket_policy(
+    collector: CloudTrailDataCollector,
+) -> list[dict]:
+    collected = []
+
+    for item in collector.collect_destination_bucket_security():
+        collected.append(
+            {
+                **item,
+                "bucket_policy": item.get(
+                    "bucket_policy",
+                    {},
+                ),
+            }
+        )
+
+    return collected
+
+
 def collect_cloudtrail_sns_topic_security(
     collector: CloudTrailDataCollector,
 ) -> list[dict]:
@@ -222,6 +241,9 @@ CLOUDTRAIL_DATA_SOURCE_HANDLERS = {
     "cloudtrail_event_data_stores": collect_cloudtrail_event_data_stores,
     "cloudtrail_destination_bucket_security": (
         collect_cloudtrail_destination_bucket_security
+    ),
+    "cloudtrail_destination_bucket_policy": (
+        collect_cloudtrail_destination_bucket_policy
     ),
     "cloudtrail_sns_topic_security": (
         collect_cloudtrail_sns_topic_security

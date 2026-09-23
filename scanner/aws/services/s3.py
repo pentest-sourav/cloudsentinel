@@ -2,11 +2,13 @@ from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from scanner.aws.client_factory import create_aws_client
+
 
 class S3Service:
     def __init__(self, session):
         self.session = session
-        self.s3_client = session.client("s3")
+        self.s3_client = create_aws_client(session, "s3")
 
     def list_buckets(self) -> list[dict[str, Any]]:
         response = self.s3_client.list_buckets()
@@ -132,6 +134,59 @@ class S3Service:
             raise RuntimeError(
                 f"AWS SDK error while checking S3 bucket policy status: "
                 f"{exc}"
+            ) from exc
+
+    def get_bucket_policy(
+        self,
+        bucket_name: str,
+    ) -> dict[str, Any]:
+        try:
+            response = self.s3_client.get_bucket_policy(
+                Bucket=bucket_name
+            )
+
+            policy = response.get("Policy", "{}")
+
+            if isinstance(policy, str):
+                import json
+
+                policy = json.loads(policy)
+
+            if not isinstance(policy, dict):
+                return {}
+
+            return policy
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+
+            if code in {
+                "NoSuchBucketPolicy",
+                "NoSuchBucket",
+            }:
+                return {}
+
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"S3 bucket policy retrieval failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while retrieving S3 bucket policy: "
+                f"{exc}"
+            ) from exc
+
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(
+                f"S3 bucket policy response could not be "
+                f"parsed: {exc}"
             ) from exc
 
     def get_bucket_acl(
