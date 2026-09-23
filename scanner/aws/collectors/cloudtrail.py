@@ -14,6 +14,7 @@ class CloudTrailDataCollector:
         self._trails_cache: list[dict[str, Any]] | None = None
         self._trail_status_cache: dict[str, dict[str, Any]] = {}
         self._event_selectors_cache: dict[str, dict[str, Any]] = {}
+        self._trail_tags_cache: dict[str, list[dict[str, str]]] | None = None
 
     def _get_trails(self) -> list[dict[str, Any]]:
         """
@@ -118,3 +119,17 @@ class CloudTrailDataCollector:
             )
 
         return self._event_selectors_cache[trail_arn]
+
+    def get_trail_tags(
+        self,
+        trail_arns: list[str],
+    ) -> dict[str, list[dict[str, str]]]:
+        """
+        Return and cache tags for CloudTrail trails.
+        """
+        if self._trail_tags_cache is None:
+            self._trail_tags_cache = self.service.list_trail_tags(
+                trail_arns
+            )
+
+        return self._trail_tags_cache

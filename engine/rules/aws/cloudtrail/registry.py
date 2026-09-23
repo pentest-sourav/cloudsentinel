@@ -41,6 +41,12 @@ from engine.rules.aws.cloudtrail.cloudwatch_logs import (
     check_cloudtrail_cloudwatch_logs,
 )
 
+
+from engine.rules.aws.cloudtrail.tagging import (
+    build_cloudtrail_tagging_finding,
+    check_cloudtrail_tagging,
+)
+
 CLOUDTRAIL_RULES = RuleRegistry(
     [
         RuleDefinition(
@@ -145,6 +151,19 @@ CLOUDTRAIL_RULES = RuleRegistry(
             ],
             check=check_cloudtrail_cloudwatch_logs,
             build_finding=build_cloudtrail_cloudwatch_logs_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-009",
+            name="cloudtrail_tagging",
+            data_source="cloudtrail_trails",
+            collection_mode="multiple",
+            check_arguments=[
+                "trail_arn",
+                "name",
+                "tags",
+            ],
+            check=check_cloudtrail_tagging,
+            build_finding=build_cloudtrail_tagging_finding,
         ),
     ]
 )

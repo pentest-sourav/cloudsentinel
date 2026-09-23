@@ -362,3 +362,135 @@ def test_collect_cloudtrail_trails_normalizes_cloudwatch_logs_configuration():
         "arn:aws:iam::123456789012:"
         "role/CloudTrail_CloudWatchLogs_Role"
     )
+
+
+def test_collect_cloudtrail_trails_normalizes_tags():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_tags.return_value = {
+        trail_arn: [
+            {
+                "Key": "Environment",
+                "Value": "Production",
+            }
+        ]
+    }
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {}
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["tags"] == [
+        {
+            "Key": "Environment",
+            "Value": "Production",
+        }
+    ]
+
+    collector.get_trail_tags.assert_called_once_with(
+        [trail_arn],
+    )
+
+
+def test_collect_cloudtrail_trails_normalizes_tags():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_tags.return_value = {
+        trail_arn: [
+            {
+                "Key": "Environment",
+                "Value": "Production",
+            }
+        ]
+    }
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {}
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["tags"] == [
+        {
+            "Key": "Environment",
+            "Value": "Production",
+        }
+    ]
+
+    collector.get_trail_tags.assert_called_once_with(
+        [trail_arn],
+    )
+
+
+def test_collect_cloudtrail_trails_normalizes_tags():
+    collector = Mock()
+
+    trail_arn = (
+        "arn:aws:cloudtrail:eu-north-1:"
+        "123456789012:trail/cloudtrail-main"
+    )
+
+    collector.collect_trails.return_value = [
+        {
+            "name": "cloudtrail-main",
+            "trail_arn": trail_arn,
+        }
+    ]
+
+    collector.get_trail_tags.return_value = {
+        trail_arn: [
+            {
+                "Key": "Environment",
+                "Value": "Production",
+            }
+        ]
+    }
+
+    collector.get_trail_status.return_value = {
+        "IsLogging": True,
+    }
+
+    collector.get_event_selectors.return_value = {}
+
+    trails = collect_cloudtrail_trails(collector)
+
+    assert trails[0]["tags"] == [
+        {
+            "Key": "Environment",
+            "Value": "Production",
+        }
+    ]
+
+    collector.get_trail_tags.assert_called_once_with(
+        [trail_arn],
+    )

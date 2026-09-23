@@ -71,6 +71,13 @@ def collect_cloudtrail_trails(
     """
     trails = collector.collect_trails()
 
+    trail_arns = [
+        trail["trail_arn"]
+        for trail in trails
+    ]
+
+    trail_tags = collector.get_trail_tags(trail_arns)
+
     normalized_trails = []
 
     for trail in trails:
@@ -91,6 +98,7 @@ def collect_cloudtrail_trails(
                         event_selector_config
                     )
                 ),
+                "tags": trail_tags.get(trail_arn, []),
             }
         )
 
