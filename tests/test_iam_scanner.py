@@ -75,6 +75,10 @@ def _configure_common_iam_service(service, username):
     _configure_broad_user_inline_policies(service)
     _configure_broad_group_policies(service)
 
+    # IAM-036: Access Analyzer returns no security warnings
+    # unless a test explicitly configures them.
+    service.validate_policy.return_value = []
+
 
 def test_iam_scanner_returns_root_and_user_mfa_findings():
     service = Mock()
@@ -152,7 +156,7 @@ def test_iam_scanner_uses_registry_data_sources():
     )
     assert (
         service.list_attached_user_policies.call_count
-        == 2
+        == 3
     )
 
     service.list_user_policies.assert_any_call(
@@ -160,7 +164,7 @@ def test_iam_scanner_uses_registry_data_sources():
     )
     assert (
         service.list_user_policies.call_count
-        == 2
+        == 3
     )
 
     service.list_groups_for_user.assert_called_once_with(
@@ -260,13 +264,12 @@ def test_iam_scanner_returns_broad_group_policy_finding():
         "DeveloperAccess"
     )
 
-    service.get_policy_version.assert_called_once_with(
+    service.get_policy_version.assert_any_call(
         "arn:aws:iam::123456789012:policy/"
         "DeveloperAccess",
         "v1",
     )
-
-
+    assert service.get_policy_version.call_count == 1
 def test_iam_scanner_does_not_report_specific_group_permissions():
     service = Mock()
     service.list_roles.return_value = []
@@ -528,12 +531,13 @@ def test_iam_scanner_returns_broad_user_inline_policy_finding():
     service.list_user_policies.assert_any_call(
         "alice"
     )
-    assert service.list_user_policies.call_count == 2
+    assert service.list_user_policies.call_count == 3
 
-    service.get_user_policy.assert_called_once_with(
+    service.get_user_policy.assert_any_call(
         "alice",
         "AdminInlinePolicy",
     )
+    assert service.get_user_policy.call_count == 2
 
 
 def test_iam_scanner_returns_broad_group_inline_policy_finding():
@@ -611,10 +615,11 @@ def test_iam_scanner_returns_broad_group_inline_policy_finding():
         "Developers"
     )
 
-    service.get_group_policy.assert_called_once_with(
+    service.get_group_policy.assert_any_call(
         "Developers",
         "AdminInlinePolicy",
     )
+    assert service.get_group_policy.call_count == 2
 
 
 def test_iam_scanner_does_not_report_broad_group_inline_policy_for_specific_action():
@@ -667,10 +672,11 @@ def test_iam_scanner_does_not_report_broad_group_inline_policy_for_specific_acti
         "Developers"
     )
 
-    service.get_group_policy.assert_called_once_with(
+    service.get_group_policy.assert_any_call(
         "Developers",
         "DeveloperInlinePolicy",
     )
+    assert service.get_group_policy.call_count == 2
 
 
 def test_iam_scanner_does_not_report_broad_group_inline_policy_for_deny_statement():
@@ -723,10 +729,11 @@ def test_iam_scanner_does_not_report_broad_group_inline_policy_for_deny_statemen
         "Developers"
     )
 
-    service.get_group_policy.assert_called_once_with(
+    service.get_group_policy.assert_any_call(
         "Developers",
         "DenyInlinePolicy",
     )
+    assert service.get_group_policy.call_count == 2
 
 
 def test_iam_scanner_detects_broad_inline_policy_on_orphan_group():
@@ -800,10 +807,11 @@ def test_iam_scanner_detects_broad_inline_policy_on_orphan_group():
         "LegacyAdmins"
     )
 
-    service.get_group_policy.assert_called_once_with(
+    service.get_group_policy.assert_any_call(
         "LegacyAdmins",
         "LegacyAdminInlinePolicy",
     )
+    assert service.get_group_policy.call_count == 2
 
     service.list_groups_for_user.assert_called_once_with(
         "alice"

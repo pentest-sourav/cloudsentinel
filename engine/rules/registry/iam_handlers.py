@@ -216,6 +216,15 @@ def collect_access_key_last_used(
     return collector.collect_access_key_last_used()
 
 
+def collect_access_analyzer_policy_validation(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect IAM Access Analyzer policy validation security warnings.
+    """
+    return collector.collect_access_analyzer_policy_validation()
+
+
 IAM_DATA_SOURCE_HANDLERS: dict[
     str,
     Callable[[IAMDataCollector], Any],
@@ -273,5 +282,8 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "access_key_last_used": (
         collect_access_key_last_used
+    ),
+    "access_analyzer_policy_validation": (
+        collect_access_analyzer_policy_validation
     ),
 }

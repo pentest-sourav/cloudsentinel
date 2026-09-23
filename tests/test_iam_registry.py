@@ -88,6 +88,7 @@ def test_iam_rules_have_valid_data_sources():
         "wildcard_role_trust_principals",
         "self_modifiable_policies",
         "cross_account_role_trusts",
+        "access_analyzer_policy_validation",
     }
 
     for rule in IAM_RULES:

@@ -30,6 +30,7 @@ def test_iam_data_source_handlers_have_expected_sources():
         "wildcard_role_trust_principals",
         "self_modifiable_policies",
         "cross_account_role_trusts",
+        "access_analyzer_policy_validation",
     }
 
     assert set(IAM_DATA_SOURCE_HANDLERS) == expected_sources

@@ -58,6 +58,11 @@ class IAMDataCollector:
             dict[str, Any]
         ] | None = None
 
+        self._group_inline_policy_names_cache: dict[
+            str,
+            list[str],
+        ] = {}
+
         self._broad_action_restricted_resources_cache: list[
             dict[str, Any]
         ] | None = None
@@ -68,6 +73,22 @@ class IAMDataCollector:
             str,
             dict[str, Any],
         ] = {}
+
+        self._access_analyzer_policy_validation_cache: (
+            list[dict[str, Any]] | None
+        ) = None
+
+        self._access_analyzer_managed_policy_document_cache: (
+            dict[str, dict[str, Any]]
+        ) = {}
+
+        self._user_inline_policy_document_cache: (
+            dict[tuple[str, str], dict[str, Any]]
+        ) = {}
+
+        self._group_inline_policy_document_cache: (
+            dict[tuple[str, str], dict[str, Any]]
+        ) = {}
 
     def _get_users(self) -> list[dict[str, Any]]:
         """
@@ -213,6 +234,10 @@ class IAMDataCollector:
             if not isinstance(document, dict):
                 continue
 
+            self._access_analyzer_managed_policy_document_cache[
+                policy_arn
+            ] = document
+
             statements = document.get(
                 "Statement",
                 [],
@@ -289,6 +314,10 @@ class IAMDataCollector:
         if not isinstance(document, dict):
             return []
 
+        self._user_inline_policy_document_cache[
+            (username, policy_name)
+        ] = document
+
         statements = document.get(
             "Statement",
             [],
@@ -334,6 +363,26 @@ class IAMDataCollector:
 
         return collected_statements
 
+    def _get_group_inline_policy_names(
+        self,
+        group_name: str,
+    ) -> list[str]:
+        """
+        Return inline policy names for an IAM group using a
+        per-scan cache.
+
+        This prevents multiple IAM collectors from issuing
+        duplicate ListGroupPolicies API calls for the same group.
+        """
+        if group_name not in self._group_inline_policy_names_cache:
+            self._group_inline_policy_names_cache[group_name] = (
+                self.service.list_group_policies(
+                    group_name
+                )
+            )
+
+        return self._group_inline_policy_names_cache[group_name]
+
     def _collect_group_inline_policy_statements(
         self,
         group_name: str,
@@ -361,6 +410,10 @@ class IAMDataCollector:
 
         if not isinstance(document, dict):
             return []
+
+        self._group_inline_policy_document_cache[
+            (group_name, policy_name)
+        ] = document
 
         statements = document.get(
             "Statement",
@@ -1180,8 +1233,10 @@ class IAMDataCollector:
                 if not group_name:
                     continue
 
-                policy_names = self.service.list_group_policies(
-                    group_name
+                policy_names = (
+                    self._get_group_inline_policy_names(
+                        group_name
+                    )
                 )
 
                 for policy_name in policy_names:
@@ -1197,6 +1252,346 @@ class IAMDataCollector:
             )
 
         return self._group_inline_policies_cache
+
+    def _policy_document_from_managed_policy(
+        self,
+        policy_arn: str,
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        """
+        Retrieve the default version of a customer-managed IAM policy.
+
+        AWS-managed policies are intentionally skipped because
+        CloudSentinel cannot remediate or control their contents.
+        """
+        policy = self.service.get_policy(
+            policy_arn
+        )
+
+        if not policy:
+            return None, None
+
+        if policy.get("Arn", policy_arn).startswith(
+            "arn:aws:iam::aws:policy/"
+        ):
+            return None, None
+
+        default_version_id = policy.get(
+            "DefaultVersionId"
+        )
+
+        if not default_version_id:
+            return None, None
+
+        version = self.service.get_policy_version(
+            policy_arn,
+            default_version_id,
+        )
+
+        document = version.get(
+            "document",
+            {},
+        )
+
+        if not isinstance(document, dict):
+            return default_version_id, None
+
+        return default_version_id, document
+
+    def _collect_access_analyzer_policy(
+        self,
+        *,
+        permission_source: str,
+        principal: str,
+        policy_name: str,
+        policy_arn: str | None,
+        document: dict[str, Any],
+        seen_policy_arns: set[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Validate one identity policy and normalize security warnings.
+        """
+        if policy_arn:
+            if policy_arn in seen_policy_arns:
+                return []
+
+            seen_policy_arns.add(
+                policy_arn
+            )
+
+        findings = self.service.validate_policy(
+            document
+        )
+
+        normalized: list[dict[str, Any]] = []
+
+        for finding in findings:
+            if finding.get("findingType") != "SECURITY_WARNING":
+                continue
+
+            normalized.append(
+                {
+                    "permission_source": permission_source,
+                    "principal": principal,
+                    "policy_name": policy_name,
+                    "policy_arn": policy_arn,
+                    "principals": [principal],
+                    "finding_type": finding.get(
+                        "findingType"
+                    ),
+                    "issue_code": finding.get(
+                        "issueCode"
+                    ),
+                    "finding_details": finding.get(
+                        "findingDetails"
+                    ),
+                    "learn_more_link": finding.get(
+                        "learnMoreLink"
+                    ),
+                    "locations": finding.get(
+                        "locations",
+                        [],
+                    ),
+                }
+            )
+
+        return normalized
+
+    def collect_access_analyzer_policy_validation(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Validate customer-managed and inline identity policies with
+        IAM Access Analyzer.
+
+        The collector covers policies attached to users, groups, and
+        roles. AWS-managed policies are skipped because their contents
+        are controlled by AWS.
+
+        Managed policies are deduplicated by ARN so the same customer
+        managed policy attached to multiple principals is validated only
+        once.
+        """
+        if (
+            self._access_analyzer_policy_validation_cache
+            is not None
+        ):
+            return self._access_analyzer_policy_validation_cache
+
+        results: list[dict[str, Any]] = []
+        seen_policy_arns: set[str] = set()
+
+        # -------------------------
+        # IAM users
+        # -------------------------
+        for user in self._get_users():
+            username = user.get("UserName")
+
+            if not username:
+                continue
+
+            for policy in self.service.list_attached_user_policies(
+                username
+            ):
+                policy_arn = policy.get("PolicyArn")
+                policy_name = policy.get(
+                    "PolicyName",
+                    policy_arn or "",
+                )
+
+                if not policy_arn:
+                    continue
+
+                version_id, document = (
+                    self._policy_document_from_managed_policy(
+                        policy_arn
+                    )
+                )
+
+                if document is None:
+                    continue
+
+                results.extend(
+                    self._collect_access_analyzer_policy(
+                        permission_source="user_managed_policy",
+                        principal=username,
+                        policy_name=policy_name,
+                        policy_arn=policy_arn,
+                        document=document,
+                        seen_policy_arns=seen_policy_arns,
+                    )
+                )
+
+            for policy_name in self.service.list_user_policies(
+                username
+            ):
+                policy = self.service.get_user_policy(
+                    username,
+                    policy_name,
+                )
+
+                document = policy.get(
+                    "document",
+                    {},
+                )
+
+                if not isinstance(document, dict):
+                    continue
+
+                results.extend(
+                    self._collect_access_analyzer_policy(
+                        permission_source="user_inline_policy",
+                        principal=username,
+                        policy_name=policy_name,
+                        policy_arn=None,
+                        document=document,
+                        seen_policy_arns=seen_policy_arns,
+                    )
+                )
+
+        # -------------------------
+        # IAM groups
+        # -------------------------
+        for group in self._get_groups():
+            group_name = group.get("GroupName")
+
+            if not group_name:
+                continue
+
+            for policy in self._get_attached_group_policies(
+                group_name
+            ):
+                policy_arn = policy.get("PolicyArn")
+                policy_name = policy.get(
+                    "PolicyName",
+                    policy_arn or "",
+                )
+
+                if not policy_arn:
+                    continue
+
+                version_id, document = (
+                    self._policy_document_from_managed_policy(
+                        policy_arn
+                    )
+                )
+
+                if document is None:
+                    continue
+
+                results.extend(
+                    self._collect_access_analyzer_policy(
+                        permission_source="group_managed_policy",
+                        principal=group_name,
+                        policy_name=policy_name,
+                        policy_arn=policy_arn,
+                        document=document,
+                        seen_policy_arns=seen_policy_arns,
+                    )
+                )
+
+            for policy_name in self._get_group_inline_policy_names(
+                group_name
+            ):
+                policy = self.service.get_group_policy(
+                    group_name,
+                    policy_name,
+                )
+
+                document = policy.get(
+                    "document",
+                    {},
+                )
+
+                if not isinstance(document, dict):
+                    continue
+
+                results.extend(
+                    self._collect_access_analyzer_policy(
+                        permission_source="group_inline_policy",
+                        principal=group_name,
+                        policy_name=policy_name,
+                        policy_arn=None,
+                        document=document,
+                        seen_policy_arns=seen_policy_arns,
+                    )
+                )
+
+        # -------------------------
+        # IAM roles
+        # -------------------------
+        roles = self._get_roles()
+
+        for role in roles:
+            role_name = role.get("RoleName")
+            role_arn = role.get("Arn")
+
+            if not role_name:
+                continue
+
+            for policy in self.service.list_attached_role_policies(
+                role_name
+            ):
+                policy_arn = policy.get("PolicyArn")
+                policy_name = policy.get(
+                    "PolicyName",
+                    policy_arn or "",
+                )
+
+                if not policy_arn:
+                    continue
+
+                version_id, document = (
+                    self._policy_document_from_managed_policy(
+                        policy_arn
+                    )
+                )
+
+                if document is None:
+                    continue
+
+                results.extend(
+                    self._collect_access_analyzer_policy(
+                        permission_source="role_managed_policy",
+                        principal=role_arn or role_name,
+                        policy_name=policy_name,
+                        policy_arn=policy_arn,
+                        document=document,
+                        seen_policy_arns=seen_policy_arns,
+                    )
+                )
+
+            for policy_name in self.service.list_role_policies(
+                role_name
+            ):
+                policy = self.service.get_role_policy(
+                    role_name,
+                    policy_name,
+                )
+
+                document = policy.get(
+                    "document",
+                    {},
+                )
+
+                if not isinstance(document, dict):
+                    continue
+
+                results.extend(
+                    self._collect_access_analyzer_policy(
+                        permission_source="role_inline_policy",
+                        principal=role_arn or role_name,
+                        policy_name=policy_name,
+                        policy_arn=None,
+                        document=document,
+                        seen_policy_arns=seen_policy_arns,
+                    )
+                )
+
+        self._access_analyzer_policy_validation_cache = (
+            results
+        )
+
+        return results
 
     def _normalize_broad_action_restricted_resource(
         self,

@@ -139,6 +139,10 @@ from engine.rules.aws.iam.cross_account_trust_without_condition import (
     check_cross_account_trust_without_condition,
     build_cross_account_trust_without_condition_finding,
 )
+from engine.rules.aws.iam.access_analyzer_security_warning import (
+    check_access_analyzer_security_warning,
+    build_access_analyzer_security_warning_finding,
+)
 
 
 IAM_RULES = RuleRegistry(
@@ -717,6 +721,28 @@ IAM_RULES = RuleRegistry(
             check=check_cross_account_trust_without_condition,
             build_finding=(
                 build_cross_account_trust_without_condition_finding
+            ),
+        ),
+
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-036",
+            name="access_analyzer_security_warning",
+            data_source="access_analyzer_policy_validation",
+            collection_mode="multiple",
+            check_arguments=[
+                "permission_source",
+                "policy_name",
+                "policy_arn",
+                "principals",
+                "finding_type",
+                "issue_code",
+                "finding_details",
+                "learn_more_link",
+                "locations",
+            ],
+            check=check_access_analyzer_security_warning,
+            build_finding=(
+                build_access_analyzer_security_warning_finding
             ),
         ),
     ]
