@@ -16,6 +16,11 @@ def test_collect_instances_normalizes_rds_data():
             "BackupRetentionPeriod": 7,
             "MultiAZ": True,
             "DeletionProtection": True,
+            "AutoMinorVersionUpgrade": True,
+            "IAMDatabaseAuthenticationEnabled": True,
+            "EnabledCloudwatchLogsExports": [
+                "postgresql",
+            ],
             "StorageType": "gp3",
             "AllocatedStorage": 100,
         }
@@ -35,6 +40,11 @@ def test_collect_instances_normalizes_rds_data():
             "backup_retention_period": 7,
             "multi_az": True,
             "deletion_protection": True,
+            "auto_minor_version_upgrade": True,
+            "iam_database_authentication_enabled": True,
+            "enabled_cloudwatch_logs_exports": [
+                "postgresql",
+            ],
             "storage_type": "gp3",
             "allocated_storage": 100,
         }
@@ -58,12 +68,13 @@ def test_collect_instances_skips_instances_without_identifier():
     assert result == []
 
 
-def test_collect_instances_uses_safe_defaults():
+def test_collect_instances_preserves_unknown_optional_security_fields():
     service = MagicMock()
 
     service.describe_db_instances.return_value = [
         {
             "DBInstanceIdentifier": "cloudsentinel-db",
+            "Engine": "postgres",
         }
     ]
 
@@ -74,13 +85,16 @@ def test_collect_instances_uses_safe_defaults():
     assert result == [
         {
             "db_instance_id": "cloudsentinel-db",
-            "engine": None,
+            "engine": "postgres",
             "engine_version": None,
-            "publicly_accessible": False,
-            "storage_encrypted": False,
-            "backup_retention_period": 0,
-            "multi_az": False,
-            "deletion_protection": False,
+            "publicly_accessible": None,
+            "storage_encrypted": None,
+            "backup_retention_period": None,
+            "multi_az": None,
+            "deletion_protection": None,
+            "auto_minor_version_upgrade": None,
+            "iam_database_authentication_enabled": None,
+            "enabled_cloudwatch_logs_exports": None,
             "storage_type": None,
             "allocated_storage": None,
         }

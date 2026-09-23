@@ -28,6 +28,10 @@ class RDSDataCollector:
     def collect_instances(self) -> list[dict[str, Any]]:
         """
         Return normalized RDS DB instance data.
+
+        Optional AWS fields are preserved as None when unavailable
+        instead of being converted into security-negative values.
+        This prevents missing API data from creating false positives.
         """
         normalized: list[dict[str, Any]] = []
 
@@ -43,24 +47,26 @@ class RDSDataCollector:
                     "engine": instance.get("Engine"),
                     "engine_version": instance.get("EngineVersion"),
                     "publicly_accessible": instance.get(
-                        "PubliclyAccessible",
-                        False,
+                        "PubliclyAccessible"
                     ),
                     "storage_encrypted": instance.get(
-                        "StorageEncrypted",
-                        False,
+                        "StorageEncrypted"
                     ),
                     "backup_retention_period": instance.get(
-                        "BackupRetentionPeriod",
-                        0,
+                        "BackupRetentionPeriod"
                     ),
-                    "multi_az": instance.get(
-                        "MultiAZ",
-                        False,
-                    ),
+                    "multi_az": instance.get("MultiAZ"),
                     "deletion_protection": instance.get(
-                        "DeletionProtection",
-                        False,
+                        "DeletionProtection"
+                    ),
+                    "auto_minor_version_upgrade": instance.get(
+                        "AutoMinorVersionUpgrade"
+                    ),
+                    "iam_database_authentication_enabled": instance.get(
+                        "IAMDatabaseAuthenticationEnabled"
+                    ),
+                    "enabled_cloudwatch_logs_exports": instance.get(
+                        "EnabledCloudwatchLogsExports"
                     ),
                     "storage_type": instance.get("StorageType"),
                     "allocated_storage": instance.get(
