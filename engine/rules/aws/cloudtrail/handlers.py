@@ -143,6 +143,9 @@ def collect_cloudtrail_event_data_stores(
                 "retention_period": store.get(
                     "RetentionPeriod"
                 ),
+                "termination_protection_enabled": store.get(
+                    "TerminationProtectionEnabled"
+                ),
             }
         )
 

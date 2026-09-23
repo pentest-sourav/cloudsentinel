@@ -430,6 +430,7 @@ def test_collect_cloudtrail_event_data_stores_normalizes_encryption():
             "MultiRegionEnabled": True,
             "OrganizationEnabled": False,
             "RetentionPeriod": 366,
+            "TerminationProtectionEnabled": True,
         }
     ]
 
@@ -448,6 +449,7 @@ def test_collect_cloudtrail_event_data_stores_normalizes_encryption():
             "multi_region_enabled": True,
             "organization_enabled": False,
             "retention_period": 366,
+            "termination_protection_enabled": True,
         }
     ]
 
