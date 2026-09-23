@@ -204,8 +204,17 @@ def collect_cloudtrail_event_data_stores(
     return normalized
 
 
+def collect_cloudtrail_destination_bucket_security(
+    collector: CloudTrailDataCollector,
+) -> list[dict]:
+    return collector.collect_destination_bucket_security()
+
+
 CLOUDTRAIL_DATA_SOURCE_HANDLERS = {
     "cloudtrail_trails": collect_cloudtrail_trails,
     "cloudtrail_account": collect_cloudtrail_account,
     "cloudtrail_event_data_stores": collect_cloudtrail_event_data_stores,
+    "cloudtrail_destination_bucket_security": (
+        collect_cloudtrail_destination_bucket_security
+    ),
 }

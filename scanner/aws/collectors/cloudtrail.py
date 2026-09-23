@@ -1,6 +1,8 @@
 from typing import Any
 
+from scanner.aws.collectors.s3 import S3DataCollector
 from scanner.aws.services.cloudtrail import CloudTrailService
+from scanner.aws.services.s3 import S3Service
 
 
 class CloudTrailDataCollector:
@@ -16,6 +18,8 @@ class CloudTrailDataCollector:
         self._event_selectors_cache: dict[str, dict[str, Any]] = {}
         self._trail_tags_cache: dict[str, list[dict[str, str]]] | None = None
         self._event_data_stores_cache: list[dict[str, Any]] | None = None
+        self._s3_collector: S3DataCollector | None = None
+        self._destination_bucket_cache: dict[str, dict[str, Any]] = {}
 
     def _get_trails(self) -> list[dict[str, Any]]:
         """
@@ -82,9 +86,7 @@ class CloudTrailDataCollector:
         trails = self._get_trails()
 
         valid_trails = [
-            trail
-            for trail in trails
-            if trail.get("TrailARN")
+            trail for trail in trails if trail.get("TrailARN")
         ]
 
         return {
@@ -96,8 +98,7 @@ class CloudTrailDataCollector:
         trail_arn: str,
     ) -> dict[str, Any]:
         """
-        Return and cache the current logging status
-        for a CloudTrail trail.
+        Get and cache CloudTrail trail status.
         """
         if trail_arn not in self._trail_status_cache:
             self._trail_status_cache[trail_arn] = (
@@ -111,8 +112,7 @@ class CloudTrailDataCollector:
         trail_arn: str,
     ) -> dict[str, Any]:
         """
-        Return and cache event selector configuration
-        for a CloudTrail trail.
+        Get and cache CloudTrail event selectors.
         """
         if trail_arn not in self._event_selectors_cache:
             self._event_selectors_cache[trail_arn] = (
@@ -126,7 +126,7 @@ class CloudTrailDataCollector:
         trail_arns: list[str],
     ) -> dict[str, list[dict[str, str]]]:
         """
-        Return and cache tags for CloudTrail trails.
+        Get and cache CloudTrail trail tags.
         """
         if self._trail_tags_cache is None:
             self._trail_tags_cache = self.service.list_trail_tags(
@@ -137,7 +137,7 @@ class CloudTrailDataCollector:
 
     def get_event_data_stores(self) -> list[dict[str, Any]]:
         """
-        Return and cache detailed CloudTrail Lake event data stores.
+        Get and cache CloudTrail Lake event data stores.
         """
         if self._event_data_stores_cache is None:
             self._event_data_stores_cache = (
@@ -145,3 +145,83 @@ class CloudTrailDataCollector:
             )
 
         return self._event_data_stores_cache
+
+    def _get_s3_collector(self) -> S3DataCollector:
+        """
+        Lazily create the S3 collector using the CloudTrail session.
+        """
+        if self._s3_collector is None:
+            s3_service = S3Service(self.service.session)
+            self._s3_collector = S3DataCollector(s3_service)
+
+        return self._s3_collector
+
+    def _get_destination_bucket_security_data(
+        self,
+        bucket_name: str,
+    ) -> dict[str, Any]:
+        """
+        Collect and cache security configuration for a
+        CloudTrail destination S3 bucket.
+        """
+        if bucket_name in self._destination_bucket_cache:
+            return self._destination_bucket_cache[bucket_name]
+
+        s3_collector = self._get_s3_collector()
+
+        result = {
+            "bucket_name": bucket_name,
+            "public_access_block": (
+                s3_collector.service.get_public_access_block(
+                    bucket_name
+                )
+            ),
+            "logging_configuration": (
+                s3_collector.service.get_bucket_logging(
+                    bucket_name
+                )
+            ),
+        }
+
+        self._destination_bucket_cache[bucket_name] = result
+
+        return result
+
+    def collect_destination_bucket_security(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect security configuration for S3 buckets used by
+        CloudTrail trails.
+
+        Multiple trails may use the same destination bucket, so
+        each bucket is collected only once.
+        """
+        collected = []
+        seen_buckets: set[str] = set()
+
+        for trail in self.collect_trails():
+            bucket_name = trail.get("s3_bucket_name")
+
+            if not bucket_name or bucket_name in seen_buckets:
+                continue
+
+            seen_buckets.add(bucket_name)
+
+            bucket_data = self._get_destination_bucket_security_data(
+                bucket_name
+            )
+
+            collected.append(
+                {
+                    "bucket_name": bucket_name,
+                    "public_access_block": bucket_data[
+                        "public_access_block"
+                    ],
+                    "logging_configuration": bucket_data[
+                        "logging_configuration"
+                    ],
+                }
+            )
+
+        return collected

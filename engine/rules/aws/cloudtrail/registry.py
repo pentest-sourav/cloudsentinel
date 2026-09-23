@@ -65,6 +65,14 @@ from engine.rules.aws.cloudtrail.tagging import (
     build_cloudtrail_tagging_finding,
     check_cloudtrail_tagging,
 )
+from engine.rules.aws.cloudtrail.destination_bucket_public_access import (
+    build_cloudtrail_destination_bucket_public_access_finding,
+    check_cloudtrail_destination_bucket_public_access,
+)
+from engine.rules.aws.cloudtrail.destination_bucket_logging import (
+    build_cloudtrail_destination_bucket_logging_finding,
+    check_cloudtrail_destination_bucket_logging,
+)
 
 
 CLOUDTRAIL_RULES = RuleRegistry(
@@ -288,6 +296,34 @@ CLOUDTRAIL_RULES = RuleRegistry(
             check=check_cloudtrail_event_data_store_organization,
             build_finding=(
                 build_cloudtrail_event_data_store_organization_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-017",
+            name="cloudtrail_destination_bucket_public_access",
+            data_source="cloudtrail_destination_bucket_security",
+            collection_mode="multiple",
+            check_arguments=[
+                "bucket_name",
+                "public_access_block",
+            ],
+            check=check_cloudtrail_destination_bucket_public_access,
+            build_finding=(
+                build_cloudtrail_destination_bucket_public_access_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CT-018",
+            name="cloudtrail_destination_bucket_logging",
+            data_source="cloudtrail_destination_bucket_security",
+            collection_mode="multiple",
+            check_arguments=[
+                "bucket_name",
+                "logging_configuration",
+            ],
+            check=check_cloudtrail_destination_bucket_logging,
+            build_finding=(
+                build_cloudtrail_destination_bucket_logging_finding
             ),
         ),
     ]
