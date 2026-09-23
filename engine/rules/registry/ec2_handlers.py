@@ -22,6 +22,12 @@ def collect_ec2_instances(
     return collector.collect_instances()
 
 
+def collect_ec2_extended_instances(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_extended_instances()
+
+
 def collect_ec2_ebs_volumes(
     collector: EC2DataCollector,
 ) -> list[dict[str, Any]]:
@@ -34,9 +40,30 @@ def collect_ec2_snapshots(
     return collector.collect_snapshots()
 
 
+def collect_ec2_ebs_default_encryption(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_ebs_default_encryption()
+
+
+def collect_ec2_elastic_ips(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_elastic_ips()
+
+
 EC2_DATA_SOURCE_HANDLERS = {
-    "ec2_security_group_rules": collect_ec2_security_group_rules,
+    "ec2_security_group_rules": (
+        collect_ec2_security_group_rules
+    ),
     "ec2_instances": collect_ec2_instances,
+    "ec2_extended_instances": (
+        collect_ec2_extended_instances
+    ),
     "ec2_ebs_volumes": collect_ec2_ebs_volumes,
     "ec2_snapshots": collect_ec2_snapshots,
+    "ec2_ebs_default_encryption": (
+        collect_ec2_ebs_default_encryption
+    ),
+    "ec2_elastic_ips": collect_ec2_elastic_ips,
 }
