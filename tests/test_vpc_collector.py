@@ -153,3 +153,127 @@ def test_vpc_collector_handles_empty_internet_gateways():
     gateways = collector.collect_internet_gateways()
 
     assert gateways == []
+
+
+def test_vpc_collector_normalizes_default_security_groups():
+    service = MagicMock()
+
+    service.describe_default_security_groups.return_value = [
+        {
+            "GroupId": "sg-default",
+            "GroupName": "default",
+            "VpcId": "vpc-123",
+            "IpPermissions": [
+                {
+                    "IpProtocol": "-1",
+                    "UserIdGroupPairs": [
+                        {"GroupId": "sg-default"}
+                    ],
+                }
+            ],
+            "IpPermissionsEgress": [
+                {
+                    "IpProtocol": "-1",
+                    "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                }
+            ],
+        }
+    ]
+
+    collector = VPCDataCollector(service)
+
+    groups = collector.collect_default_security_groups()
+
+    assert groups == [
+        {
+            "group_id": "sg-default",
+            "vpc_id": "vpc-123",
+            "group_name": "default",
+            "inbound_rule_count": 1,
+            "outbound_rule_count": 1,
+        }
+    ]
+
+
+def test_vpc_collector_ignores_default_security_group_without_ids():
+    service = MagicMock()
+
+    service.describe_default_security_groups.return_value = [
+        {
+            "GroupName": "default",
+        }
+    ]
+
+    collector = VPCDataCollector(service)
+
+    assert collector.collect_default_security_groups() == []
+
+
+def test_vpc_collector_detects_active_flow_log_coverage():
+    service = MagicMock()
+
+    service.describe_vpcs.return_value = [
+        {
+            "VpcId": "vpc-123",
+            "CidrBlock": "10.0.0.0/16",
+        },
+        {
+            "VpcId": "vpc-456",
+            "CidrBlock": "10.1.0.0/16",
+        },
+    ]
+
+    service.describe_flow_logs.return_value = [
+        {
+            "FlowLogId": "fl-123",
+            "ResourceId": "vpc-123",
+            "FlowLogStatus": "ACTIVE",
+        },
+        {
+            "FlowLogId": "fl-456",
+            "ResourceId": "vpc-456",
+            "FlowLogStatus": "FAILED",
+        },
+    ]
+
+    collector = VPCDataCollector(service)
+
+    coverage = collector.collect_flow_log_coverage()
+
+    assert coverage == [
+        {
+            "vpc_id": "vpc-123",
+            "flow_log_count": 1,
+            "active_flow_log_count": 1,
+            "flow_logging_enabled": True,
+        },
+        {
+            "vpc_id": "vpc-456",
+            "flow_log_count": 1,
+            "active_flow_log_count": 0,
+            "flow_logging_enabled": False,
+        },
+    ]
+
+
+def test_vpc_collector_marks_vpc_without_flow_log_as_disabled():
+    service = MagicMock()
+
+    service.describe_vpcs.return_value = [
+        {
+            "VpcId": "vpc-123",
+        }
+    ]
+
+    service.describe_flow_logs.return_value = []
+
+    collector = VPCDataCollector(service)
+
+    assert collector.collect_flow_log_coverage() == [
+        {
+            "vpc_id": "vpc-123",
+            "flow_log_count": 0,
+            "active_flow_log_count": 0,
+            "flow_logging_enabled": False,
+        }
+    ]
