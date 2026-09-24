@@ -1,440 +1,326 @@
+from contextlib import ExitStack, contextmanager
 from unittest.mock import Mock, patch
+
+import pytest
 
 from backend.app.services.aws_scan_service import run_aws_scan
 
 
-def test_run_aws_scan_combines_s3_and_iam_findings():
-    s3_finding = Mock(rule_id="CS-AWS-S3-001")
-    iam_finding = Mock(rule_id="CS-AWS-IAM-001")
+ROLE_ARN = (
+    "arn:aws:iam::123456789012:"
+    "role/CloudSentinelAuditRole"
+)
+EXTERNAL_ID = "cloudsentinel-test-external-id"
+REGION = "ap-south-1"
+ACCOUNT_ID = "123456789012"
+
+
+def make_mocks():
+    scanners = {
+        "s3": Mock(),
+        "iam": Mock(),
+        "kms": Mock(),
+        "ec2": Mock(),
+        "rds": Mock(),
+        "lambda": Mock(),
+        "vpc": Mock(),
+        "security_group": Mock(),
+        "route_table": Mock(),
+        "cloudtrail": Mock(),
+        "sns": Mock(),
+        "ecr": Mock(),
+    }
+
+    services = {
+        "s3": Mock(),
+        "iam": Mock(),
+        "kms": Mock(),
+        "ec2": Mock(),
+        "rds": Mock(),
+        "lambda": Mock(),
+        "vpc": Mock(),
+        "security_group": Mock(),
+        "route_table": Mock(),
+        "cloudtrail": Mock(),
+        "sns": Mock(),
+        "ecr": Mock(),
+    }
+
+    findings = {
+        "s3": Mock(rule_id="CS-AWS-S3-001"),
+        "iam": Mock(rule_id="CS-AWS-IAM-001"),
+        "kms": Mock(rule_id="CS-AWS-KMS-001"),
+        "ec2": Mock(rule_id="CS-AWS-EC2-001"),
+        "rds": Mock(rule_id="CS-AWS-RDS-001"),
+        "lambda": Mock(rule_id="CS-AWS-LAMBDA-001"),
+        "vpc": Mock(rule_id="CS-AWS-VPC-001"),
+        "security_group": Mock(rule_id="CS-AWS-SG-001"),
+        "route_table": Mock(rule_id="CS-AWS-RT-001"),
+        "cloudtrail": Mock(rule_id="CS-AWS-CT-001"),
+        "sns": Mock(rule_id="CS-AWS-SNS-001"),
+        "ecr": Mock(rule_id="CS-AWS-ECR-001"),
+    }
+
+    for name, scanner in scanners.items():
+        scanner.scan.return_value = [findings[name]]
+
+    return scanners, services, findings
+
+
+@contextmanager
+def patch_aws_scanners(
+    scanners,
+    services,
+    fake_session,
+    fake_provider,
+):
+    with ExitStack() as stack:
+        mock_session = stack.enter_context(
+            patch(
+                "backend.app.services.aws_scan_service.create_aws_session",
+                return_value=fake_session,
+            )
+        )
+
+        stack.enter_context(
+            patch(
+                "backend.app.services.aws_scan_service.AWSProvider",
+                return_value=fake_provider,
+            )
+        )
+
+        service_scanner_pairs = (
+            ("S3Service", "S3Scanner", "s3"),
+            ("IAMService", "IAMScanner", "iam"),
+            ("KMSService", "KMSScanner", "kms"),
+            ("EC2Service", "EC2Scanner", "ec2"),
+            ("RDSService", "RDSScanner", "rds"),
+            ("LambdaService", "LambdaScanner", "lambda"),
+            ("VPCService", "VPCScanner", "vpc"),
+            (
+                "SecurityGroupService",
+                "SecurityGroupScanner",
+                "security_group",
+            ),
+            (
+                "RouteTableService",
+                "RouteTableScanner",
+                "route_table",
+            ),
+            (
+                "CloudTrailService",
+                "CloudTrailScanner",
+                "cloudtrail",
+            ),
+            ("SNSService", "SNSScanner", "sns"),
+            ("ECRService", "ECRScanner", "ecr"),
+        )
+
+        for service_name, scanner_name, key in service_scanner_pairs:
+            stack.enter_context(
+                patch(
+                    f"backend.app.services.aws_scan_service.{service_name}",
+                    return_value=services[key],
+                )
+            )
+
+            stack.enter_context(
+                patch(
+                    f"backend.app.services.aws_scan_service.{scanner_name}",
+                    return_value=scanners[key],
+                )
+            )
+
+        yield mock_session
+
+
+def test_run_aws_scan_runs_all_scanners_after_identity_verification():
+    scanners, services, findings = make_mocks()
+
+    fake_session = Mock()
+    fake_provider = Mock()
+    fake_provider.verify_identity.return_value = Mock(
+        account_id=ACCOUNT_ID,
+    )
+
+    with patch_aws_scanners(
+        scanners,
+        services,
+        fake_session,
+        fake_provider,
+    ) as mock_session:
+        result = run_aws_scan(
+            role_arn=ROLE_ARN,
+            external_id=EXTERNAL_ID,
+            region_name=REGION,
+            expected_account_id=ACCOUNT_ID,
+        )
+
+    mock_session.assert_called_once_with(
+        role_arn=ROLE_ARN,
+        external_id=EXTERNAL_ID,
+        region_name=REGION,
+    )
+
+    fake_provider.verify_identity.assert_called_once()
+
+    assert result.findings == [
+        findings["s3"],
+        findings["iam"],
+        findings["kms"],
+        findings["ec2"],
+        findings["rds"],
+        findings["lambda"],
+        findings["vpc"],
+        findings["security_group"],
+        findings["route_table"],
+        findings["cloudtrail"],
+        findings["sns"],
+        findings["ecr"],
+    ]
+
+    assert result.errors == []
+
+    for scanner in scanners.values():
+        scanner.scan.assert_called_once()
+
+
+def test_run_aws_scan_rejects_missing_role_arn():
+    with pytest.raises(
+        RuntimeError,
+        match="AWS IAM role ARN is not configured",
+    ):
+        run_aws_scan(
+            role_arn=None,
+            external_id=None,
+            region_name=REGION,
+            expected_account_id=ACCOUNT_ID,
+        )
+
+
+def test_run_aws_scan_rejects_account_identity_mismatch():
+    fake_session = Mock()
+    fake_provider = Mock()
+
+    fake_provider.verify_identity.return_value = Mock(
+        account_id="999999999999",
+    )
 
     mock_s3_scanner = Mock()
-    mock_s3_scanner.scan.return_value = [s3_finding]
-
-    mock_iam_scanner = Mock()
-    mock_iam_scanner.scan.return_value = [iam_finding]
-
-    mock_s3_service = Mock()
-    mock_iam_service = Mock()
-
-    mock_cloudtrail_scanner = Mock()
-    mock_cloudtrail_scanner.scan.return_value = []
 
     with patch(
-        "backend.app.services.aws_scan_service.create_aws_session"
-    ) as mock_session, patch(
-        "backend.app.services.aws_scan_service.S3Service",
-        return_value=mock_s3_service,
+        "backend.app.services.aws_scan_service.create_aws_session",
+        return_value=fake_session,
+    ), patch(
+        "backend.app.services.aws_scan_service.AWSProvider",
+        return_value=fake_provider,
     ), patch(
         "backend.app.services.aws_scan_service.S3Scanner",
         return_value=mock_s3_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMService",
-        return_value=mock_iam_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMScanner",
-        return_value=mock_iam_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.CloudTrailScanner",
-        return_value=mock_cloudtrail_scanner,
     ):
+        with pytest.raises(
+            RuntimeError,
+            match="AWS account identity mismatch",
+        ):
+            run_aws_scan(
+                role_arn=ROLE_ARN,
+                external_id=EXTERNAL_ID,
+                region_name=REGION,
+                expected_account_id=ACCOUNT_ID,
+            )
 
-        result = run_aws_scan()
-
-    assert result == [
-        s3_finding,
-        iam_finding,
-    ]
-
-    mock_session.assert_called_once()
-    mock_s3_scanner.scan.assert_called_once()
-    mock_iam_scanner.scan.assert_called_once()
+    mock_s3_scanner.assert_not_called()
+    fake_provider.verify_identity.assert_called_once()
 
 
-def test_run_aws_scan_includes_ec2_findings():
-    s3_finding = Mock(rule_id="CS-AWS-S3-001")
-    iam_finding = Mock(rule_id="CS-AWS-IAM-001")
-    ec2_finding = Mock(rule_id="CS-AWS-EC2-001")
+def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
+    scanners, services, findings = make_mocks()
 
-    mock_s3_scanner = Mock()
-    mock_s3_scanner.scan.return_value = [s3_finding]
+    fake_session = Mock()
+    fake_provider = Mock()
+    fake_provider.verify_identity.return_value = Mock(
+        account_id=ACCOUNT_ID,
+    )
 
-    mock_iam_scanner = Mock()
-    mock_iam_scanner.scan.return_value = [iam_finding]
-
-    mock_ec2_scanner = Mock()
-    mock_ec2_scanner.scan.return_value = [ec2_finding]
-
-    mock_s3_service = Mock()
-    mock_iam_service = Mock()
-    mock_ec2_service = Mock()
-
-    mock_cloudtrail_scanner = Mock()
-    mock_cloudtrail_scanner.scan.return_value = []
-
-    with patch(
-        "backend.app.services.aws_scan_service.create_aws_session"
-    ) as mock_session, patch(
-        "backend.app.services.aws_scan_service.S3Service",
-        return_value=mock_s3_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.S3Scanner",
-        return_value=mock_s3_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMService",
-        return_value=mock_iam_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMScanner",
-        return_value=mock_iam_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.CloudTrailScanner",
-        return_value=mock_cloudtrail_scanner, 
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Service",
-        return_value=mock_ec2_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Scanner",
-        return_value=mock_ec2_scanner,
+    with patch_aws_scanners(
+        scanners,
+        services,
+        fake_session,
+        fake_provider,
     ):
-        result = run_aws_scan()
+        result = run_aws_scan(
+            role_arn=ROLE_ARN,
+            external_id=EXTERNAL_ID,
+            region_name=REGION,
+            expected_account_id=None,
+        )
 
-    assert result == [
-        s3_finding,
-        iam_finding,
-        ec2_finding,
+    assert result.findings == [
+        findings["s3"],
+        findings["iam"],
+        findings["kms"],
+        findings["ec2"],
+        findings["rds"],
+        findings["lambda"],
+        findings["vpc"],
+        findings["security_group"],
+        findings["route_table"],
+        findings["cloudtrail"],
+        findings["sns"],
+        findings["ecr"],
     ]
 
-    mock_session.assert_called_once()
-    mock_s3_scanner.scan.assert_called_once()
-    mock_iam_scanner.scan.assert_called_once()
-    mock_ec2_scanner.scan.assert_called_once()
+    assert result.errors == []
 
 
-def test_run_aws_scan_includes_lambda_findings():
-    s3_finding = Mock(rule_id="CS-AWS-S3-001")
-    iam_finding = Mock(rule_id="CS-AWS-IAM-001")
-    ec2_finding = Mock(rule_id="CS-AWS-EC2-001")
-    rds_finding = Mock(rule_id="CS-AWS-RDS-001")
-    lambda_finding = Mock(rule_id="CS-AWS-LAMBDA-001")
+def test_run_aws_scan_isolates_scanner_failure_and_continues():
+    scanners, services, findings = make_mocks()
 
-    mock_s3_scanner = Mock()
-    mock_s3_scanner.scan.return_value = [s3_finding]
+    scanners["ec2"].scan.side_effect = PermissionError(
+        "EC2 access denied"
+    )
 
-    mock_iam_scanner = Mock()
-    mock_iam_scanner.scan.return_value = [iam_finding]
+    fake_session = Mock()
+    fake_provider = Mock()
+    fake_provider.verify_identity.return_value = Mock(
+        account_id=ACCOUNT_ID,
+    )
 
-    mock_ec2_scanner = Mock()
-    mock_ec2_scanner.scan.return_value = [ec2_finding]
-
-    mock_rds_scanner = Mock()
-    mock_rds_scanner.scan.return_value = [rds_finding]
-
-    mock_lambda_scanner = Mock()
-    mock_lambda_scanner.scan.return_value = [lambda_finding]
-
-    mock_s3_service = Mock()
-    mock_iam_service = Mock()
-    mock_ec2_service = Mock()
-    mock_rds_service = Mock()
-    mock_lambda_service = Mock()
-    mock_cloudtrail_scanner = Mock()
-    mock_cloudtrail_scanner.scan.return_value = []
-
-    with patch(
-        "backend.app.services.aws_scan_service.create_aws_session"
-    ) as mock_session, patch(
-        "backend.app.services.aws_scan_service.S3Service",
-        return_value=mock_s3_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.S3Scanner",
-        return_value=mock_s3_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMService",
-        return_value=mock_iam_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMScanner",
-        return_value=mock_iam_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Service",
-        return_value=mock_ec2_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Scanner",
-        return_value=mock_ec2_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.RDSService",
-        return_value=mock_rds_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.RDSScanner",
-        return_value=mock_rds_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.LambdaService",
-        return_value=mock_lambda_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.LambdaScanner",
-        return_value=mock_lambda_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.CloudTrailScanner",
-        return_value=mock_cloudtrail_scanner,
+    with patch_aws_scanners(
+        scanners,
+        services,
+        fake_session,
+        fake_provider,
     ):
-        result = run_aws_scan()
+        result = run_aws_scan(
+            role_arn=ROLE_ARN,
+            external_id=EXTERNAL_ID,
+            region_name=REGION,
+            expected_account_id=ACCOUNT_ID,
+        )
 
-    assert result == [
-        s3_finding,
-        iam_finding,
-        ec2_finding,
-        rds_finding,
-        lambda_finding,
+    assert result.findings == [
+        findings["s3"],
+        findings["iam"],
+        findings["kms"],
+        findings["rds"],
+        findings["lambda"],
+        findings["vpc"],
+        findings["security_group"],
+        findings["route_table"],
+        findings["cloudtrail"],
+        findings["sns"],
+        findings["ecr"],
     ]
 
-    mock_session.assert_called_once()
-    mock_s3_scanner.scan.assert_called_once()
-    mock_iam_scanner.scan.assert_called_once()
-    mock_ec2_scanner.scan.assert_called_once()
-    mock_rds_scanner.scan.assert_called_once()
-    mock_lambda_scanner.scan.assert_called_once()
+    assert len(result.errors) == 1
 
+    error = result.errors[0]
 
-def test_run_aws_scan_includes_vpc_and_security_group_findings():
-    s3_finding = Mock(rule_id="CS-AWS-S3-001")
-    iam_finding = Mock(rule_id="CS-AWS-IAM-001")
-    ec2_finding = Mock(rule_id="CS-AWS-EC2-001")
-    rds_finding = Mock(rule_id="CS-AWS-RDS-001")
-    lambda_finding = Mock(rule_id="CS-AWS-LAMBDA-001")
-    vpc_finding = Mock(rule_id="CS-AWS-VPC-001")
-    security_group_finding = Mock(rule_id="CS-AWS-SG-001")
+    assert error.service == "ec2"
+    assert error.error_type == "PermissionError"
+    assert error.error_code is None
+    assert error.message == "EC2 access denied"
 
-    mock_s3_scanner = Mock()
-    mock_s3_scanner.scan.return_value = [s3_finding]
-
-    mock_iam_scanner = Mock()
-    mock_iam_scanner.scan.return_value = [iam_finding]
-
-    mock_ec2_scanner = Mock()
-    mock_ec2_scanner.scan.return_value = [ec2_finding]
-
-    mock_rds_scanner = Mock()
-    mock_rds_scanner.scan.return_value = [rds_finding]
-
-    mock_lambda_scanner = Mock()
-    mock_lambda_scanner.scan.return_value = [lambda_finding]
-
-    mock_vpc_scanner = Mock()
-    mock_vpc_scanner.scan.return_value = [vpc_finding]
-
-    mock_security_group_scanner = Mock()
-    mock_security_group_scanner.scan.return_value = [
-        security_group_finding
-    ]
-
-    mock_s3_service = Mock()
-    mock_iam_service = Mock()
-    mock_ec2_service = Mock()
-    mock_rds_service = Mock()
-    mock_lambda_service = Mock()
-    mock_vpc_service = Mock()
-    mock_security_group_service = Mock()
-    mock_cloudtrail_scanner = Mock()
-    mock_cloudtrail_scanner.scan.return_value = []
-
-    with patch(
-        "backend.app.services.aws_scan_service.create_aws_session"
-    ) as mock_session, patch(
-        "backend.app.services.aws_scan_service.S3Service",
-        return_value=mock_s3_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.S3Scanner",
-        return_value=mock_s3_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMService",
-        return_value=mock_iam_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMScanner",
-        return_value=mock_iam_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Service",
-        return_value=mock_ec2_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Scanner",
-        return_value=mock_ec2_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.RDSService",
-        return_value=mock_rds_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.RDSScanner",
-        return_value=mock_rds_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.LambdaService",
-        return_value=mock_lambda_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.LambdaScanner",
-        return_value=mock_lambda_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.VPCService",
-        return_value=mock_vpc_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.VPCScanner",
-        return_value=mock_vpc_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.SecurityGroupService",
-        return_value=mock_security_group_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.SecurityGroupScanner",
-        return_value=mock_security_group_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.CloudTrailScanner",
-        return_value=mock_cloudtrail_scanner,
-    ):
-        result = run_aws_scan()
-    assert result == [
-        s3_finding,
-        iam_finding,
-        ec2_finding,
-        rds_finding,
-        lambda_finding,
-        vpc_finding,
-        security_group_finding,
-    ]
-
-    mock_session.assert_called_once()
-    mock_s3_scanner.scan.assert_called_once()
-    mock_iam_scanner.scan.assert_called_once()
-    mock_ec2_scanner.scan.assert_called_once()
-    mock_rds_scanner.scan.assert_called_once()
-    mock_lambda_scanner.scan.assert_called_once()
-    mock_vpc_scanner.scan.assert_called_once()
-    mock_security_group_scanner.scan.assert_called_once()
-
-def test_run_aws_scan_includes_cloudtrail_findings():
-    s3_finding = Mock(rule_id="CS-AWS-S3-001")
-    iam_finding = Mock(rule_id="CS-AWS-IAM-001")
-    ec2_finding = Mock(rule_id="CS-AWS-EC2-001")
-    rds_finding = Mock(rule_id="CS-AWS-RDS-001")
-    lambda_finding = Mock(rule_id="CS-AWS-LAMBDA-001")
-    vpc_finding = Mock(rule_id="CS-AWS-VPC-001")
-    security_group_finding = Mock(rule_id="CS-AWS-SG-001")
-    route_table_finding = Mock(rule_id="CS-AWS-RT-001")
-    cloudtrail_finding = Mock(rule_id="CS-AWS-CT-001")
-
-    mock_s3_scanner = Mock()
-    mock_s3_scanner.scan.return_value = [s3_finding]
-
-    mock_iam_scanner = Mock()
-    mock_iam_scanner.scan.return_value = [iam_finding]
-
-    mock_ec2_scanner = Mock()
-    mock_ec2_scanner.scan.return_value = [ec2_finding]
-
-    mock_rds_scanner = Mock()
-    mock_rds_scanner.scan.return_value = [rds_finding]
-
-    mock_lambda_scanner = Mock()
-    mock_lambda_scanner.scan.return_value = [lambda_finding]
-
-    mock_vpc_scanner = Mock()
-    mock_vpc_scanner.scan.return_value = [vpc_finding]
-
-    mock_security_group_scanner = Mock()
-    mock_security_group_scanner.scan.return_value = [
-        security_group_finding
-    ]
-
-    mock_route_table_scanner = Mock()
-    mock_route_table_scanner.scan.return_value = [
-        route_table_finding
-    ]
-
-    mock_cloudtrail_scanner = Mock()
-    mock_cloudtrail_scanner.scan.return_value = [
-        cloudtrail_finding
-    ]
-
-    mock_s3_service = Mock()
-    mock_iam_service = Mock()
-    mock_ec2_service = Mock()
-    mock_rds_service = Mock()
-    mock_lambda_service = Mock()
-    mock_vpc_service = Mock()
-    mock_security_group_service = Mock()
-    mock_route_table_service = Mock()
-    mock_cloudtrail_service = Mock()
-
-    with patch(
-        "backend.app.services.aws_scan_service.create_aws_session"
-    ) as mock_session, patch(
-        "backend.app.services.aws_scan_service.S3Service",
-        return_value=mock_s3_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.S3Scanner",
-        return_value=mock_s3_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMService",
-        return_value=mock_iam_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.IAMScanner",
-        return_value=mock_iam_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Service",
-        return_value=mock_ec2_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.EC2Scanner",
-        return_value=mock_ec2_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.RDSService",
-        return_value=mock_rds_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.RDSScanner",
-        return_value=mock_rds_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.LambdaService",
-        return_value=mock_lambda_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.LambdaScanner",
-        return_value=mock_lambda_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.VPCService",
-        return_value=mock_vpc_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.VPCScanner",
-        return_value=mock_vpc_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.SecurityGroupService",
-        return_value=mock_security_group_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.SecurityGroupScanner",
-        return_value=mock_security_group_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.RouteTableService",
-        return_value=mock_route_table_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.RouteTableScanner",
-        return_value=mock_route_table_scanner,
-    ), patch(
-        "backend.app.services.aws_scan_service.CloudTrailService",
-        return_value=mock_cloudtrail_service,
-    ), patch(
-        "backend.app.services.aws_scan_service.CloudTrailScanner",
-        return_value=mock_cloudtrail_scanner,
-    ):
-        result = run_aws_scan()
-
-    assert result == [
-        s3_finding,
-        iam_finding,
-        ec2_finding,
-        rds_finding,
-        lambda_finding,
-        vpc_finding,
-        security_group_finding,
-        route_table_finding,
-        cloudtrail_finding,
-    ]
-
-    mock_session.assert_called_once()
-    mock_s3_scanner.scan.assert_called_once()
-    mock_iam_scanner.scan.assert_called_once()
-    mock_ec2_scanner.scan.assert_called_once()
-    mock_rds_scanner.scan.assert_called_once()
-    mock_lambda_scanner.scan.assert_called_once()
-    mock_vpc_scanner.scan.assert_called_once()
-    mock_security_group_scanner.scan.assert_called_once()
-    mock_route_table_scanner.scan.assert_called_once()
-    mock_cloudtrail_scanner.scan.assert_called_once()
+    for name, scanner in scanners.items():
+        scanner.scan.assert_called_once()

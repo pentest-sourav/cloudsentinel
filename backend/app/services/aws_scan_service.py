@@ -4,6 +4,7 @@ from typing import Callable
 from scanner.aws.provider import AWSProvider
 from scanner.aws.scanners.cloudtrail_scanner import CloudTrailScanner
 from scanner.aws.scanners.ec2 import EC2Scanner
+from scanner.aws.scanners.ecr import ECRScanner
 from scanner.aws.scanners.iam import IAMScanner
 from scanner.aws.scanners.kms import KMSScanner
 from scanner.aws.scanners.rds import RDSScanner
@@ -16,6 +17,7 @@ from scanner.aws.scanners.route_table_scanner import RouteTableScanner
 
 from scanner.aws.services.lambda_service import LambdaService
 from scanner.aws.services.ec2 import EC2Service
+from scanner.aws.services.ecr import ECRService
 from scanner.aws.services.iam import IAMService
 from scanner.aws.services.kms import KMSService
 from scanner.aws.services.rds import RDSService
@@ -175,6 +177,10 @@ def run_aws_scan(
                     region_name=session.region_name,
                 )
             ),
+        ),
+        (
+            "ecr",
+            lambda: ECRScanner(ECRService(session)),
         ),
     )
 
