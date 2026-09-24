@@ -17,6 +17,7 @@ class KMSDataCollector:
         self._metadata_cache: dict[str, dict[str, Any]] = {}
         self._rotation_cache: dict[str, bool | None] = {}
         self._policy_cache: dict[str, dict[str, Any] | None] = {}
+        self._grants_cache: dict[str, list[dict[str, Any]]] = {}
 
     def _get_keys(self) -> list[dict[str, Any]]:
         if self._keys_cache is None:
@@ -47,6 +48,12 @@ class KMSDataCollector:
             )
 
         return self._policy_cache[key_id]
+
+    def _get_grants(self, key_id: str) -> list[dict[str, Any]]:
+        if key_id not in self._grants_cache:
+            self._grants_cache[key_id] = self.service.list_grants(key_id)
+
+        return self._grants_cache[key_id]
 
     def collect_keys(self) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
@@ -81,6 +88,7 @@ class KMSDataCollector:
                         else None
                     ),
                     "key_policy": self._get_policy(key_id),
+                    "grants": self._get_grants(key_id),
                 }
             )
 

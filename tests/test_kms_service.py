@@ -76,3 +76,47 @@ def test_get_key_policy():
         "policy": '{"Version":"2012-10-17","Statement":[]}',
         "policy_name": "default",
     }
+
+
+def test_list_grants():
+    session = MagicMock()
+    client = MagicMock()
+
+    session.client.return_value = client
+
+    paginator = MagicMock()
+    paginator.paginate.return_value = [
+        {
+            "Grants": [
+                {
+                    "GrantId": "grant-1",
+                    "Operations": ["Decrypt"],
+                }
+            ]
+        },
+        {
+            "Grants": [
+                {
+                    "GrantId": "grant-2",
+                    "Operations": ["Encrypt"],
+                }
+            ]
+        },
+    ]
+
+    client.get_paginator.return_value = paginator
+
+    service = KMSService(session)
+
+    assert service.list_grants("key-1") == [
+        {
+            "GrantId": "grant-1",
+            "Operations": ["Decrypt"],
+        },
+        {
+            "GrantId": "grant-2",
+            "Operations": ["Encrypt"],
+        },
+    ]
+
+    paginator.paginate.assert_called_once_with(KeyId="key-1")

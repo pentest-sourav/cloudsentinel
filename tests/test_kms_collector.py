@@ -29,6 +29,8 @@ def test_collect_kms_keys_normalizes_customer_managed_key():
         "policy_name": "default",
     }
 
+    service.list_grants.return_value = []
+
     collector = KMSDataCollector(service)
 
     result = collector.collect_keys()
@@ -53,6 +55,7 @@ def test_collect_kms_keys_normalizes_customer_managed_key():
                 "policy": '{"Version":"2012-10-17","Statement":[]}',
                 "policy_name": "default",
             },
+            "grants": [],
         }
     ]
 
@@ -69,10 +72,12 @@ def test_collect_kms_keys_does_not_query_rotation_for_aws_managed_key():
     }
 
     service.get_key_policy.return_value = None
+    service.list_grants.return_value = []
 
     collector = KMSDataCollector(service)
 
     result = collector.collect_keys()
 
     assert result[0]["rotation_enabled"] is None
+    assert result[0]["grants"] == []
     service.get_key_rotation_status.assert_not_called()

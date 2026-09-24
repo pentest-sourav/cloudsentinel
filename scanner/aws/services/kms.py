@@ -9,8 +9,9 @@ class KMSService:
     """
     Read-only AWS KMS discovery service.
 
-    This service collects KMS key configuration and key policies.
-    Security evaluation is handled separately by CloudSentinel rules.
+    This service collects KMS key configuration, key policies,
+    and key grants. Security evaluation is handled separately
+    by CloudSentinel rules.
     """
 
     def __init__(self, session):
@@ -129,4 +130,29 @@ class KMSService:
             raise RuntimeError(
                 f"AWS SDK error during KMS key policy discovery: "
                 f"{exc}"
+            ) from exc
+
+    def list_grants(self, key_id: str) -> list[dict[str, Any]]:
+        try:
+            paginator = self.kms_client.get_paginator("list_grants")
+
+            grants: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(KeyId=key_id):
+                grants.extend(page.get("Grants", []))
+
+            return grants
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"KMS grant discovery failed: {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during KMS grant discovery: {exc}"
             ) from exc
