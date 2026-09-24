@@ -30,6 +30,7 @@ def make_mocks():
         "sns": Mock(),
         "ecr": Mock(),
         "sqs": Mock(),
+        "stepfunctions": Mock(),
         }
 
     services = {
@@ -46,6 +47,7 @@ def make_mocks():
         "sns": Mock(),
         "ecr": Mock(),
         "sqs": Mock(),
+        "stepfunctions": Mock(),
         }
 
     findings = {
@@ -62,6 +64,7 @@ def make_mocks():
         "sns": Mock(rule_id="CS-AWS-SNS-001"),
         "ecr": Mock(rule_id="CS-AWS-ECR-001"),
         "sqs": Mock(rule_id="CS-AWS-SQS-001"),
+        "stepfunctions": Mock(rule_id="CS-AWS-SFN-001"),
     }
 
     for name, scanner in scanners.items():
@@ -118,6 +121,7 @@ def patch_aws_scanners(
             ("SNSService", "SNSScanner", "sns"),
             ("ECRService", "ECRScanner", "ecr"),
             ("SQSService", "SQSScanner", "sqs"),
+            ("StepFunctionsService", "StepFunctionsScanner", "stepfunctions"),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -182,6 +186,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["sns"],
         findings["ecr"],
         findings["sqs"],
+        findings["stepfunctions"],
     ]
 
     assert result.errors == []
@@ -274,6 +279,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["sns"],
         findings["ecr"],
         findings["sqs"],
+        findings["stepfunctions"],
     ]
 
     assert result.errors == []
@@ -318,6 +324,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["sns"],
         findings["ecr"],
         findings["sqs"],
+        findings["stepfunctions"],
     ]
 
     assert len(result.errors) == 1
