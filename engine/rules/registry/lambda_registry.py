@@ -2,6 +2,10 @@ from engine.rules.aws.lambda_rules.code_signing import (
     build_lambda_code_signing_finding,
     check_lambda_code_signing,
 )
+from engine.rules.aws.lambda_rules.environment_secret import (
+    build_lambda_environment_secret_finding,
+    check_lambda_environment_secret,
+)
 from engine.rules.aws.lambda_rules.not_in_vpc import (
     build_lambda_not_in_vpc_finding,
     check_lambda_not_in_vpc,
@@ -123,6 +127,18 @@ LAMBDA_RULES = RuleRegistry(
             ],
             check=check_lambda_code_signing,
             build_finding=build_lambda_code_signing_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-LAMBDA-008",
+            name="lambda_environment_secret",
+            data_source="lambda_functions",
+            collection_mode="multiple",
+            check_arguments=[
+                "function_name",
+                "environment_variables",
+            ],
+            check=check_lambda_environment_secret,
+            build_finding=build_lambda_environment_secret_finding,
         ),
     ]
 )
