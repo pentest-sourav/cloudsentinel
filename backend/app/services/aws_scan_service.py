@@ -8,6 +8,7 @@ from scanner.aws.scanners.iam import IAMScanner
 from scanner.aws.scanners.rds import RDSScanner
 from scanner.aws.scanners.lambda_scanner import LambdaScanner
 from scanner.aws.scanners.s3 import S3Scanner
+from scanner.aws.scanners.sns import SNSScanner
 from scanner.aws.scanners.vpc_scanner import VPCScanner
 from scanner.aws.scanners.security_group_scanner import SecurityGroupScanner
 from scanner.aws.scanners.route_table_scanner import RouteTableScanner
@@ -17,6 +18,7 @@ from scanner.aws.services.ec2 import EC2Service
 from scanner.aws.services.iam import IAMService
 from scanner.aws.services.rds import RDSService
 from scanner.aws.services.s3 import S3Service
+from scanner.aws.services.sns import SNSService
 from scanner.aws.services.cloudtrail import CloudTrailService
 from scanner.aws.services.vpc import VPCService
 from scanner.aws.services.security_groups import SecurityGroupService
@@ -157,6 +159,15 @@ def run_aws_scan(
             "cloudtrail",
             lambda: CloudTrailScanner(
                 CloudTrailService(session)
+            ),
+        ),
+        (
+            "sns",
+            lambda: SNSScanner(
+                SNSService(
+                    session,
+                    region_name=session.region_name,
+                )
             ),
         ),
     )
