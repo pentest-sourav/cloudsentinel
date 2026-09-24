@@ -29,7 +29,8 @@ def make_mocks():
         "cloudtrail": Mock(),
         "sns": Mock(),
         "ecr": Mock(),
-    }
+        "sqs": Mock(),
+        }
 
     services = {
         "s3": Mock(),
@@ -44,7 +45,8 @@ def make_mocks():
         "cloudtrail": Mock(),
         "sns": Mock(),
         "ecr": Mock(),
-    }
+        "sqs": Mock(),
+        }
 
     findings = {
         "s3": Mock(rule_id="CS-AWS-S3-001"),
@@ -59,6 +61,7 @@ def make_mocks():
         "cloudtrail": Mock(rule_id="CS-AWS-CT-001"),
         "sns": Mock(rule_id="CS-AWS-SNS-001"),
         "ecr": Mock(rule_id="CS-AWS-ECR-001"),
+        "sqs": Mock(rule_id="CS-AWS-SQS-001"),
     }
 
     for name, scanner in scanners.items():
@@ -114,6 +117,7 @@ def patch_aws_scanners(
             ),
             ("SNSService", "SNSScanner", "sns"),
             ("ECRService", "ECRScanner", "ecr"),
+            ("SQSService", "SQSScanner", "sqs"),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -177,6 +181,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["cloudtrail"],
         findings["sns"],
         findings["ecr"],
+        findings["sqs"],
     ]
 
     assert result.errors == []
@@ -268,6 +273,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["cloudtrail"],
         findings["sns"],
         findings["ecr"],
+        findings["sqs"],
     ]
 
     assert result.errors == []
@@ -311,6 +317,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["cloudtrail"],
         findings["sns"],
         findings["ecr"],
+        findings["sqs"],
     ]
 
     assert len(result.errors) == 1
