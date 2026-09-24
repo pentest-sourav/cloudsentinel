@@ -151,6 +151,16 @@ def collect_privileged_users_without_boundary(
     return collector.collect_privileged_users_without_boundary()
 
 
+
+def collect_privileged_roles_without_boundary(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    """
+    Collect IAM-038 privileged roles without permissions boundaries.
+    """
+    return collector.collect_privileged_roles_without_boundary()
+
+
 def collect_wildcard_role_trust_principals(
     collector: IAMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -270,6 +280,9 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "privileged_users_without_boundary": (
         collect_privileged_users_without_boundary
+    ),
+    "privileged_roles_without_boundary": (
+        collect_privileged_roles_without_boundary
     ),
     "wildcard_role_trust_principals": (
         collect_wildcard_role_trust_principals

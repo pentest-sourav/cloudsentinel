@@ -27,6 +27,7 @@ def test_iam_data_source_handlers_have_expected_sources():
         "stale_iam_users",
         "administrative_group_policies",
         "privileged_users_without_boundary",
+            "privileged_roles_without_boundary",
         "wildcard_role_trust_principals",
         "self_modifiable_policies",
         "cross_account_role_trusts",

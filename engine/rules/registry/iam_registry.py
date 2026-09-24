@@ -127,6 +127,10 @@ from engine.rules.aws.iam.privileged_user_without_boundary import (
     check_privileged_user_without_boundary,
     build_privileged_user_without_boundary_finding,
 )
+from engine.rules.aws.iam.privileged_role_without_boundary import (
+    check_privileged_role_without_boundary,
+    build_privileged_role_without_boundary_finding,
+)
 from engine.rules.aws.iam.wildcard_role_trust_principal import (
     check_wildcard_role_trust_principal,
     build_wildcard_role_trust_principal_finding,
@@ -666,6 +670,28 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_privileged_user_without_boundary,
             build_finding=build_privileged_user_without_boundary_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-038",
+            name="privileged_role_without_boundary",
+            data_source="privileged_roles_without_boundary",
+            collection_mode="multiple",
+            check_arguments=[
+                "role_name",
+                "role_arn",
+                "permissions_boundary",
+                "policy_name",
+                "policy_arn",
+                "action",
+                "resource",
+                "permission_source",
+                "condition",
+                "statement_index",
+            ],
+            check=check_privileged_role_without_boundary,
+            build_finding=(
+                build_privileged_role_without_boundary_finding
+            ),
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-033",
