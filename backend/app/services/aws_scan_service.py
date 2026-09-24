@@ -8,6 +8,7 @@ from scanner.aws.scanners.ecr import ECRScanner
 from scanner.aws.scanners.sqs import SQSScanner
 from scanner.aws.scanners.stepfunctions import StepFunctionsScanner
 from scanner.aws.scanners.eventbridge import EventBridgeScanner
+from scanner.aws.scanners.dynamodb import DynamoDBScanner
 from scanner.aws.scanners.iam import IAMScanner
 from scanner.aws.scanners.kms import KMSScanner
 from scanner.aws.scanners.rds import RDSScanner
@@ -24,6 +25,7 @@ from scanner.aws.services.ecr import ECRService
 from scanner.aws.services.sqs import SQSService
 from scanner.aws.services.stepfunctions import StepFunctionsService
 from scanner.aws.services.eventbridge import EventBridgeService
+from scanner.aws.services.dynamodb import DynamoDBService
 from scanner.aws.services.iam import IAMService
 from scanner.aws.services.kms import KMSService
 from scanner.aws.services.rds import RDSService
@@ -202,6 +204,12 @@ def run_aws_scan(
             "eventbridge",
             lambda: EventBridgeScanner(
                 EventBridgeService(session)
+            ),
+        ),
+        (
+            "dynamodb",
+            lambda: DynamoDBScanner(
+                DynamoDBService(session)
             ),
         ),
     )

@@ -1,0 +1,132 @@
+from engine.rules.aws.dynamodb.autoscaling import (
+    build_dynamodb_autoscaling_finding,
+    check_dynamodb_autoscaling,
+)
+from engine.rules.aws.dynamodb.backup_plan import (
+    build_dynamodb_backup_plan_finding,
+    check_dynamodb_backup_plan,
+)
+from engine.rules.aws.dynamodb.dax_encryption import (
+    build_dax_encryption_finding,
+    check_dax_encryption,
+)
+from engine.rules.aws.dynamodb.dax_tls import (
+    build_dax_tls_finding,
+    check_dax_tls,
+)
+from engine.rules.aws.dynamodb.deletion_protection import (
+    build_dynamodb_deletion_protection_finding,
+    check_dynamodb_deletion_protection,
+)
+from engine.rules.aws.dynamodb.pitr import (
+    build_dynamodb_pitr_finding,
+    check_dynamodb_pitr,
+)
+from engine.rules.aws.dynamodb.tagging import (
+    build_dynamodb_tagging_finding,
+    check_dynamodb_tagging,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+DYNAMODB_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-DYNAMODB-001",
+            name="dynamodb_autoscaling",
+            data_source="dynamodb_tables",
+            collection_mode="multiple",
+            check_arguments=[
+                "table_arn",
+                "table_name",
+                "billing_mode",
+                "autoscaling_enabled",
+                "scalable_targets",
+                "scaling_policies",
+            ],
+            check=check_dynamodb_autoscaling,
+            build_finding=build_dynamodb_autoscaling_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DYNAMODB-002",
+            name="dynamodb_pitr",
+            data_source="dynamodb_tables",
+            collection_mode="multiple",
+            check_arguments=[
+                "table_arn",
+                "table_name",
+                "continuous_backups",
+            ],
+            check=check_dynamodb_pitr,
+            build_finding=build_dynamodb_pitr_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DYNAMODB-003",
+            name="dax_encryption",
+            data_source="dynamodb_dax_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "cluster_arn",
+                "cluster_name",
+                "sse_description",
+            ],
+            check=check_dax_encryption,
+            build_finding=build_dax_encryption_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DYNAMODB-004",
+            name="dynamodb_backup_plan",
+            data_source="dynamodb_tables",
+            collection_mode="multiple",
+            check_arguments=[
+                "table_arn",
+                "table_name",
+                "table_status",
+                "backup_resources",
+            ],
+            check=check_dynamodb_backup_plan,
+            build_finding=build_dynamodb_backup_plan_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DYNAMODB-005",
+            name="dynamodb_tagging",
+            data_source="dynamodb_tables",
+            collection_mode="multiple",
+            check_arguments=[
+                "table_arn",
+                "tags",
+            ],
+            check=check_dynamodb_tagging,
+            build_finding=build_dynamodb_tagging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DYNAMODB-006",
+            name="dynamodb_deletion_protection",
+            data_source="dynamodb_tables",
+            collection_mode="multiple",
+            check_arguments=[
+                "table_arn",
+                "table_name",
+                "deletion_protection_enabled",
+            ],
+            check=check_dynamodb_deletion_protection,
+            build_finding=(
+                build_dynamodb_deletion_protection_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DYNAMODB-007",
+            name="dax_tls",
+            data_source="dynamodb_dax_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "cluster_arn",
+                "cluster_name",
+                "cluster_endpoint_encryption_type",
+            ],
+            check=check_dax_tls,
+            build_finding=build_dax_tls_finding,
+        ),
+    ]
+)

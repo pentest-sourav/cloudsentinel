@@ -32,6 +32,7 @@ def make_mocks():
         "sqs": Mock(),
         "stepfunctions": Mock(),
         "eventbridge": Mock(),
+        "dynamodb": Mock(),
     }
 
     services = {
@@ -50,6 +51,7 @@ def make_mocks():
         "sqs": Mock(),
         "stepfunctions": Mock(),
         "eventbridge": Mock(),
+        "dynamodb": Mock(),
     }
 
     findings = {
@@ -68,6 +70,7 @@ def make_mocks():
         "sqs": Mock(rule_id="CS-AWS-SQS-001"),
         "stepfunctions": Mock(rule_id="CS-AWS-SFN-001"),
         "eventbridge": Mock(rule_id="CS-AWS-EVENTBRIDGE-002"),
+        "dynamodb": Mock(rule_id="CS-AWS-DYNAMODB-001"),
     }
 
     for name, scanner in scanners.items():
@@ -133,6 +136,11 @@ def patch_aws_scanners(
                 "EventBridgeService",
                 "EventBridgeScanner",
                 "eventbridge",
+            ),
+            (
+                "DynamoDBService",
+                "DynamoDBScanner",
+                "dynamodb",
             ),
         )
 
@@ -200,6 +208,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["sqs"],
         findings["stepfunctions"],
         findings["eventbridge"],
+        findings["dynamodb"],
     ]
 
     assert result.errors == []
@@ -294,6 +303,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["sqs"],
         findings["stepfunctions"],
         findings["eventbridge"],
+        findings["dynamodb"],
     ]
 
     assert result.errors == []
@@ -340,6 +350,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["sqs"],
         findings["stepfunctions"],
         findings["eventbridge"],
+        findings["dynamodb"],
     ]
 
     assert len(result.errors) == 1
