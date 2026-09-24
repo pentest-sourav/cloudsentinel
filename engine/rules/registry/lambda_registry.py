@@ -1,3 +1,7 @@
+from engine.rules.aws.lambda_rules.code_signing import (
+    build_lambda_code_signing_finding,
+    check_lambda_code_signing,
+)
 from engine.rules.aws.lambda_rules.not_in_vpc import (
     build_lambda_not_in_vpc_finding,
     check_lambda_not_in_vpc,
@@ -105,6 +109,20 @@ LAMBDA_RULES = RuleRegistry(
             ],
             check=check_lambda_xray_tracing,
             build_finding=build_lambda_xray_tracing_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-LAMBDA-007",
+            name="lambda_code_signing",
+            data_source="lambda_functions",
+            collection_mode="multiple",
+            check_arguments=[
+                "function_name",
+                "package_type",
+                "code_signing_config_arn",
+                "code_signing_policy",
+            ],
+            check=check_lambda_code_signing,
+            build_finding=build_lambda_code_signing_finding,
         ),
     ]
 )

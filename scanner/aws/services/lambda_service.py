@@ -2,6 +2,8 @@ from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from scanner.aws.client_factory import create_aws_client
+
 
 class LambdaService:
     """
@@ -14,7 +16,7 @@ class LambdaService:
 
     def __init__(self, session):
         self.session = session
-        self.lambda_client = session.client("lambda")
+        self.lambda_client = create_aws_client(session, "lambda")
         self._ec2_client = None
 
     def list_functions(self) -> list[dict[str, Any]]:
@@ -127,6 +129,99 @@ class LambdaService:
             raise RuntimeError(
                 f"AWS SDK error during Lambda function policy discovery: "
                 f"{exc}"
+            ) from exc
+
+    def get_function_code_signing_config(
+        self,
+        function_name: str,
+    ) -> dict[str, Any] | None:
+        """
+        Retrieve the Code Signing Configuration associated with a
+        Lambda function.
+
+        Functions without a Code Signing Configuration return None.
+        """
+        try:
+            response = self.lambda_client.get_function_code_signing_config(
+                FunctionName=function_name
+            )
+
+            code_signing_config_arn = response.get("CodeSigningConfigArn")
+
+            if not code_signing_config_arn:
+                return None
+
+            return {
+                "code_signing_config_arn": code_signing_config_arn,
+            }
+
+        except self.lambda_client.exceptions.ResourceNotFoundException:
+            return None
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"Lambda code-signing configuration discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during Lambda code-signing configuration "
+                f"discovery: {exc}"
+            ) from exc
+
+    def get_code_signing_config(
+        self,
+        code_signing_config_arn: str,
+    ) -> dict[str, Any] | None:
+        """
+        Retrieve the enforcement policy for a Lambda Code Signing
+        Configuration.
+        """
+        try:
+            response = self.lambda_client.get_code_signing_config(
+                CodeSigningConfigArn=code_signing_config_arn
+            )
+
+            code_signing_config = response.get("CodeSigningConfig")
+
+            if not code_signing_config:
+                return None
+
+            return {
+                "code_signing_config_arn": code_signing_config.get(
+                    "CodeSigningConfigArn"
+                ),
+                "description": code_signing_config.get("Description"),
+                "allowed_publishers": code_signing_config.get(
+                    "AllowedPublishers"
+                ),
+                "code_signing_policies": code_signing_config.get(
+                    "CodeSigningPolicies"
+                ),
+            }
+
+        except self.lambda_client.exceptions.ResourceNotFoundException:
+            return None
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"Lambda code-signing configuration retrieval failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during Lambda code-signing configuration "
+                f"retrieval: {exc}"
             ) from exc
 
     def list_event_source_mappings(

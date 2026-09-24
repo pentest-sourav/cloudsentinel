@@ -15,6 +15,12 @@ class LambdaDataCollector:
         self._policy_cache: dict[str, dict[str, Any] | None] = {}
         self._event_source_cache: dict[str, list[dict[str, Any]]] = {}
         self._subnet_az_cache: dict[str, str] = {}
+        self._code_signing_config_cache: dict[
+            str, dict[str, Any] | None
+        ] = {}
+        self._code_signing_details_cache: dict[
+            str, dict[str, Any] | None
+        ] = {}
 
     def _get_functions(self) -> list[dict[str, Any]]:
         if self._functions_cache is None:
@@ -77,6 +83,28 @@ class LambdaDataCollector:
             if subnet_id in self._subnet_az_cache
         }
 
+    def _get_function_code_signing_config(
+        self,
+        function_name: str,
+    ) -> dict[str, Any] | None:
+        if function_name not in self._code_signing_config_cache:
+            self._code_signing_config_cache[function_name] = (
+                self.service.get_function_code_signing_config(function_name)
+            )
+
+        return self._code_signing_config_cache[function_name]
+
+    def _get_code_signing_config(
+        self,
+        config_arn: str,
+    ) -> dict[str, Any] | None:
+        if config_arn not in self._code_signing_details_cache:
+            self._code_signing_details_cache[config_arn] = (
+                self.service.get_code_signing_config(config_arn)
+            )
+
+        return self._code_signing_details_cache[config_arn]
+
     def collect_functions(self) -> list[dict[str, Any]]:
         normalized = []
 
@@ -93,6 +121,24 @@ class LambdaDataCollector:
             )
 
             package_type = function.get("PackageType")
+
+            code_signing_config = (
+                self._get_function_code_signing_config(function_name)
+                if package_type != "Image"
+                else None
+            )
+
+            code_signing_config_arn = (
+                code_signing_config.get("code_signing_config_arn")
+                if code_signing_config
+                else None
+            )
+
+            code_signing_details = (
+                self._get_code_signing_config(code_signing_config_arn)
+                if code_signing_config_arn
+                else None
+            )
 
             vpc_config = function.get("VpcConfig") or {}
             vpc_id = vpc_config.get("VpcId")
@@ -149,6 +195,14 @@ class LambdaDataCollector:
                     "subnet_availability_zones": subnet_availability_zones,
                     "tracing_mode": tracing_mode,
                     "event_source_mappings": event_source_mappings,
+                    "code_signing_config_arn": code_signing_config_arn,
+                    "code_signing_policy": (
+                        code_signing_details.get(
+                            "code_signing_policies"
+                        )
+                        if code_signing_details
+                        else None
+                    ),
                 }
             )
 
