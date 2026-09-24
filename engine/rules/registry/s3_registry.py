@@ -33,6 +33,10 @@ from engine.rules.aws.s3.ownership import (
     build_s3_ownership_finding,
     check_s3_ownership,
 )
+from engine.rules.aws.s3.tls_policy import (
+    build_s3_tls_policy_finding,
+    check_s3_tls_policy,
+)
 
 
 S3_RULES = RuleRegistry(
@@ -129,6 +133,18 @@ S3_RULES = RuleRegistry(
             ],
             check=check_s3_ownership,
             build_finding=build_s3_ownership_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-S3-009",
+            name="tls_policy",
+            data_source="s3_tls_policy",
+            collection_mode="multiple",
+            check_arguments=[
+                "bucket_name",
+                "policy",
+            ],
+            check=check_s3_tls_policy,
+            build_finding=build_s3_tls_policy_finding,
         ),
     ]
 )

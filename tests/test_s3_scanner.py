@@ -53,6 +53,31 @@ class FakeS3Service:
             "IsPublic": True,
         }
 
+    def get_bucket_policy(self, bucket_name):
+        if bucket_name == "secure-bucket":
+            return {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Sid": "DenyInsecureTransport",
+                        "Effect": "Deny",
+                        "Principal": "*",
+                        "Action": "s3:*",
+                        "Resource": [
+                            "arn:aws:s3:::secure-bucket",
+                            "arn:aws:s3:::secure-bucket/*",
+                        ],
+                        "Condition": {
+                            "Bool": {
+                                "aws:SecureTransport": "false",
+                            }
+                        },
+                    }
+                ],
+            }
+
+        return {}
+
     def get_bucket_acl(self, bucket_name):
         if bucket_name == "secure-bucket":
             return {
@@ -138,7 +163,7 @@ def test_s3_scanner_detects_all_insecure_bucket_checks():
 
     findings = scanner.scan()
 
-    assert len(findings) == 8
+    assert len(findings) == 9
 
     rule_ids = {
         finding.rule_id
@@ -153,6 +178,7 @@ def test_s3_scanner_detects_all_insecure_bucket_checks():
     assert "CS-AWS-S3-006" in rule_ids
     assert "CS-AWS-S3-007" in rule_ids
     assert "CS-AWS-S3-008" in rule_ids
+    assert "CS-AWS-S3-009" in rule_ids
 
     for finding in findings:
         assert finding.resource_id == "insecure-bucket"

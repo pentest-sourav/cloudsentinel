@@ -28,8 +28,10 @@ class S3DataCollector:
             collected.append(
                 {
                     "bucket_name": bucket_name,
-                    "public_access_block": self.service.get_public_access_block(
-                        bucket_name
+                    "public_access_block": (
+                        self.service.get_public_access_block(
+                            bucket_name
+                        )
                     ),
                 }
             )
@@ -47,8 +49,10 @@ class S3DataCollector:
             collected.append(
                 {
                     "bucket_name": bucket_name,
-                    "encryption_configuration": self.service.get_bucket_encryption(
-                        bucket_name
+                    "encryption_configuration": (
+                        self.service.get_bucket_encryption(
+                            bucket_name
+                        )
                     ),
                 }
             )
@@ -66,7 +70,28 @@ class S3DataCollector:
             collected.append(
                 {
                     "bucket_name": bucket_name,
-                    "policy_status": self.service.get_bucket_policy_status(
+                    "policy_status": (
+                        self.service.get_bucket_policy_status(
+                            bucket_name
+                        )
+                    ),
+                }
+            )
+
+        return collected
+
+    def collect_tls_policy(self) -> list[dict[str, Any]]:
+        buckets = self._get_buckets()
+
+        collected = []
+
+        for bucket in buckets:
+            bucket_name = bucket["name"]
+
+            collected.append(
+                {
+                    "bucket_name": bucket_name,
+                    "policy": self.service.get_bucket_policy(
                         bucket_name
                     ),
                 }
@@ -104,8 +129,10 @@ class S3DataCollector:
             collected.append(
                 {
                     "bucket_name": bucket_name,
-                    "versioning_status": self.service.get_bucket_versioning(
-                        bucket_name
+                    "versioning_status": (
+                        self.service.get_bucket_versioning(
+                            bucket_name
+                        )
                     ),
                 }
             )
@@ -123,8 +150,10 @@ class S3DataCollector:
             collected.append(
                 {
                     "bucket_name": bucket_name,
-                    "logging_configuration": self.service.get_bucket_logging(
-                        bucket_name
+                    "logging_configuration": (
+                        self.service.get_bucket_logging(
+                            bucket_name
+                        )
                     ),
                 }
             )

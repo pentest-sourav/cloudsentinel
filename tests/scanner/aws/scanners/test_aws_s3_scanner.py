@@ -54,6 +54,27 @@ def test_s3_scanner_returns_findings_for_public_buckets():
         }
     }
 
+    fake_service.get_bucket_policy.return_value = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "DenyInsecureTransport",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Action": "s3:*",
+                "Resource": [
+                    "arn:aws:s3:::example-bucket",
+                    "arn:aws:s3:::example-bucket/*",
+                ],
+                "Condition": {
+                    "Bool": {
+                        "aws:SecureTransport": "false",
+                    }
+                },
+            }
+        ],
+    }
+
     fake_service.get_bucket_acl.return_value = {
         "Owner": {
             "ID": "owner-id",
