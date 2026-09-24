@@ -5,6 +5,7 @@ from scanner.aws.provider import AWSProvider
 from scanner.aws.scanners.cloudtrail_scanner import CloudTrailScanner
 from scanner.aws.scanners.ec2 import EC2Scanner
 from scanner.aws.scanners.iam import IAMScanner
+from scanner.aws.scanners.kms import KMSScanner
 from scanner.aws.scanners.rds import RDSScanner
 from scanner.aws.scanners.lambda_scanner import LambdaScanner
 from scanner.aws.scanners.s3 import S3Scanner
@@ -16,6 +17,7 @@ from scanner.aws.scanners.route_table_scanner import RouteTableScanner
 from scanner.aws.services.lambda_service import LambdaService
 from scanner.aws.services.ec2 import EC2Service
 from scanner.aws.services.iam import IAMService
+from scanner.aws.services.kms import KMSService
 from scanner.aws.services.rds import RDSService
 from scanner.aws.services.s3 import S3Service
 from scanner.aws.services.sns import SNSService
@@ -126,6 +128,10 @@ def run_aws_scan(
         (
             "iam",
             lambda: IAMScanner(IAMService(session)),
+        ),
+        (
+            "kms",
+            lambda: KMSScanner(KMSService(session)),
         ),
         (
             "ec2",
