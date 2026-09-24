@@ -139,6 +139,10 @@ from engine.rules.aws.iam.cross_account_trust_without_condition import (
     check_cross_account_trust_without_condition,
     build_cross_account_trust_without_condition_finding,
 )
+from engine.rules.aws.iam.cross_account_role_trust import (
+    check_cross_account_role_trust,
+    build_cross_account_role_trust_finding,
+)
 from engine.rules.aws.iam.access_analyzer_security_warning import (
     check_access_analyzer_security_warning,
     build_access_analyzer_security_warning_finding,
@@ -722,6 +726,24 @@ IAM_RULES = RuleRegistry(
             build_finding=(
                 build_cross_account_trust_without_condition_finding
             ),
+        ),
+
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-037",
+            name="cross_account_role_trust",
+            data_source="cross_account_role_trusts",
+            collection_mode="multiple",
+            check_arguments=[
+                "role_name",
+                "role_arn",
+                "statement_index",
+                "effect",
+                "principal",
+                "action",
+                "condition",
+            ],
+            check=check_cross_account_role_trust,
+            build_finding=build_cross_account_role_trust_finding,
         ),
 
         RuleDefinition(
