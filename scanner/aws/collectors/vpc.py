@@ -6,7 +6,7 @@ from scanner.aws.services.vpc import VPCService
 class VPCDataCollector:
     """
     Normalizes AWS VPC, Internet Gateway, default Security Group,
-    and VPC Flow Log configuration data for security rules.
+    VPC Flow Log, and Network ACL configuration data for security rules.
     """
 
     def __init__(self, service: VPCService):
@@ -17,6 +17,7 @@ class VPCDataCollector:
             list[dict[str, Any]] | None
         ) = None
         self._flow_logs_cache: list[dict[str, Any]] | None = None
+        self._network_acls_cache: list[dict[str, Any]] | None = None
 
     def _get_vpcs(self) -> list[dict[str, Any]]:
         if self._vpcs_cache is None:
@@ -45,6 +46,14 @@ class VPCDataCollector:
             self._flow_logs_cache = self.service.describe_flow_logs()
 
         return self._flow_logs_cache
+
+    def _get_network_acls(self) -> list[dict[str, Any]]:
+        if self._network_acls_cache is None:
+            self._network_acls_cache = (
+                self.service.describe_network_acls()
+            )
+
+        return self._network_acls_cache
 
     def collect_vpcs(self) -> list[dict[str, Any]]:
         normalized = []
@@ -179,5 +188,37 @@ class VPCDataCollector:
                     "flow_logging_enabled": bool(active_flow_logs),
                 }
             )
+
+        return normalized
+
+    def collect_network_acls(self) -> list[dict[str, Any]]:
+        normalized = []
+
+        for network_acl in self._get_network_acls():
+            network_acl_id = network_acl.get("NetworkAclId")
+            vpc_id = network_acl.get("VpcId")
+
+            if not network_acl_id or not vpc_id:
+                continue
+
+            for entry in network_acl.get("Entries", []):
+                normalized.append(
+                    {
+                        "network_acl_id": network_acl_id,
+                        "vpc_id": vpc_id,
+                        "is_default": network_acl.get(
+                            "IsDefault",
+                            False,
+                        ),
+                        "rule_number": entry.get("RuleNumber"),
+                        "egress": entry.get("Egress", False),
+                        "rule_action": entry.get("RuleAction"),
+                        "protocol": entry.get("Protocol"),
+                        "cidr_block": entry.get("CidrBlock"),
+                        "ipv6_cidr_block": entry.get(
+                            "Ipv6CidrBlock"
+                        ),
+                    }
+                )
 
         return normalized

@@ -14,6 +14,10 @@ from engine.rules.aws.vpc.orphaned_internet_gateway import (
     build_orphaned_internet_gateway_finding,
     check_orphaned_internet_gateway,
 )
+from engine.rules.aws.vpc.unrestricted_network_acl import (
+    build_unrestricted_network_acl_finding,
+    check_unrestricted_network_acl,
+)
 from engine.rules.model import RuleDefinition
 from engine.rules.registry.base import RuleRegistry
 
@@ -74,6 +78,25 @@ VPC_RULES = RuleRegistry(
             ],
             check=check_vpc_flow_logs,
             build_finding=build_vpc_flow_logs_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-005",
+            name="unrestricted_network_acl",
+            data_source="network_acls",
+            collection_mode="multiple",
+            check_arguments=[
+                "network_acl_id",
+                "vpc_id",
+                "is_default",
+                "rule_number",
+                "egress",
+                "rule_action",
+                "protocol",
+                "cidr_block",
+                "ipv6_cidr_block",
+            ],
+            check=check_unrestricted_network_acl,
+            build_finding=build_unrestricted_network_acl_finding,
         ),
     ]
 )

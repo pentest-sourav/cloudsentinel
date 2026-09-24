@@ -25,9 +25,16 @@ def collect_flow_log_coverage(
     return collector.collect_flow_log_coverage()
 
 
+def collect_network_acls(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_network_acls()
+
+
 VPC_DATA_SOURCE_HANDLERS = {
     "vpcs": collect_vpcs,
     "internet_gateways": collect_internet_gateways,
     "default_security_groups": collect_default_security_groups,
     "flow_log_coverage": collect_flow_log_coverage,
+    "network_acls": collect_network_acls,
 }

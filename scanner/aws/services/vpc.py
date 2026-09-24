@@ -10,8 +10,8 @@ class VPCService:
     Read-only AWS VPC discovery service.
 
     This service is responsible only for collecting VPC,
-    Internet Gateway, default Security Group, and VPC
-    Flow Log configuration data.
+    Internet Gateway, default Security Group, VPC Flow Log,
+    and Network ACL configuration data.
     """
 
     def __init__(self, session):
@@ -138,5 +138,36 @@ class VPCService:
         except BotoCoreError as exc:
             raise RuntimeError(
                 f"AWS SDK error during VPC Flow Log discovery: "
+                f"{exc}"
+            ) from exc
+
+    def describe_network_acls(self) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_network_acls"
+            )
+
+            network_acls = []
+
+            for page in paginator.paginate():
+                network_acls.extend(
+                    page.get("NetworkAcls", [])
+                )
+
+            return network_acls
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"Network ACL discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during Network ACL discovery: "
                 f"{exc}"
             ) from exc

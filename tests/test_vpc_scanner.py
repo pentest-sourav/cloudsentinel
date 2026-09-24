@@ -9,6 +9,7 @@ def base_service():
     service.describe_internet_gateways.return_value = []
     service.describe_default_security_groups.return_value = []
     service.describe_flow_logs.return_value = []
+    service.describe_network_acls.return_value = []
     return service
 
 
@@ -253,3 +254,58 @@ def test_vpc_scanner_detects_combined_findings():
         "CS-AWS-VPC-003",
         "CS-AWS-VPC-004",
     }
+
+
+def test_vpc_scanner_detects_unrestricted_network_acl():
+    service = base_service()
+
+    service.describe_network_acls.return_value = [
+        {
+            "NetworkAclId": "acl-12345678",
+            "VpcId": "vpc-12345678",
+            "IsDefault": False,
+            "Entries": [
+                {
+                    "RuleNumber": 100,
+                    "Egress": False,
+                    "RuleAction": "allow",
+                    "Protocol": "-1",
+                    "CidrBlock": "0.0.0.0/0",
+                }
+            ],
+        }
+    ]
+
+    scanner = VPCScanner(service)
+
+    findings = scanner.scan()
+
+    assert len(findings) == 1
+    assert findings[0].rule_id == "CS-AWS-VPC-005"
+
+
+def test_vpc_scanner_does_not_flag_default_network_acl():
+    service = base_service()
+
+    service.describe_network_acls.return_value = [
+        {
+            "NetworkAclId": "acl-default",
+            "VpcId": "vpc-12345678",
+            "IsDefault": True,
+            "Entries": [
+                {
+                    "RuleNumber": 100,
+                    "Egress": False,
+                    "RuleAction": "allow",
+                    "Protocol": "-1",
+                    "CidrBlock": "0.0.0.0/0",
+                }
+            ],
+        }
+    ]
+
+    scanner = VPCScanner(service)
+
+    findings = scanner.scan()
+
+    assert findings == []

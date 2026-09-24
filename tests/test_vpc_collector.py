@@ -277,3 +277,60 @@ def test_vpc_collector_marks_vpc_without_flow_log_as_disabled():
             "flow_logging_enabled": False,
         }
     ]
+
+
+def test_vpc_collector_normalizes_network_acl_entries():
+    service = MagicMock()
+
+    service.describe_network_acls.return_value = [
+        {
+            "NetworkAclId": "acl-123",
+            "VpcId": "vpc-123",
+            "IsDefault": False,
+            "Entries": [
+                {
+                    "RuleNumber": 100,
+                    "Egress": False,
+                    "RuleAction": "allow",
+                    "Protocol": "-1",
+                    "CidrBlock": "0.0.0.0/0",
+                },
+                {
+                    "RuleNumber": 110,
+                    "Egress": True,
+                    "RuleAction": "deny",
+                    "Protocol": "6",
+                    "Ipv6CidrBlock": "::/0",
+                },
+            ],
+        }
+    ]
+
+    collector = VPCDataCollector(service)
+
+    entries = collector.collect_network_acls()
+
+    assert entries == [
+        {
+            "network_acl_id": "acl-123",
+            "vpc_id": "vpc-123",
+            "is_default": False,
+            "rule_number": 100,
+            "egress": False,
+            "rule_action": "allow",
+            "protocol": "-1",
+            "cidr_block": "0.0.0.0/0",
+            "ipv6_cidr_block": None,
+        },
+        {
+            "network_acl_id": "acl-123",
+            "vpc_id": "vpc-123",
+            "is_default": False,
+            "rule_number": 110,
+            "egress": True,
+            "rule_action": "deny",
+            "protocol": "6",
+            "cidr_block": None,
+            "ipv6_cidr_block": "::/0",
+        },
+    ]
