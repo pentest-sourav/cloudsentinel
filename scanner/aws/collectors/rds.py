@@ -72,6 +72,9 @@ class RDSDataCollector:
                     "allocated_storage": instance.get(
                         "AllocatedStorage"
                     ),
+                    "monitoring_interval": instance.get(
+                        "MonitoringInterval"
+                    ),
                 }
             )
 

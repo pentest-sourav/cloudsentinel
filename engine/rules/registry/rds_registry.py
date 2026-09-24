@@ -17,6 +17,10 @@ from engine.rules.aws.rds.deletion_protection import (
     build_rds_deletion_protection_finding,
     check_rds_deletion_protection,
 )
+from engine.rules.aws.rds.enhanced_monitoring import (
+    build_rds_enhanced_monitoring_finding,
+    check_rds_enhanced_monitoring,
+)
 from engine.rules.aws.rds.iam_database_authentication import (
     build_rds_iam_database_authentication_finding,
     check_rds_iam_database_authentication,
@@ -137,6 +141,18 @@ RDS_RULES = RuleRegistry(
             ],
             check=check_rds_cloudwatch_logs_export,
             build_finding=build_rds_cloudwatch_logs_export_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-009",
+            name="rds_enhanced_monitoring",
+            data_source="rds_instances",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_instance_id",
+                "monitoring_interval",
+            ],
+            check=check_rds_enhanced_monitoring,
+            build_finding=build_rds_enhanced_monitoring_finding,
         ),
     ]
 )
