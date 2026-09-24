@@ -648,6 +648,10 @@ class IAMDataCollector:
                 "PasswordReusePrevention",
                 0,
             ),
+            "max_password_age": policy.get(
+                "MaxPasswordAge",
+                0,
+            ),
         }
 
     def collect_credential_report(self) -> list[dict[str, Any]]:

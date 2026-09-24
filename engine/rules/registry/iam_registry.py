@@ -69,6 +69,10 @@ from engine.rules.aws.iam.password_reuse import (
     check_password_reuse,
     build_password_reuse_finding,
 )
+from engine.rules.aws.iam.password_policy_expiration import (
+    check_password_policy_expiration,
+    build_password_policy_expiration_finding,
+)
 from engine.rules.aws.iam.unused_console_password import (
     check_unused_console_password,
     build_unused_console_password_finding,
@@ -298,6 +302,17 @@ IAM_RULES = RuleRegistry(
             ],
             check=check_password_reuse,
             build_finding=build_password_reuse_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-039",
+            name="password_policy_expiration",
+            data_source="password_policy",
+            collection_mode="single",
+            check_arguments=[
+                "max_password_age",
+            ],
+            check=check_password_policy_expiration,
+            build_finding=build_password_policy_expiration_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-011",

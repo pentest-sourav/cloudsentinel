@@ -98,6 +98,7 @@ def test_collect_password_policy_returns_normalized_password_policy():
         "require_uppercase": True,
         "require_lowercase": True,
         "password_reuse_prevention": 24,
+        "max_password_age": 90,
     }
 
     service.get_account_password_policy.assert_called_once_with()

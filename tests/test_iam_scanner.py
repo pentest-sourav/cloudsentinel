@@ -68,6 +68,7 @@ def _configure_common_iam_service(service, username):
         "RequireLowercaseCharacters": True,
         "RequireUppercaseCharacters": True,
         "PasswordReusePrevention": 24,
+        "MaxPasswordAge": 90,
     }
 
     _configure_credential_report(service)
@@ -432,6 +433,7 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
         "RequireLowercaseCharacters": True,
         "RequireUppercaseCharacters": True,
         "PasswordReusePrevention": 24,
+        "MaxPasswordAge": 90,
     }
 
     _configure_credential_report(service)
