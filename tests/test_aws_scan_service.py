@@ -38,6 +38,7 @@ def make_mocks():
         "ecs": Mock(),
         "api_gateway": Mock(),
         "waf": Mock(),
+        "eks": Mock(),
     }
 
     services = {
@@ -62,6 +63,7 @@ def make_mocks():
         "ecs": Mock(),
         "api_gateway": Mock(),
         "waf": Mock(),
+        "eks": Mock(),
     }
 
     findings = {
@@ -97,6 +99,9 @@ def make_mocks():
         ),
         "waf": Mock(
             rule_id="CS-AWS-WAF-010"
+        ),
+        "eks": Mock(
+            rule_id="CS-AWS-EKS-001"
         ),
     }
 
@@ -190,9 +195,16 @@ def patch_aws_scanners(
                 "WAFScanner",
                 "waf",
             ),
+            (
+                "EKSService",
+                "EKSScanner",
+                "eks",
+            ),
         )
 
-        for service_name, scanner_name, key in service_scanner_pairs:
+        for service_name, scanner_name, key in (
+            service_scanner_pairs
+        ):
             stack.enter_context(
                 patch(
                     f"backend.app.services.aws_scan_service.{service_name}",
@@ -262,6 +274,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["ecs"],
         findings["api_gateway"],
         findings["waf"],
+        findings["eks"],
     ]
 
     assert result.errors == []
@@ -362,6 +375,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["ecs"],
         findings["api_gateway"],
         findings["waf"],
+        findings["eks"],
     ]
 
     assert result.errors == []
@@ -414,6 +428,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["ecs"],
         findings["api_gateway"],
         findings["waf"],
+        findings["eks"],
     ]
 
     assert len(result.errors) == 1

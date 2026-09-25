@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from scanner.aws.provider import AWSProvider
+
 from scanner.aws.scanners.cloudtrail_scanner import CloudTrailScanner
 from scanner.aws.scanners.ec2 import EC2Scanner
 from scanner.aws.scanners.ecr import ECRScanner
@@ -12,6 +13,7 @@ from scanner.aws.scanners.dynamodb import DynamoDBScanner
 from scanner.aws.scanners.ecs import ECSScanner
 from scanner.aws.scanners.api_gateway import APIGatewayScanner
 from scanner.aws.scanners.waf import WAFScanner
+from scanner.aws.scanners.eks import EKSScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -34,6 +36,7 @@ from scanner.aws.services.dynamodb import DynamoDBService
 from scanner.aws.services.ecs import ECSService
 from scanner.aws.services.api_gateway import APIGatewayService
 from scanner.aws.services.waf import WAFService
+from scanner.aws.services.eks import EKSService
 from scanner.aws.services.opensearch import OpenSearchService
 from scanner.aws.services.elasticache import ElastiCacheService
 from scanner.aws.services.iam import IAMService
@@ -63,7 +66,9 @@ class AWSScanResult:
     errors: list[ScannerExecutionError]
 
 
-def _extract_error_code(error: Exception) -> str | None:
+def _extract_error_code(
+    error: Exception,
+) -> str | None:
     response = getattr(error, "response", None)
 
     if isinstance(response, dict):
@@ -85,7 +90,9 @@ def _run_scanner(
     try:
         scanner = scanner_factory()
         findings = scanner.scan()
+
         return findings, None
+
     except Exception as exc:
         return [], ScannerExecutionError(
             service=service_name,
@@ -96,30 +103,14 @@ def _run_scanner(
 
 
 def run_aws_scan(
-    role_arn: str | None,
-    external_id: str | None,
-    region_name: str | None,
-    expected_account_id: str | None,
-) -> AWSScanResult:
-    """
-    Run all enabled AWS security scanners against a configured
-    CloudSentinel AWS account.
-
-    AWS access is established through STS AssumeRole. The returned
-    temporary credentials are used by one boto3 session shared by
-    all scanners.
-
-    AWS account identity is verified through STS before any security
-    scanner is executed.
-
-    Individual security scanners are isolated from one another.
-    A failure in one scanner is recorded as an execution error and
-    does not prevent the remaining scanners from running.
-    """
-
+    role_arn,
+    external_id,
+    region_name,
+    expected_account_id,
+):
     if not role_arn:
         raise RuntimeError(
-            "AWS IAM role ARN is not configured for this cloud account."
+            "AWS IAM role ARN is not configured"
         )
 
     session = create_aws_session(
@@ -129,6 +120,7 @@ def run_aws_scan(
     )
 
     provider = AWSProvider(session)
+
     identity = provider.verify_identity()
 
     if (
@@ -136,38 +128,51 @@ def run_aws_scan(
         and identity.account_id != expected_account_id
     ):
         raise RuntimeError(
-            "AWS account identity mismatch: expected "
-            f"{expected_account_id}, got {identity.account_id}."
+            "AWS account identity mismatch"
         )
 
     scanners = (
         (
             "s3",
-            lambda: S3Scanner(S3Service(session)),
+            lambda: S3Scanner(
+                S3Service(session)
+            ),
         ),
         (
             "iam",
-            lambda: IAMScanner(IAMService(session)),
+            lambda: IAMScanner(
+                IAMService(session)
+            ),
         ),
         (
             "kms",
-            lambda: KMSScanner(KMSService(session)),
+            lambda: KMSScanner(
+                KMSService(session)
+            ),
         ),
         (
             "ec2",
-            lambda: EC2Scanner(EC2Service(session)),
+            lambda: EC2Scanner(
+                EC2Service(session)
+            ),
         ),
         (
             "rds",
-            lambda: RDSScanner(RDSService(session)),
+            lambda: RDSScanner(
+                RDSService(session)
+            ),
         ),
         (
             "lambda",
-            lambda: LambdaScanner(LambdaService(session)),
+            lambda: LambdaScanner(
+                LambdaService(session)
+            ),
         ),
         (
             "vpc",
-            lambda: VPCScanner(VPCService(session)),
+            lambda: VPCScanner(
+                VPCService(session)
+            ),
         ),
         (
             "security_group",
@@ -198,11 +203,15 @@ def run_aws_scan(
         ),
         (
             "ecr",
-            lambda: ECRScanner(ECRService(session)),
+            lambda: ECRScanner(
+                ECRService(session)
+            ),
         ),
         (
             "sqs",
-            lambda: SQSScanner(SQSService(session)),
+            lambda: SQSScanner(
+                SQSService(session)
+            ),
         ),
         (
             "stepfunctions",
@@ -252,21 +261,27 @@ def run_aws_scan(
                 WAFService(session)
             ),
         ),
+        (
+            "eks",
+            lambda: EKSScanner(
+                EKSService(session)
+            ),
+        ),
     )
 
     findings = []
-    errors: list[ScannerExecutionError] = []
+    errors = []
 
     for service_name, scanner_factory in scanners:
-        service_findings, execution_error = _run_scanner(
-            service_name=service_name,
-            scanner_factory=scanner_factory,
+        service_findings, error = _run_scanner(
+            service_name,
+            scanner_factory,
         )
 
         findings.extend(service_findings)
 
-        if execution_error is not None:
-            errors.append(execution_error)
+        if error is not None:
+            errors.append(error)
 
     return AWSScanResult(
         findings=findings,
