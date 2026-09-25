@@ -5,7 +5,8 @@ from scanner.aws.services.ses import SESService
 
 class SESDataCollector:
     """
-    Normalize Amazon SES configuration for CloudSentinel rules.
+    Normalize Amazon SES configuration for
+    CloudSentinel security rules.
     """
 
     def __init__(self, service: SESService):
@@ -15,7 +16,7 @@ class SESDataCollector:
             list[dict[str, Any]] | None
         ) = None
 
-        self._contact_details_cache: dict[
+        self._contact_list_metadata_cache: dict[
             str,
             dict[str, Any],
         ] = {}
@@ -24,52 +25,10 @@ class SESDataCollector:
             list[str] | None
         ) = None
 
-        self._configuration_details_cache: dict[
+        self._configuration_set_metadata_cache: dict[
             str,
             dict[str, Any],
         ] = {}
-
-    def _get_contact_lists(
-        self,
-    ) -> list[dict[str, Any]]:
-        if self._contact_lists_cache is None:
-            self._contact_lists_cache = (
-                self.service.list_contact_lists()
-            )
-
-        return self._contact_lists_cache
-
-    def _get_contact_details(
-        self,
-        name: str,
-    ) -> dict[str, Any]:
-        if name not in self._contact_details_cache:
-            self._contact_details_cache[name] = (
-                self.service.get_contact_list(name)
-            )
-
-        return self._contact_details_cache[name]
-
-    def _get_configuration_sets(
-        self,
-    ) -> list[str]:
-        if self._configuration_sets_cache is None:
-            self._configuration_sets_cache = (
-                self.service.list_configuration_sets()
-            )
-
-        return self._configuration_sets_cache
-
-    def _get_configuration_details(
-        self,
-        name: str,
-    ) -> dict[str, Any]:
-        if name not in self._configuration_details_cache:
-            self._configuration_details_cache[name] = (
-                self.service.get_configuration_set(name)
-            )
-
-        return self._configuration_details_cache[name]
 
     @staticmethod
     def _normalize_tags(
@@ -85,9 +44,15 @@ class SESDataCollector:
                 continue
 
             key = tag.get("Key")
-            value = tag.get("Value", "")
+            value = tag.get(
+                "Value",
+                "",
+            )
 
-            if not isinstance(key, str) or not key:
+            if (
+                not isinstance(key, str)
+                or not key
+            ):
                 continue
 
             normalized.append(
@@ -110,8 +75,54 @@ class SESDataCollector:
         return [
             tag
             for tag in tags
-            if not tag["Key"].lower().startswith("aws:")
+            if not tag["Key"]
+            .lower()
+            .startswith("aws:")
         ]
+
+    def _get_contact_lists(
+        self,
+    ) -> list[dict[str, Any]]:
+        if self._contact_lists_cache is None:
+            self._contact_lists_cache = (
+                self.service.list_contact_lists()
+            )
+
+        return self._contact_lists_cache
+
+    def _get_contact_list_metadata(
+        self,
+        name: str,
+    ) -> dict[str, Any]:
+        if name not in self._contact_list_metadata_cache:
+            self._contact_list_metadata_cache[name] = (
+                self.service.get_contact_list(name)
+            )
+
+        return self._contact_list_metadata_cache[name]
+
+    def _get_configuration_sets(
+        self,
+    ) -> list[str]:
+        if self._configuration_sets_cache is None:
+            self._configuration_sets_cache = (
+                self.service.list_configuration_sets()
+            )
+
+        return self._configuration_sets_cache
+
+    def _get_configuration_set_metadata(
+        self,
+        name: str,
+    ) -> dict[str, Any]:
+        if name not in self._configuration_set_metadata_cache:
+            self._configuration_set_metadata_cache[name] = (
+                self.service.get_configuration_set(name)
+            )
+
+        return (
+            self._configuration_set_metadata_cache[name]
+        )
 
     def collect_contact_lists(
         self,
@@ -119,22 +130,29 @@ class SESDataCollector:
         normalized: list[dict[str, Any]] = []
 
         for entry in self._get_contact_lists():
-            name = entry.get("ContactListName")
+            name = entry.get(
+                "ContactListName"
+            )
 
-            if not isinstance(name, str) or not name:
+            if (
+                not isinstance(name, str)
+                or not name
+            ):
                 continue
 
-            details = self._get_contact_details(name)
+            metadata = self._get_contact_list_metadata(
+                name
+            )
+
+            tags = self._normalize_tags(
+                metadata.get("Tags")
+            )
 
             normalized.append(
                 {
                     "resource_id": name,
                     "resource_type": "ses_contact_list",
-                    "tags": self._non_system_tags(
-                        self._normalize_tags(
-                            details.get("Tags", [])
-                        )
-                    ),
+                    "tags": self._non_system_tags(tags),
                 }
             )
 
@@ -146,12 +164,15 @@ class SESDataCollector:
         normalized: list[dict[str, Any]] = []
 
         for name in self._get_configuration_sets():
-            if not isinstance(name, str) or not name:
-                continue
+            metadata = (
+                self._get_configuration_set_metadata(name)
+            )
 
-            details = self._get_configuration_details(name)
+            tags = self._normalize_tags(
+                metadata.get("Tags")
+            )
 
-            delivery_options = details.get(
+            delivery_options = metadata.get(
                 "DeliveryOptions",
                 {},
             )
@@ -162,18 +183,18 @@ class SESDataCollector:
             ):
                 delivery_options = {}
 
+            tls_policy = delivery_options.get(
+                "TlsPolicy"
+            )
+
             normalized.append(
                 {
                     "resource_id": name,
-                    "resource_type": "ses_configuration_set",
-                    "tags": self._non_system_tags(
-                        self._normalize_tags(
-                            details.get("Tags", [])
-                        )
+                    "resource_type": (
+                        "ses_configuration_set"
                     ),
-                    "tls_policy": delivery_options.get(
-                        "TlsPolicy"
-                    ),
+                    "tags": self._non_system_tags(tags),
+                    "tls_policy": tls_policy,
                 }
             )
 

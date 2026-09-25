@@ -20,14 +20,17 @@ def test_ses_registry_uses_expected_data_sources():
         for rule in SES_RULES.list_rules()
     }
 
-    assert rules["CS-AWS-SES-001"].data_source == (
-        "ses_contact_lists"
+    assert (
+        rules["CS-AWS-SES-001"].data_source
+        == "ses_contact_lists"
     )
 
-    assert rules["CS-AWS-SES-002"].data_source == (
-        "ses_configuration_sets"
+    assert (
+        rules["CS-AWS-SES-002"].data_source
+        == "ses_configuration_sets"
     )
 
-    assert rules["CS-AWS-SES-003"].data_source == (
-        "ses_configuration_sets"
+    assert (
+        rules["CS-AWS-SES-003"].data_source
+        == "ses_configuration_sets"
     )

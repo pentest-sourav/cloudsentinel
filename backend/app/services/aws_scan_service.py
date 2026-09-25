@@ -20,6 +20,7 @@ from scanner.aws.scanners.guardduty import GuardDutyScanner
 from scanner.aws.scanners.inspector import InspectorScanner
 from scanner.aws.scanners.macie import MacieScanner
 from scanner.aws.scanners.kinesis import KinesisScanner
+from scanner.aws.scanners.ses import SESScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -49,6 +50,7 @@ from scanner.aws.services.guardduty import GuardDutyService
 from scanner.aws.services.inspector import InspectorService
 from scanner.aws.services.macie import MacieService
 from scanner.aws.services.kinesis import KinesisService
+from scanner.aws.services.ses import SESService
 from scanner.aws.services.opensearch import OpenSearchService
 from scanner.aws.services.elasticache import ElastiCacheService
 from scanner.aws.services.iam import IAMService
@@ -313,6 +315,12 @@ def run_aws_scan(
             "kinesis",
             lambda: KinesisScanner(
                 KinesisService(session)
+            ),
+        ),
+        (
+            "ses",
+            lambda: SESScanner(
+                SESService(session)
             ),
         ),
     )

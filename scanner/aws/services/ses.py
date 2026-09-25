@@ -9,8 +9,8 @@ class SESService:
     """
     Read-only Amazon SES v2 discovery service.
 
-    This service retrieves contact-list metadata and configuration-set
-    security configuration. No mutating SES operation is performed.
+    Retrieves contact lists and configuration sets together
+    with their security-relevant metadata.
     """
 
     def __init__(self, session):
@@ -26,11 +26,16 @@ class SESService:
         exc: Exception,
     ) -> None:
         if isinstance(exc, ClientError):
-            error = exc.response.get("Error", {})
+            error = exc.response.get(
+                "Error",
+                {},
+            )
+
             code = error.get(
                 "Code",
                 "UnknownError",
             )
+
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -41,8 +46,14 @@ class SESService:
                 f"{code}: {message}"
             ) from exc
 
+        if isinstance(exc, BotoCoreError):
+            raise RuntimeError(
+                f"AWS SDK error during SES "
+                f"{operation}: {exc}"
+            ) from exc
+
         raise RuntimeError(
-            f"AWS SDK error during SES "
+            f"Unexpected error during SES "
             f"{operation}: {exc}"
         ) from exc
 
@@ -61,8 +72,10 @@ class SESService:
                 if next_token:
                     request["NextToken"] = next_token
 
-                response = self.ses_client.list_contact_lists(
-                    **request
+                response = (
+                    self.ses_client.list_contact_lists(
+                        **request
+                    )
                 )
 
                 entries = response.get(
@@ -77,7 +90,9 @@ class SESService:
                         if isinstance(entry, dict)
                     )
 
-                token = response.get("NextToken")
+                token = response.get(
+                    "NextToken"
+                )
 
                 if (
                     not isinstance(token, str)
@@ -101,18 +116,21 @@ class SESService:
         contact_list_name: str,
     ) -> dict[str, Any]:
         try:
-            response = self.ses_client.get_contact_list(
-                ContactListName=contact_list_name,
+            response = (
+                self.ses_client.get_contact_list(
+                    ContactListName=contact_list_name,
+                )
             )
 
-            if not isinstance(response, dict):
-                return {}
-
-            return response
+            return (
+                response
+                if isinstance(response, dict)
+                else {}
+            )
 
         except Exception as exc:
             self._raise_api_error(
-                "contact-list description",
+                "contact-list metadata discovery",
                 exc,
             )
             raise AssertionError("unreachable")
@@ -126,14 +144,15 @@ class SESService:
 
             while True:
                 request: dict[str, Any] = {
-                    "PageSize": 1000,
+                    "PageSize": 100,
                 }
 
                 if next_token:
                     request["NextToken"] = next_token
 
                 response = (
-                    self.ses_client.list_configuration_sets(
+                    self.ses_client
+                    .list_configuration_sets(
                         **request
                     )
                 )
@@ -144,21 +163,16 @@ class SESService:
                 )
 
                 if isinstance(entries, list):
-                    for entry in entries:
-                        if isinstance(entry, str) and entry:
-                            configuration_sets.append(entry)
-                        elif isinstance(entry, dict):
-                            name = entry.get("Name")
+                    configuration_sets.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, str)
+                        and entry
+                    )
 
-                            if (
-                                isinstance(name, str)
-                                and name
-                            ):
-                                configuration_sets.append(
-                                    name
-                                )
-
-                token = response.get("NextToken")
+                token = response.get(
+                    "NextToken"
+                )
 
                 if (
                     not isinstance(token, str)
@@ -182,18 +196,23 @@ class SESService:
         configuration_set_name: str,
     ) -> dict[str, Any]:
         try:
-            response = self.ses_client.get_configuration_set(
-                ConfigurationSetName=configuration_set_name,
+            response = (
+                self.ses_client.get_configuration_set(
+                    ConfigurationSetName=(
+                        configuration_set_name
+                    ),
+                )
             )
 
-            if not isinstance(response, dict):
-                return {}
-
-            return response
+            return (
+                response
+                if isinstance(response, dict)
+                else {}
+            )
 
         except Exception as exc:
             self._raise_api_error(
-                "configuration-set description",
+                "configuration-set metadata discovery",
                 exc,
             )
             raise AssertionError("unreachable")

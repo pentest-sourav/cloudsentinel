@@ -3,7 +3,7 @@ from engine.rules.aws.ses.protection import (
     build_ses_contact_list_tagging_finding,
     build_ses_tls_finding,
     check_ses_tagging,
-    check_ses_tls,
+    check_ses_tls_policy,
 )
 from engine.rules.model import RuleDefinition
 from engine.rules.registry.base import RuleRegistry
@@ -28,7 +28,9 @@ SES_RULES = RuleRegistry(
         ),
         RuleDefinition(
             rule_id="CS-AWS-SES-002",
-            name="SES configuration sets should be tagged",
+            name=(
+                "SES configuration sets should be tagged"
+            ),
             data_source="ses_configuration_sets",
             collection_mode="multiple",
             check_arguments=[
@@ -44,8 +46,7 @@ SES_RULES = RuleRegistry(
         RuleDefinition(
             rule_id="CS-AWS-SES-003",
             name=(
-                "SES configuration sets should have TLS "
-                "enabled for sending emails"
+                "SES configuration sets should require TLS"
             ),
             data_source="ses_configuration_sets",
             collection_mode="multiple",
@@ -53,7 +54,7 @@ SES_RULES = RuleRegistry(
                 "resource_id",
                 "tls_policy",
             ],
-            check=check_ses_tls,
+            check=check_ses_tls_policy,
             build_finding=build_ses_tls_finding,
         ),
     ]

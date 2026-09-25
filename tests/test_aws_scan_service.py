@@ -46,6 +46,7 @@ def make_mocks():
         "inspector": Mock(),
         "macie": Mock(),
         "kinesis": Mock(),
+        "ses": Mock(),
     }
 
     services = {
@@ -77,6 +78,7 @@ def make_mocks():
         "inspector": Mock(),
         "macie": Mock(),
         "kinesis": Mock(),
+        "ses": Mock(),
     }
 
     findings = {
@@ -135,6 +137,9 @@ def make_mocks():
         ),
         "kinesis": Mock(
             rule_id="CS-AWS-KINESIS-001"
+        ),
+        "ses": Mock(
+            rule_id="CS-AWS-SES-001"
         ),
     }
 
@@ -263,6 +268,11 @@ def patch_aws_scanners(
                 "KinesisScanner",
                 "kinesis",
             ),
+            (
+                "SESService",
+                "SESScanner",
+                "ses",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -342,6 +352,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["inspector"],
         findings["macie"],
         findings["kinesis"],
+        findings["ses"],
     ]
 
     assert result.errors == []
@@ -441,6 +452,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["inspector"],
         findings["macie"],
         findings["kinesis"],
+        findings["ses"],
     ]
 
     assert result.errors == []
@@ -500,6 +512,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["inspector"],
         findings["macie"],
         findings["kinesis"],
+        findings["ses"],
     ]
 
     assert len(result.errors) == 1

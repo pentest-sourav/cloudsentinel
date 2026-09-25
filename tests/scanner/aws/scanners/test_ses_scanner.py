@@ -7,23 +7,23 @@ def test_ses_scanner_executes_registered_rules():
     service = Mock()
 
     service.list_contact_lists.return_value = [
-        {"ContactListName": "marketing"},
+        {
+            "ContactListName": "marketing",
+        },
     ]
 
     service.get_contact_list.return_value = {
-        "ContactListName": "marketing",
         "Tags": [],
     }
 
     service.list_configuration_sets.return_value = [
-        "primary",
+        "prod",
     ]
 
     service.get_configuration_set.return_value = {
-        "ConfigurationSetName": "primary",
         "Tags": [],
         "DeliveryOptions": {
-            "TlsPolicy": "OPTIONAL",
+            "TlsPolicy": "OPPORTUNISTIC",
         },
     }
 
