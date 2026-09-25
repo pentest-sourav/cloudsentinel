@@ -10,6 +10,7 @@ from scanner.aws.scanners.stepfunctions import StepFunctionsScanner
 from scanner.aws.scanners.eventbridge import EventBridgeScanner
 from scanner.aws.scanners.dynamodb import DynamoDBScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
+from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
 from scanner.aws.scanners.kms import KMSScanner
 from scanner.aws.scanners.rds import RDSScanner
@@ -28,6 +29,7 @@ from scanner.aws.services.stepfunctions import StepFunctionsService
 from scanner.aws.services.eventbridge import EventBridgeService
 from scanner.aws.services.dynamodb import DynamoDBService
 from scanner.aws.services.opensearch import OpenSearchService
+from scanner.aws.services.elasticache import ElastiCacheService
 from scanner.aws.services.iam import IAMService
 from scanner.aws.services.kms import KMSService
 from scanner.aws.services.rds import RDSService
@@ -212,6 +214,12 @@ def run_aws_scan(
             "opensearch",
             lambda: OpenSearchScanner(
                 OpenSearchService(session)
+            ),
+        ),
+        (
+            "elasticache",
+            lambda: ElastiCacheScanner(
+                ElastiCacheService(session)
             ),
         ),
         (

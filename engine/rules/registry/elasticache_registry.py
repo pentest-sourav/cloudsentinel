@@ -1,0 +1,155 @@
+from engine.rules.aws.elasticache.automatic_backups import (
+    build_elasticache_automatic_backups_finding,
+    check_elasticache_automatic_backups,
+)
+from engine.rules.aws.elasticache.automatic_failover import (
+    build_elasticache_automatic_failover_finding,
+    check_elasticache_automatic_failover,
+)
+from engine.rules.aws.elasticache.automatic_minor_version_upgrade import (
+    build_elasticache_automatic_minor_version_upgrade_finding,
+    check_elasticache_automatic_minor_version_upgrade,
+)
+from engine.rules.aws.elasticache.default_subnet_group import (
+    build_elasticache_default_subnet_group_finding,
+    check_elasticache_default_subnet_group,
+)
+from engine.rules.aws.elasticache.encryption_at_rest import (
+    build_elasticache_encryption_at_rest_finding,
+    check_elasticache_encryption_at_rest,
+)
+from engine.rules.aws.elasticache.encryption_in_transit import (
+    build_elasticache_encryption_in_transit_finding,
+    check_elasticache_encryption_in_transit,
+)
+from engine.rules.aws.elasticache.redis_auth import (
+    build_elasticache_redis_auth_finding,
+    check_elasticache_redis_auth,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+ELASTICACHE_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-ELASTICACHE-001",
+            name="elasticache_automatic_backups",
+            data_source="elasticache_cache_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "engine",
+                "snapshot_retention_limit",
+                "resource",
+            ],
+            check=check_elasticache_automatic_backups,
+            build_finding=(
+                build_elasticache_automatic_backups_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELASTICACHE-002",
+            name="elasticache_automatic_minor_version_upgrade",
+            data_source="elasticache_cache_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "engine",
+                "engine_version",
+                "auto_minor_version_upgrade",
+                "resource",
+            ],
+            check=check_elasticache_automatic_minor_version_upgrade,
+            build_finding=(
+                build_elasticache_automatic_minor_version_upgrade_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELASTICACHE-003",
+            name="elasticache_automatic_failover",
+            data_source="elasticache_replication_groups",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "automatic_failover",
+                "resource",
+            ],
+            check=check_elasticache_automatic_failover,
+            build_finding=(
+                build_elasticache_automatic_failover_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELASTICACHE-004",
+            name="elasticache_encryption_at_rest",
+            data_source="elasticache_replication_groups",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "engine",
+                "at_rest_encryption_enabled",
+                "resource",
+            ],
+            check=check_elasticache_encryption_at_rest,
+            build_finding=(
+                build_elasticache_encryption_at_rest_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELASTICACHE-005",
+            name="elasticache_encryption_in_transit",
+            data_source="elasticache_replication_groups",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "engine",
+                "transit_encryption_enabled",
+                "resource",
+            ],
+            check=check_elasticache_encryption_in_transit,
+            build_finding=(
+                build_elasticache_encryption_in_transit_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELASTICACHE-006",
+            name="elasticache_redis_auth",
+            data_source="elasticache_replication_groups",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "engine",
+                "engine_version",
+                "auth_token_enabled",
+                "resource",
+            ],
+            check=check_elasticache_redis_auth,
+            build_finding=(
+                build_elasticache_redis_auth_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELASTICACHE-007",
+            name="elasticache_default_subnet_group",
+            data_source="elasticache_cache_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "cache_subnet_group_name",
+                "resource",
+            ],
+            check=check_elasticache_default_subnet_group,
+            build_finding=(
+                build_elasticache_default_subnet_group_finding
+            ),
+        ),
+    ]
+)

@@ -34,6 +34,7 @@ def make_mocks():
         "eventbridge": Mock(),
         "dynamodb": Mock(),
         "opensearch": Mock(),
+        "elasticache": Mock(),
     }
 
     services = {
@@ -54,6 +55,7 @@ def make_mocks():
         "eventbridge": Mock(),
         "dynamodb": Mock(),
         "opensearch": Mock(),
+        "elasticache": Mock(),
     }
 
     findings = {
@@ -74,6 +76,7 @@ def make_mocks():
         "eventbridge": Mock(rule_id="CS-AWS-EVENTBRIDGE-002"),
         "dynamodb": Mock(rule_id="CS-AWS-DYNAMODB-001"),
         "opensearch": Mock(rule_id="CS-AWS-OPENSEARCH-001"),
+        "elasticache": Mock(rule_id="CS-AWS-ELASTICACHE-001"),
     }
 
     for name, scanner in scanners.items():
@@ -150,6 +153,11 @@ def patch_aws_scanners(
                 "OpenSearchScanner",
                 "opensearch",
             ),
+            (
+                "ElastiCacheService",
+                "ElastiCacheScanner",
+                "elasticache",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -217,6 +225,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["stepfunctions"],
         findings["eventbridge"],
         findings["opensearch"],
+        findings["elasticache"],
         findings["dynamodb"],
     ]
 
@@ -313,6 +322,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["stepfunctions"],
         findings["eventbridge"],
         findings["opensearch"],
+        findings["elasticache"],
         findings["dynamodb"],
     ]
 
@@ -361,6 +371,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["stepfunctions"],
         findings["eventbridge"],
         findings["opensearch"],
+        findings["elasticache"],
         findings["dynamodb"],
     ]
 
