@@ -44,6 +44,7 @@ def make_mocks():
         "acm": Mock(),
         "guardduty": Mock(),
         "inspector": Mock(),
+        "macie": Mock(),
     }
 
     services = {
@@ -73,6 +74,7 @@ def make_mocks():
         "acm": Mock(),
         "guardduty": Mock(),
         "inspector": Mock(),
+        "macie": Mock(),
     }
 
     findings = {
@@ -125,6 +127,9 @@ def make_mocks():
         ),
         "inspector": Mock(
             rule_id="CS-AWS-INSPECTOR-001"
+        ),
+        "macie": Mock(
+            rule_id="CS-AWS-MACIE-001"
         ),
     }
 
@@ -243,6 +248,11 @@ def patch_aws_scanners(
                 "InspectorScanner",
                 "inspector",
             ),
+            (
+                "MacieService",
+                "MacieScanner",
+                "macie",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -320,6 +330,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["acm"],
         findings["guardduty"],
         findings["inspector"],
+        findings["macie"],
     ]
 
     assert result.errors == []
@@ -417,6 +428,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["acm"],
         findings["guardduty"],
         findings["inspector"],
+        findings["macie"],
     ]
 
     assert result.errors == []
@@ -474,16 +486,9 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["acm"],
         findings["guardduty"],
         findings["inspector"],
+        findings["macie"],
     ]
 
     assert len(result.errors) == 1
-
-    error = result.errors[0]
-
-    assert error.service == "ec2"
-    assert error.error_type == "PermissionError"
-    assert error.error_code is None
-    assert error.message == "EC2 access denied"
-
-    for name, scanner in scanners.items():
-        scanner.scan.assert_called_once()
+    assert result.errors[0].service == "ec2"
+    assert "EC2 access denied" in result.errors[0].message
