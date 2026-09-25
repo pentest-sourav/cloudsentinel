@@ -36,6 +36,7 @@ def make_mocks():
         "opensearch": Mock(),
         "elasticache": Mock(),
         "ecs": Mock(),
+        "api_gateway": Mock(),
     }
 
     services = {
@@ -58,6 +59,7 @@ def make_mocks():
         "opensearch": Mock(),
         "elasticache": Mock(),
         "ecs": Mock(),
+        "api_gateway": Mock(),
     }
 
     findings = {
@@ -75,11 +77,22 @@ def make_mocks():
         "ecr": Mock(rule_id="CS-AWS-ECR-001"),
         "sqs": Mock(rule_id="CS-AWS-SQS-001"),
         "stepfunctions": Mock(rule_id="CS-AWS-SFN-001"),
-        "eventbridge": Mock(rule_id="CS-AWS-EVENTBRIDGE-002"),
-        "dynamodb": Mock(rule_id="CS-AWS-DYNAMODB-001"),
-        "opensearch": Mock(rule_id="CS-AWS-OPENSEARCH-001"),
-        "elasticache": Mock(rule_id="CS-AWS-ELASTICACHE-001"),
+        "eventbridge": Mock(
+            rule_id="CS-AWS-EVENTBRIDGE-002"
+        ),
+        "dynamodb": Mock(
+            rule_id="CS-AWS-DYNAMODB-001"
+        ),
+        "opensearch": Mock(
+            rule_id="CS-AWS-OPENSEARCH-001"
+        ),
+        "elasticache": Mock(
+            rule_id="CS-AWS-ELASTICACHE-001"
+        ),
         "ecs": Mock(rule_id="CS-AWS-ECS-002"),
+        "api_gateway": Mock(
+            rule_id="CS-AWS-APIGATEWAY-001"
+        ),
     }
 
     for name, scanner in scanners.items():
@@ -161,10 +174,11 @@ def patch_aws_scanners(
                 "ElastiCacheScanner",
                 "elasticache",
             ),
+            ("ECSService", "ECSScanner", "ecs"),
             (
-                "ECSService",
-                "ECSScanner",
-                "ecs",
+                "APIGatewayService",
+                "APIGatewayScanner",
+                "api_gateway",
             ),
         )
 
@@ -236,6 +250,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["elasticache"],
         findings["dynamodb"],
         findings["ecs"],
+        findings["api_gateway"],
     ]
 
     assert result.errors == []
@@ -334,6 +349,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["elasticache"],
         findings["dynamodb"],
         findings["ecs"],
+        findings["api_gateway"],
     ]
 
     assert result.errors == []
@@ -384,6 +400,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["elasticache"],
         findings["dynamodb"],
         findings["ecs"],
+        findings["api_gateway"],
     ]
 
     assert len(result.errors) == 1

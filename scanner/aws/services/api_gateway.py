@@ -176,13 +176,23 @@ class APIGatewayService:
 
             return response.get("WebACL") or {}
 
-        except self.wafv2_client.exceptions.WAFNonexistentItemException:
-            return {}
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            error_code = error.get("Code")
 
-        except self.wafv2_client.exceptions.WAFUnavailableEntityException:
-            return {}
+            if error_code in {
+                "WAFNonexistentItemException",
+                "WAFUnavailableEntityException",
+            }:
+                return {}
 
-        except (ClientError, BotoCoreError) as exc:
+            raise RuntimeError(
+                f"WAF association discovery failed for "
+                f"{rest_api_id}/{stage_name}: "
+                f"{self._error_message(exc)}"
+            ) from exc
+
+        except BotoCoreError as exc:
             raise RuntimeError(
                 f"WAF association discovery failed for "
                 f"{rest_api_id}/{stage_name}: "

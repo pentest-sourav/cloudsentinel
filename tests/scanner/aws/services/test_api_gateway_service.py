@@ -69,3 +69,29 @@ def test_rest_api_has_http_integration_returns_false():
         service.rest_api_has_http_integration("api-1")
         is False
     )
+
+
+def test_get_rest_stage_waf_treats_missing_waf_as_empty():
+    from botocore.exceptions import ClientError
+
+    service = make_service()
+
+    service.wafv2_client.get_web_acl_for_resource.side_effect = (
+        ClientError(
+            {
+                "Error": {
+                    "Code": "WAFNonexistentItemException",
+                    "Message": "No web ACL is associated",
+                }
+            },
+            "GetWebACLForResource",
+        )
+    )
+
+    assert (
+        service.get_rest_stage_waf(
+            rest_api_id="api-1",
+            stage_name="prod",
+        )
+        == {}
+    )

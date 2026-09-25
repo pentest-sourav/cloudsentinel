@@ -205,12 +205,14 @@ class APIGatewayDataCollector:
 
         for settings in method_settings.values():
             if not isinstance(settings, dict):
-                continue
+                return "OFF"
 
             level = settings.get("loggingLevel")
 
-            if level:
-                levels.append(level)
+            if level is None:
+                return "OFF"
+
+            levels.append(level)
 
         if not levels:
             return None
@@ -406,32 +408,6 @@ class APIGatewayDataCollector:
                             )
                         )
                     ),
-                    "resource": domain,
-                }
-            )
-
-        for domain in self.service.list_v2_domain_names():
-            name = domain.get("DomainName")
-
-            if not isinstance(name, str) or not name:
-                continue
-
-            normalized.append(
-                {
-                    "resource_id": f"v2:{name}",
-                    "resource_arn": (
-                        f"arn:aws:apigateway:"
-                        f"{self.service.session.region_name}"
-                        f"::/domainnames/{name}"
-                    ),
-                    "domain_name": name,
-                    "security_policy": domain.get(
-                        "DomainNameConfigurations",
-                        [{}],
-                    )[0].get("SecurityPolicy")
-                    if domain.get("DomainNameConfigurations")
-                    else domain.get("SecurityPolicy"),
-                    "endpoint_configuration": {},
                     "resource": domain,
                 }
             )
