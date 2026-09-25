@@ -1,0 +1,202 @@
+from engine.rules.aws.opensearch.audit_logging import (
+    build_opensearch_audit_logging_finding,
+    check_opensearch_audit_logging,
+)
+from engine.rules.aws.opensearch.data_nodes import (
+    build_opensearch_data_nodes_finding,
+    check_opensearch_data_nodes,
+)
+from engine.rules.aws.opensearch.dedicated_primary_nodes import (
+    build_opensearch_dedicated_primary_nodes_finding,
+    check_opensearch_dedicated_primary_nodes,
+)
+from engine.rules.aws.opensearch.encryption_at_rest import (
+    build_opensearch_encryption_at_rest_finding,
+    check_opensearch_encryption_at_rest,
+)
+from engine.rules.aws.opensearch.error_logging import (
+    build_opensearch_error_logging_finding,
+    check_opensearch_error_logging,
+)
+from engine.rules.aws.opensearch.fine_grained_access_control import (
+    build_opensearch_fine_grained_access_control_finding,
+    check_opensearch_fine_grained_access_control,
+)
+from engine.rules.aws.opensearch.node_to_node_encryption import (
+    build_opensearch_node_to_node_encryption_finding,
+    check_opensearch_node_to_node_encryption,
+)
+from engine.rules.aws.opensearch.software_update import (
+    build_opensearch_software_update_finding,
+    check_opensearch_software_update,
+)
+from engine.rules.aws.opensearch.tagging import (
+    build_opensearch_tagging_finding,
+    check_opensearch_tagging,
+)
+from engine.rules.aws.opensearch.tls import (
+    build_opensearch_tls_finding,
+    check_opensearch_tls,
+)
+from engine.rules.aws.opensearch.vpc import (
+    build_opensearch_vpc_finding,
+    check_opensearch_vpc,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+OPENSEARCH_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-001",
+            name="opensearch_encryption_at_rest",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "encryption_at_rest_options",
+            ],
+            check=check_opensearch_encryption_at_rest,
+            build_finding=(
+                build_opensearch_encryption_at_rest_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-002",
+            name="opensearch_vpc",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "vpc_options",
+            ],
+            check=check_opensearch_vpc,
+            build_finding=build_opensearch_vpc_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-003",
+            name="opensearch_node_to_node_encryption",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "node_to_node_encryption_options",
+            ],
+            check=check_opensearch_node_to_node_encryption,
+            build_finding=(
+                build_opensearch_node_to_node_encryption_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-004",
+            name="opensearch_error_logging",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "log_publishing_options",
+            ],
+            check=check_opensearch_error_logging,
+            build_finding=build_opensearch_error_logging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-005",
+            name="opensearch_audit_logging",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "log_publishing_options",
+            ],
+            check=check_opensearch_audit_logging,
+            build_finding=build_opensearch_audit_logging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-006",
+            name="opensearch_data_nodes",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "cluster_config",
+            ],
+            check=check_opensearch_data_nodes,
+            build_finding=build_opensearch_data_nodes_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-007",
+            name="opensearch_fine_grained_access_control",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "advanced_security_options",
+            ],
+            check=check_opensearch_fine_grained_access_control,
+            build_finding=(
+                build_opensearch_fine_grained_access_control_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-008",
+            name="opensearch_tls",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "domain_endpoint_options",
+            ],
+            check=check_opensearch_tls,
+            build_finding=build_opensearch_tls_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-009",
+            name="opensearch_tagging",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "tags",
+            ],
+            check=check_opensearch_tagging,
+            build_finding=build_opensearch_tagging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-010",
+            name="opensearch_software_update",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "service_software_options",
+            ],
+            check=check_opensearch_software_update,
+            build_finding=build_opensearch_software_update_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-OPENSEARCH-011",
+            name="opensearch_dedicated_primary_nodes",
+            data_source="opensearch_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "domain_arn",
+                "domain_name",
+                "cluster_config",
+            ],
+            check=check_opensearch_dedicated_primary_nodes,
+            build_finding=(
+                build_opensearch_dedicated_primary_nodes_finding
+            ),
+        ),
+    ]
+)
