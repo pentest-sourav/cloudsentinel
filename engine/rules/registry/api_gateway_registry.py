@@ -1,0 +1,188 @@
+from engine.rules.aws.api_gateway.access_logging import (
+    build_api_gateway_access_logging_finding,
+    check_api_gateway_access_logging,
+)
+from engine.rules.aws.api_gateway.backend_ssl import (
+    build_api_gateway_backend_ssl_finding,
+    check_api_gateway_backend_ssl,
+)
+from engine.rules.aws.api_gateway.cache_encryption import (
+    build_api_gateway_cache_encryption_finding,
+    check_api_gateway_cache_encryption,
+)
+from engine.rules.aws.api_gateway.domain_security_policy import (
+    build_api_gateway_domain_security_policy_finding,
+    check_api_gateway_domain_security_policy,
+)
+from engine.rules.aws.api_gateway.execution_logging import (
+    build_api_gateway_execution_logging_finding,
+    check_api_gateway_execution_logging,
+)
+from engine.rules.aws.api_gateway.private_https import (
+    build_api_gateway_private_https_finding,
+    check_api_gateway_private_https,
+)
+from engine.rules.aws.api_gateway.route_authorization import (
+    build_api_gateway_route_authorization_finding,
+    check_api_gateway_route_authorization,
+)
+from engine.rules.aws.api_gateway.waf import (
+    build_api_gateway_waf_finding,
+    check_api_gateway_waf,
+)
+from engine.rules.aws.api_gateway.xray import (
+    build_api_gateway_xray_finding,
+    check_api_gateway_xray,
+)
+
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+APIGATEWAY_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-001",
+            name="api_gateway_execution_logging",
+            data_source="api_gateway_execution_stages",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "api_protocol_type",
+                "logging_level",
+                "resource",
+            ],
+            check=check_api_gateway_execution_logging,
+            build_finding=(
+                build_api_gateway_execution_logging_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-002",
+            name="api_gateway_backend_ssl",
+            data_source="api_gateway_rest_stages",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "client_certificate_id",
+                "has_http_integration",
+                "resource",
+            ],
+            check=check_api_gateway_backend_ssl,
+            build_finding=build_api_gateway_backend_ssl_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-003",
+            name="api_gateway_xray",
+            data_source="api_gateway_rest_stages",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "tracing_enabled",
+                "resource",
+            ],
+            check=check_api_gateway_xray,
+            build_finding=build_api_gateway_xray_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-004",
+            name="api_gateway_waf",
+            data_source="api_gateway_rest_stages",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "waf_arn",
+                "resource",
+            ],
+            check=check_api_gateway_waf,
+            build_finding=build_api_gateway_waf_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-005",
+            name="api_gateway_cache_encryption",
+            data_source="api_gateway_rest_stages",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "method_settings",
+                "cache_cluster_enabled",
+                "resource",
+            ],
+            check=check_api_gateway_cache_encryption,
+            build_finding=(
+                build_api_gateway_cache_encryption_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-008",
+            name="api_gateway_route_authorization",
+            data_source="api_gateway_v2_routes",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "authorization_type",
+                "resource",
+            ],
+            check=check_api_gateway_route_authorization,
+            build_finding=(
+                build_api_gateway_route_authorization_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-009",
+            name="api_gateway_access_logging",
+            data_source="api_gateway_v2_stages",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "access_log_settings",
+                "resource",
+            ],
+            check=check_api_gateway_access_logging,
+            build_finding=(
+                build_api_gateway_access_logging_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-010",
+            name="api_gateway_private_https",
+            data_source="api_gateway_v2_integrations",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "protocol_type",
+                "connection_type",
+                "tls_config",
+                "resource",
+            ],
+            check=check_api_gateway_private_https,
+            build_finding=(
+                build_api_gateway_private_https_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APIGATEWAY-011",
+            name="api_gateway_domain_security_policy",
+            data_source="api_gateway_domains",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "security_policy",
+                "resource",
+            ],
+            check=check_api_gateway_domain_security_policy,
+            build_finding=(
+                build_api_gateway_domain_security_policy_finding
+            ),
+        ),
+    ]
+)
