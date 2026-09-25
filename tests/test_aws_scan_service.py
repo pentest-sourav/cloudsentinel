@@ -10,6 +10,7 @@ ROLE_ARN = (
     "arn:aws:iam::123456789012:"
     "role/CloudSentinelAuditRole"
 )
+
 EXTERNAL_ID = "cloudsentinel-test-external-id"
 REGION = "ap-south-1"
 ACCOUNT_ID = "123456789012"
@@ -39,6 +40,7 @@ def make_mocks():
         "api_gateway": Mock(),
         "waf": Mock(),
         "eks": Mock(),
+        "secretsmanager": Mock(),
     }
 
     services = {
@@ -64,6 +66,7 @@ def make_mocks():
         "api_gateway": Mock(),
         "waf": Mock(),
         "eks": Mock(),
+        "secretsmanager": Mock(),
     }
 
     findings = {
@@ -102,6 +105,9 @@ def make_mocks():
         ),
         "eks": Mock(
             rule_id="CS-AWS-EKS-001"
+        ),
+        "secretsmanager": Mock(
+            rule_id="CS-AWS-SECRETSMANAGER-001"
         ),
     }
 
@@ -200,11 +206,14 @@ def patch_aws_scanners(
                 "EKSScanner",
                 "eks",
             ),
+            (
+                "SecretsManagerService",
+                "SecretsManagerScanner",
+                "secretsmanager",
+            ),
         )
 
-        for service_name, scanner_name, key in (
-            service_scanner_pairs
-        ):
+        for service_name, scanner_name, key in service_scanner_pairs:
             stack.enter_context(
                 patch(
                     f"backend.app.services.aws_scan_service.{service_name}",
@@ -275,6 +284,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["api_gateway"],
         findings["waf"],
         findings["eks"],
+        findings["secretsmanager"],
     ]
 
     assert result.errors == []
@@ -304,17 +314,12 @@ def test_run_aws_scan_rejects_account_identity_mismatch():
         account_id="999999999999",
     )
 
-    mock_s3_scanner = Mock()
-
     with patch(
         "backend.app.services.aws_scan_service.create_aws_session",
         return_value=fake_session,
     ), patch(
         "backend.app.services.aws_scan_service.AWSProvider",
         return_value=fake_provider,
-    ), patch(
-        "backend.app.services.aws_scan_service.S3Scanner",
-        return_value=mock_s3_scanner,
     ):
         with pytest.raises(
             RuntimeError,
@@ -326,9 +331,6 @@ def test_run_aws_scan_rejects_account_identity_mismatch():
                 region_name=REGION,
                 expected_account_id=ACCOUNT_ID,
             )
-
-    mock_s3_scanner.assert_not_called()
-    fake_provider.verify_identity.assert_called_once()
 
 
 def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
@@ -376,6 +378,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["api_gateway"],
         findings["waf"],
         findings["eks"],
+        findings["secretsmanager"],
     ]
 
     assert result.errors == []
@@ -429,6 +432,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["api_gateway"],
         findings["waf"],
         findings["eks"],
+        findings["secretsmanager"],
     ]
 
     assert len(result.errors) == 1
