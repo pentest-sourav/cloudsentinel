@@ -42,6 +42,7 @@ def make_mocks():
         "eks": Mock(),
         "secretsmanager": Mock(),
         "acm": Mock(),
+        "guardduty": Mock(),
     }
 
     services = {
@@ -67,8 +68,9 @@ def make_mocks():
         "api_gateway": Mock(),
         "waf": Mock(),
         "eks": Mock(),
-        "acm": Mock(),
         "secretsmanager": Mock(),
+        "acm": Mock(),
+        "guardduty": Mock(),
     }
 
     findings = {
@@ -98,7 +100,9 @@ def make_mocks():
         "elasticache": Mock(
             rule_id="CS-AWS-ELASTICACHE-001"
         ),
-        "ecs": Mock(rule_id="CS-AWS-ECS-002"),
+        "ecs": Mock(
+            rule_id="CS-AWS-ECS-002"
+        ),
         "api_gateway": Mock(
             rule_id="CS-AWS-APIGATEWAY-001"
         ),
@@ -113,6 +117,9 @@ def make_mocks():
         ),
         "acm": Mock(
             rule_id="CS-AWS-ACM-001"
+        ),
+        "guardduty": Mock(
+            rule_id="CS-AWS-GD-001"
         ),
     }
 
@@ -221,6 +228,11 @@ def patch_aws_scanners(
                 "ACMScanner",
                 "acm",
             ),
+            (
+                "GuardDutyService",
+                "GuardDutyScanner",
+                "guardduty",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -296,6 +308,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["eks"],
         findings["secretsmanager"],
         findings["acm"],
+        findings["guardduty"],
     ]
 
     assert result.errors == []
@@ -391,6 +404,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["eks"],
         findings["secretsmanager"],
         findings["acm"],
+        findings["guardduty"],
     ]
 
     assert result.errors == []
@@ -446,6 +460,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["eks"],
         findings["secretsmanager"],
         findings["acm"],
+        findings["guardduty"],
     ]
 
     assert len(result.errors) == 1

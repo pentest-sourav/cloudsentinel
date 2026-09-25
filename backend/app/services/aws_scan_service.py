@@ -16,6 +16,7 @@ from scanner.aws.scanners.waf import WAFScanner
 from scanner.aws.scanners.eks import EKSScanner
 from scanner.aws.scanners.secretsmanager import SecretsManagerScanner
 from scanner.aws.scanners.acm import ACMScanner
+from scanner.aws.scanners.guardduty import GuardDutyScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -41,6 +42,7 @@ from scanner.aws.services.waf import WAFService
 from scanner.aws.services.eks import EKSService
 from scanner.aws.services.secretsmanager import SecretsManagerService
 from scanner.aws.services.acm import ACMService
+from scanner.aws.services.guardduty import GuardDutyService
 from scanner.aws.services.opensearch import OpenSearchService
 from scanner.aws.services.elasticache import ElastiCacheService
 from scanner.aws.services.iam import IAMService
@@ -281,6 +283,12 @@ def run_aws_scan(
             "acm",
             lambda: ACMScanner(
                 ACMService(session)
+            ),
+        ),
+        (
+            "guardduty",
+            lambda: GuardDutyScanner(
+                GuardDutyService(session)
             ),
         ),
     )
