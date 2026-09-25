@@ -1,0 +1,337 @@
+from engine.rules.aws.ecs.cluster_tagging import (
+    build_ecs_cluster_tagging_finding,
+    check_ecs_cluster_tagging,
+)
+from engine.rules.aws.ecs.container_insights import (
+    build_ecs_container_insights_finding,
+    check_ecs_container_insights,
+)
+from engine.rules.aws.ecs.environment_secrets import (
+    build_ecs_environment_secrets_finding,
+    check_ecs_environment_secrets,
+)
+from engine.rules.aws.ecs.efs_tls import (
+    build_ecs_efs_tls_finding,
+    check_ecs_efs_tls,
+)
+from engine.rules.aws.ecs.fargate_platform import (
+    build_ecs_fargate_platform_finding,
+    check_ecs_fargate_platform,
+)
+from engine.rules.aws.ecs.logging import (
+    build_ecs_logging_finding,
+    check_ecs_logging,
+)
+from engine.rules.aws.ecs.linux_nonroot import (
+    build_ecs_linux_nonroot_finding,
+    check_ecs_linux_nonroot,
+)
+from engine.rules.aws.ecs.network_mode import (
+    build_ecs_network_mode_finding,
+    check_ecs_network_mode,
+)
+from engine.rules.aws.ecs.nonprivileged import (
+    build_ecs_nonprivileged_finding,
+    check_ecs_nonprivileged,
+)
+from engine.rules.aws.ecs.pid_namespace import (
+    build_ecs_pid_namespace_finding,
+    check_ecs_pid_namespace,
+)
+from engine.rules.aws.ecs.public_ip import (
+    build_ecs_public_ip_finding,
+    check_ecs_public_ip,
+)
+from engine.rules.aws.ecs.readonly_root import (
+    build_ecs_readonly_root_finding,
+    check_ecs_readonly_root,
+)
+from engine.rules.aws.ecs.service_tagging import (
+    build_ecs_service_tagging_finding,
+    check_ecs_service_tagging,
+)
+from engine.rules.aws.ecs.task_definition_tagging import (
+    build_ecs_task_definition_tagging_finding,
+    check_ecs_task_definition_tagging,
+)
+from engine.rules.aws.ecs.task_set_public_ip import (
+    build_ecs_task_set_public_ip_finding,
+    check_ecs_task_set_public_ip,
+)
+from engine.rules.aws.ecs.termination_protection import (
+    build_ecs_termination_protection_finding,
+    check_ecs_termination_protection,
+)
+from engine.rules.aws.ecs.windows_nonadmin import (
+    build_ecs_windows_nonadmin_finding,
+    check_ecs_windows_nonadmin,
+)
+
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+ECS_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-002",
+            name="ecs_public_ip",
+            data_source="ecs_services",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "network_configuration",
+                "resource",
+            ],
+            check=check_ecs_public_ip,
+            build_finding=build_ecs_public_ip_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-003",
+            name="ecs_pid_namespace",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "pid_mode",
+                "resource",
+            ],
+            check=check_ecs_pid_namespace,
+            build_finding=build_ecs_pid_namespace_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-004",
+            name="ecs_nonprivileged",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "container_definitions",
+                "resource",
+            ],
+            check=check_ecs_nonprivileged,
+            build_finding=build_ecs_nonprivileged_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-005",
+            name="ecs_readonly_root",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "container_definitions",
+                "operating_system_family",
+                "resource",
+            ],
+            check=check_ecs_readonly_root,
+            build_finding=build_ecs_readonly_root_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-008",
+            name="ecs_environment_secrets",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "container_definitions",
+                "resource",
+            ],
+            check=check_ecs_environment_secrets,
+            build_finding=(
+                build_ecs_environment_secrets_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-009",
+            name="ecs_logging",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "container_definitions",
+                "resource",
+            ],
+            check=check_ecs_logging,
+            build_finding=build_ecs_logging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-010",
+            name="ecs_fargate_platform",
+            data_source="ecs_services",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "launch_type",
+                "platform_version",
+                "resource",
+            ],
+            check=check_ecs_fargate_platform,
+            build_finding=(
+                build_ecs_fargate_platform_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-012",
+            name="ecs_container_insights",
+            data_source="ecs_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "settings",
+                "resource",
+            ],
+            check=check_ecs_container_insights,
+            build_finding=(
+                build_ecs_container_insights_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-013",
+            name="ecs_service_tagging",
+            data_source="ecs_services",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "tags",
+                "resource",
+            ],
+            check=check_ecs_service_tagging,
+            build_finding=(
+                build_ecs_service_tagging_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-014",
+            name="ecs_cluster_tagging",
+            data_source="ecs_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "tags",
+                "resource",
+            ],
+            check=check_ecs_cluster_tagging,
+            build_finding=(
+                build_ecs_cluster_tagging_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-015",
+            name="ecs_task_definition_tagging",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "tags",
+                "resource",
+            ],
+            check=check_ecs_task_definition_tagging,
+            build_finding=(
+                build_ecs_task_definition_tagging_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-016",
+            name="ecs_task_set_public_ip",
+            data_source="ecs_task_sets",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "network_configuration",
+                "resource",
+            ],
+            check=check_ecs_task_set_public_ip,
+            build_finding=(
+                build_ecs_task_set_public_ip_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-017",
+            name="ecs_network_mode",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "network_mode",
+                "resource",
+            ],
+            check=check_ecs_network_mode,
+            build_finding=build_ecs_network_mode_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-018",
+            name="ecs_efs_tls",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "volumes",
+                "resource",
+            ],
+            check=check_ecs_efs_tls,
+            build_finding=build_ecs_efs_tls_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-019",
+            name="ecs_termination_protection",
+            data_source="ecs_capacity_providers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "managed_termination_protection",
+                "resource",
+            ],
+            check=check_ecs_termination_protection,
+            build_finding=(
+                build_ecs_termination_protection_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-020",
+            name="ecs_linux_nonroot",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "container_definitions",
+                "operating_system_family",
+                "resource",
+            ],
+            check=check_ecs_linux_nonroot,
+            build_finding=build_ecs_linux_nonroot_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ECS-021",
+            name="ecs_windows_nonadmin",
+            data_source="ecs_task_definitions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_arn",
+                "resource_id",
+                "container_definitions",
+                "operating_system_family",
+                "resource",
+            ],
+            check=check_ecs_windows_nonadmin,
+            build_finding=(
+                build_ecs_windows_nonadmin_finding
+            ),
+        ),
+    ]
+)

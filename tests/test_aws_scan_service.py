@@ -35,6 +35,7 @@ def make_mocks():
         "dynamodb": Mock(),
         "opensearch": Mock(),
         "elasticache": Mock(),
+        "ecs": Mock(),
     }
 
     services = {
@@ -56,6 +57,7 @@ def make_mocks():
         "dynamodb": Mock(),
         "opensearch": Mock(),
         "elasticache": Mock(),
+        "ecs": Mock(),
     }
 
     findings = {
@@ -77,6 +79,7 @@ def make_mocks():
         "dynamodb": Mock(rule_id="CS-AWS-DYNAMODB-001"),
         "opensearch": Mock(rule_id="CS-AWS-OPENSEARCH-001"),
         "elasticache": Mock(rule_id="CS-AWS-ELASTICACHE-001"),
+        "ecs": Mock(rule_id="CS-AWS-ECS-002"),
     }
 
     for name, scanner in scanners.items():
@@ -158,6 +161,11 @@ def patch_aws_scanners(
                 "ElastiCacheScanner",
                 "elasticache",
             ),
+            (
+                "ECSService",
+                "ECSScanner",
+                "ecs",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -227,6 +235,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["opensearch"],
         findings["elasticache"],
         findings["dynamodb"],
+        findings["ecs"],
     ]
 
     assert result.errors == []
@@ -324,6 +333,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["opensearch"],
         findings["elasticache"],
         findings["dynamodb"],
+        findings["ecs"],
     ]
 
     assert result.errors == []
@@ -373,6 +383,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["opensearch"],
         findings["elasticache"],
         findings["dynamodb"],
+        findings["ecs"],
     ]
 
     assert len(result.errors) == 1
