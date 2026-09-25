@@ -3,6 +3,8 @@ from typing import Callable
 
 from scanner.aws.provider import AWSProvider
 
+from scanner.aws.scanners.ssm import SSMScanner
+from scanner.aws.services.ssm import SSMService
 from scanner.aws.scanners.cloudtrail_scanner import CloudTrailScanner
 from scanner.aws.scanners.ec2 import EC2Scanner
 from scanner.aws.scanners.ecr import ECRScanner
@@ -323,6 +325,12 @@ def run_aws_scan(
             "ses",
             lambda: SESScanner(
                 SESService(session)
+            ),
+        ),
+        (
+            "ssm",
+            lambda: SSMScanner(
+                SSMService(session)
             ),
         ),
         (
