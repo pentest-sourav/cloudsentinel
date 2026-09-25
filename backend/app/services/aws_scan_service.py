@@ -11,6 +11,7 @@ from scanner.aws.scanners.eventbridge import EventBridgeScanner
 from scanner.aws.scanners.dynamodb import DynamoDBScanner
 from scanner.aws.scanners.ecs import ECSScanner
 from scanner.aws.scanners.api_gateway import APIGatewayScanner
+from scanner.aws.scanners.waf import WAFScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -32,6 +33,7 @@ from scanner.aws.services.eventbridge import EventBridgeService
 from scanner.aws.services.dynamodb import DynamoDBService
 from scanner.aws.services.ecs import ECSService
 from scanner.aws.services.api_gateway import APIGatewayService
+from scanner.aws.services.waf import WAFService
 from scanner.aws.services.opensearch import OpenSearchService
 from scanner.aws.services.elasticache import ElastiCacheService
 from scanner.aws.services.iam import IAMService
@@ -242,6 +244,12 @@ def run_aws_scan(
             "api_gateway",
             lambda: APIGatewayScanner(
                 APIGatewayService(session)
+            ),
+        ),
+        (
+            "waf",
+            lambda: WAFScanner(
+                WAFService(session)
             ),
         ),
     )

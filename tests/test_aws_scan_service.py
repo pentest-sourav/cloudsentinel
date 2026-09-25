@@ -37,6 +37,7 @@ def make_mocks():
         "elasticache": Mock(),
         "ecs": Mock(),
         "api_gateway": Mock(),
+        "waf": Mock(),
     }
 
     services = {
@@ -60,6 +61,7 @@ def make_mocks():
         "elasticache": Mock(),
         "ecs": Mock(),
         "api_gateway": Mock(),
+        "waf": Mock(),
     }
 
     findings = {
@@ -92,6 +94,9 @@ def make_mocks():
         "ecs": Mock(rule_id="CS-AWS-ECS-002"),
         "api_gateway": Mock(
             rule_id="CS-AWS-APIGATEWAY-001"
+        ),
+        "waf": Mock(
+            rule_id="CS-AWS-WAF-010"
         ),
     }
 
@@ -180,6 +185,11 @@ def patch_aws_scanners(
                 "APIGatewayScanner",
                 "api_gateway",
             ),
+            (
+                "WAFService",
+                "WAFScanner",
+                "waf",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -251,6 +261,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["dynamodb"],
         findings["ecs"],
         findings["api_gateway"],
+        findings["waf"],
     ]
 
     assert result.errors == []
@@ -350,6 +361,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["dynamodb"],
         findings["ecs"],
         findings["api_gateway"],
+        findings["waf"],
     ]
 
     assert result.errors == []
@@ -401,6 +413,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["dynamodb"],
         findings["ecs"],
         findings["api_gateway"],
+        findings["waf"],
     ]
 
     assert len(result.errors) == 1
