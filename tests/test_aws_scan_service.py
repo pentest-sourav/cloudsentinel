@@ -67,6 +67,7 @@ def make_mocks():
         "mq": Mock(),
         "appsync": Mock(),
         "athena": Mock(),
+        "autoscaling": Mock(),
     }
 
     services = {
@@ -119,6 +120,7 @@ def make_mocks():
         "mq": Mock(),
         "appsync": Mock(),
         "athena": Mock(),
+        "autoscaling": Mock(),
     }
 
     findings = {
@@ -240,6 +242,9 @@ def make_mocks():
         ),
         "athena": Mock(
             rule_id="CS-AWS-ATHENA-004"
+        ),
+        "autoscaling": Mock(
+            rule_id="CS-AWS-AUTOSCALING-001"
         ),
     }
 
@@ -473,6 +478,11 @@ def patch_aws_scanners(
                 "AthenaScanner",
                 "athena",
             ),
+            (
+                "AutoScalingService",
+                "AutoScalingScanner",
+                "autoscaling",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -528,6 +538,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["iam"],
         findings["kms"],
         findings["ec2"],
+        findings["autoscaling"],
         findings["rds"],
         findings["lambda"],
         findings["vpc"],
@@ -648,6 +659,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["iam"],
         findings["kms"],
         findings["ec2"],
+        findings["autoscaling"],
         findings["rds"],
         findings["lambda"],
         findings["vpc"],
@@ -728,6 +740,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["s3"],
         findings["iam"],
         findings["kms"],
+        findings["autoscaling"],
         findings["rds"],
         findings["lambda"],
         findings["vpc"],

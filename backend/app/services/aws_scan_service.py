@@ -42,6 +42,8 @@ from scanner.aws.scanners.fsx import FSxScanner
 from scanner.aws.scanners.mq import MQScanner
 from scanner.aws.scanners.appsync import AppSyncScanner
 from scanner.aws.scanners.athena import AthenaScanner
+from scanner.aws.scanners.autoscaling import AutoScalingScanner
+from scanner.aws.services.autoscaling import AutoScalingService
 from scanner.aws.services.mq import MQService
 from scanner.aws.services.appsync import AppSyncService
 from scanner.aws.services.athena import AthenaService
@@ -208,6 +210,16 @@ def run_aws_scan(
             "ec2",
             lambda: EC2Scanner(
                 EC2Service(session)
+            ),
+        ),
+        (
+            "autoscaling",
+            lambda: AutoScalingScanner(
+                AutoScalingService(
+                    session,
+                    account_id=identity.account_id,
+                    region_name=region_name,
+                )
             ),
         ),
         (
