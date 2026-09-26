@@ -66,6 +66,7 @@ def make_mocks():
         "glue": Mock(),
         "mq": Mock(),
         "appsync": Mock(),
+        "athena": Mock(),
     }
 
     services = {
@@ -117,6 +118,7 @@ def make_mocks():
         "glue": Mock(),
         "mq": Mock(),
         "appsync": Mock(),
+        "athena": Mock(),
     }
 
     findings = {
@@ -235,6 +237,9 @@ def make_mocks():
         ),
         "appsync": Mock(
             rule_id="CS-AWS-APPSYNC-005"
+        ),
+        "athena": Mock(
+            rule_id="CS-AWS-ATHENA-004"
         ),
     }
 
@@ -463,6 +468,11 @@ def patch_aws_scanners(
                 "AppSyncScanner",
                 "appsync",
             ),
+            (
+                "AthenaService",
+                "AthenaScanner",
+                "athena",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -562,6 +572,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["glue"],
         findings["mq"],
         findings["appsync"],
+        findings["athena"],
     ]
 
     assert result.errors == []
@@ -681,6 +692,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["glue"],
         findings["mq"],
         findings["appsync"],
+        findings["athena"],
     ]
 
     assert result.errors == []
@@ -760,6 +772,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["glue"],
         findings["mq"],
         findings["appsync"],
+        findings["athena"],
     ]
 
     assert len(result.errors) == 1
