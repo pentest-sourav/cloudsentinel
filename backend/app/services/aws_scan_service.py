@@ -42,11 +42,15 @@ from scanner.aws.scanners.fsx import FSxScanner
 from scanner.aws.scanners.mq import MQScanner
 from scanner.aws.scanners.appsync import AppSyncScanner
 from scanner.aws.scanners.athena import AthenaScanner
+from scanner.aws.scanners.config import ConfigScanner
+from scanner.aws.scanners.cloudformation import CloudFormationScanner
 from scanner.aws.scanners.autoscaling import AutoScalingScanner
 from scanner.aws.services.autoscaling import AutoScalingService
 from scanner.aws.services.mq import MQService
 from scanner.aws.services.appsync import AppSyncService
 from scanner.aws.services.athena import AthenaService
+from scanner.aws.services.config import ConfigService
+from scanner.aws.services.cloudformation import CloudFormationService
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -497,6 +501,18 @@ def run_aws_scan(
                     account_id=identity.account_id,
                     region_name=region_name,
                 )
+            ),
+        ),
+        (
+            "config",
+            lambda: ConfigScanner(
+                ConfigService(session)
+            ),
+        ),
+        (
+            "cloudformation",
+            lambda: CloudFormationScanner(
+                CloudFormationService(session)
             ),
         ),
     )
