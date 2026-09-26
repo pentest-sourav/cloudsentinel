@@ -68,6 +68,7 @@ def make_mocks():
         "appsync": Mock(),
         "athena": Mock(),
         "autoscaling": Mock(),
+        "config": Mock(),
     }
 
     services = {
@@ -121,6 +122,7 @@ def make_mocks():
         "appsync": Mock(),
         "athena": Mock(),
         "autoscaling": Mock(),
+        "config": Mock(),
     }
 
     findings = {
@@ -245,6 +247,9 @@ def make_mocks():
         ),
         "autoscaling": Mock(
             rule_id="CS-AWS-AUTOSCALING-001"
+        ),
+        "config": Mock(
+            rule_id="CS-AWS-CONFIG-001"
         ),
     }
 
@@ -483,6 +488,11 @@ def patch_aws_scanners(
                 "AutoScalingScanner",
                 "autoscaling",
             ),
+            (
+                "ConfigService",
+                "ConfigScanner",
+                "config",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -584,6 +594,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["mq"],
         findings["appsync"],
         findings["athena"],
+        findings["config"],
     ]
 
     assert result.errors == []
@@ -705,6 +716,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["mq"],
         findings["appsync"],
         findings["athena"],
+        findings["config"],
     ]
 
     assert result.errors == []
@@ -786,6 +798,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["mq"],
         findings["appsync"],
         findings["athena"],
+        findings["config"],
     ]
 
     assert len(result.errors) == 1
