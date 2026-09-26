@@ -29,6 +29,7 @@ from scanner.aws.scanners.efs import EFSScanner
 from scanner.aws.scanners.elb import ELBScanner
 from scanner.aws.scanners.msk import MSKScanner
 from scanner.aws.scanners.codebuild import CodeBuildScanner
+from scanner.aws.scanners.elasticbeanstalk import ElasticBeanstalkScanner
 from scanner.aws.scanners.cloudfront import CloudFrontScanner
 from scanner.aws.scanners.route53 import Route53Scanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
@@ -78,6 +79,7 @@ from scanner.aws.services.efs import EFSService
 from scanner.aws.services.elb import ELBService
 from scanner.aws.services.msk import MSKService
 from scanner.aws.services.codebuild import CodeBuildService
+from scanner.aws.services.elasticbeanstalk import ElasticBeanstalkService
 from scanner.aws.services.cloudfront import CloudFrontService
 from scanner.aws.services.route53 import Route53Service
 
@@ -387,6 +389,12 @@ def run_aws_scan(
             "codebuild",
             lambda: CodeBuildScanner(
                 CodeBuildService(session)
+            ),
+        ),
+        (
+            "elasticbeanstalk",
+            lambda: ElasticBeanstalkScanner(
+                ElasticBeanstalkService(session)
             ),
         ),
         (

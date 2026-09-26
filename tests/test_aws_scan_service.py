@@ -55,6 +55,7 @@ def make_mocks():
         "msk": Mock(),
         "cloudfront": Mock(),
         "codebuild": Mock(),
+        "elasticbeanstalk": Mock(),
         "route53": Mock(),
     }
 
@@ -96,6 +97,7 @@ def make_mocks():
         "msk": Mock(),
         "cloudfront": Mock(),
         "codebuild": Mock(),
+        "elasticbeanstalk": Mock(),
         "route53": Mock(),
     }
 
@@ -182,6 +184,9 @@ def make_mocks():
         ),
         "codebuild": Mock(
             rule_id="CS-AWS-CODEBUILD-001"
+        ),
+        "elasticbeanstalk": Mock(
+            rule_id="CS-AWS-ELASTICBEANSTALK-001"
         ),
         "route53": Mock(
             rule_id="CS-AWS-ROUTE53-001"
@@ -359,6 +364,11 @@ def patch_aws_scanners(
                 "codebuild",
             ),
             (
+                "ElasticBeanstalkService",
+                "ElasticBeanstalkScanner",
+                "elasticbeanstalk",
+            ),
+            (
                 "Route53Service",
                 "Route53Scanner",
                 "route53",
@@ -451,6 +461,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["elb"],
         findings["msk"],
         findings["codebuild"],
+        findings["elasticbeanstalk"],
         findings["route53"],
     ]
 
@@ -560,6 +571,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["elb"],
         findings["msk"],
         findings["codebuild"],
+        findings["elasticbeanstalk"],
         findings["route53"],
     ]
 
@@ -629,6 +641,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["elb"],
         findings["msk"],
         findings["codebuild"],
+        findings["elasticbeanstalk"],
         findings["route53"],
     ]
 
