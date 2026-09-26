@@ -1,0 +1,86 @@
+from engine.rules.aws.appconfig.controls import (
+    build_appconfig_application_tags_finding,
+    build_appconfig_configuration_profile_tags_finding,
+    build_appconfig_environment_tags_finding,
+    build_appconfig_extension_association_tags_finding,
+    check_appconfig_application_tags,
+    check_appconfig_configuration_profile_tags,
+    check_appconfig_environment_tags,
+    check_appconfig_extension_association_tags,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+APPCONFIG_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-APPCONFIG-001",
+            name="appconfig_application_tags",
+            data_source="appconfig_applications",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_name",
+                "resource_arn",
+                "resource_type",
+                "tag_data_available",
+                "has_non_system_tags",
+            ],
+            check=check_appconfig_application_tags,
+            build_finding=(
+                build_appconfig_application_tags_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APPCONFIG-002",
+            name="appconfig_configuration_profile_tags",
+            data_source="appconfig_configuration_profiles",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_name",
+                "resource_arn",
+                "resource_type",
+                "tag_data_available",
+                "has_non_system_tags",
+            ],
+            check=check_appconfig_configuration_profile_tags,
+            build_finding=(
+                build_appconfig_configuration_profile_tags_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APPCONFIG-003",
+            name="appconfig_environment_tags",
+            data_source="appconfig_environments",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_name",
+                "resource_arn",
+                "resource_type",
+                "tag_data_available",
+                "has_non_system_tags",
+            ],
+            check=check_appconfig_environment_tags,
+            build_finding=(
+                build_appconfig_environment_tags_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-APPCONFIG-004",
+            name="appconfig_extension_association_tags",
+            data_source="appconfig_extension_associations",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_name",
+                "resource_arn",
+                "resource_type",
+                "tag_data_available",
+                "has_non_system_tags",
+            ],
+            check=check_appconfig_extension_association_tags,
+            build_finding=(
+                build_appconfig_extension_association_tags_finding
+            ),
+        ),
+    ]
+)
