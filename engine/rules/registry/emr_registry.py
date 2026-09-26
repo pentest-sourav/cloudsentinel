@@ -1,0 +1,74 @@
+from engine.rules.aws.emr.protection import (
+    build_emr_at_rest_encryption_finding,
+    build_emr_block_public_access_finding,
+    build_emr_in_transit_encryption_finding,
+    build_emr_primary_node_public_ip_finding,
+    check_emr_at_rest_encryption,
+    check_emr_block_public_access,
+    check_emr_in_transit_encryption,
+    check_emr_primary_node_public_ip,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+EMR_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-EMR-001",
+            name="emr_primary_node_public_ip",
+            data_source="emr_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "cluster_id",
+                "master_has_public_ip",
+            ],
+            check=check_emr_primary_node_public_ip,
+            build_finding=(
+                build_emr_primary_node_public_ip_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EMR-002",
+            name="emr_block_public_access",
+            data_source="emr_block_public_access",
+            collection_mode="single",
+            check_arguments=[
+                "block_public_security_group_rules",
+                "has_unsafe_public_access_exception",
+            ],
+            check=check_emr_block_public_access,
+            build_finding=(
+                build_emr_block_public_access_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EMR-003",
+            name="emr_at_rest_encryption",
+            data_source="emr_security_configurations",
+            collection_mode="multiple",
+            check_arguments=[
+                "security_configuration_name",
+                "enable_at_rest_encryption",
+            ],
+            check=check_emr_at_rest_encryption,
+            build_finding=(
+                build_emr_at_rest_encryption_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EMR-004",
+            name="emr_in_transit_encryption",
+            data_source="emr_security_configurations",
+            collection_mode="multiple",
+            check_arguments=[
+                "security_configuration_name",
+                "enable_in_transit_encryption",
+            ],
+            check=check_emr_in_transit_encryption,
+            build_finding=(
+                build_emr_in_transit_encryption_finding
+            ),
+        ),
+    ]
+)
