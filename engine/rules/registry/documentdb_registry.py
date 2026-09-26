@@ -1,0 +1,97 @@
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+from engine.rules.aws.documentdb.controls import (
+    build_documentdb_audit_logs_finding,
+    build_documentdb_backup_retention_finding,
+    build_documentdb_deletion_protection_finding,
+    build_documentdb_encryption_finding,
+    build_documentdb_snapshot_private_finding,
+    build_documentdb_tls_finding,
+    check_documentdb_audit_logs,
+    check_documentdb_backup_retention,
+    check_documentdb_deletion_protection,
+    check_documentdb_encryption,
+    check_documentdb_snapshot_private,
+    check_documentdb_tls,
+)
+
+
+DOCUMENTDB_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-DOCUMENTDB-001",
+            name="documentdb_encryption",
+            data_source="documentdb_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "storage_encrypted",
+            ],
+            check=check_documentdb_encryption,
+            build_finding=build_documentdb_encryption_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DOCUMENTDB-002",
+            name="documentdb_backup_retention",
+            data_source="documentdb_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "backup_retention_period",
+            ],
+            check=check_documentdb_backup_retention,
+            build_finding=build_documentdb_backup_retention_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DOCUMENTDB-003",
+            name="documentdb_snapshot_private",
+            data_source="documentdb_snapshots",
+            collection_mode="multiple",
+            check_arguments=[
+                "snapshot_id",
+                "shared_accounts",
+            ],
+            check=check_documentdb_snapshot_private,
+            build_finding=build_documentdb_snapshot_private_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DOCUMENTDB-004",
+            name="documentdb_audit_logs",
+            data_source="documentdb_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "enabled_cloudwatch_logs_exports",
+            ],
+            check=check_documentdb_audit_logs,
+            build_finding=build_documentdb_audit_logs_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DOCUMENTDB-005",
+            name="documentdb_deletion_protection",
+            data_source="documentdb_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "deletion_protection",
+            ],
+            check=check_documentdb_deletion_protection,
+            build_finding=build_documentdb_deletion_protection_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-DOCUMENTDB-006",
+            name="documentdb_tls",
+            data_source="documentdb_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "parameter_group_name",
+                "parameter_apply_status",
+                "tls_parameter",
+            ],
+            check=check_documentdb_tls,
+            build_finding=build_documentdb_tls_finding,
+        ),
+    ]
+)

@@ -78,6 +78,7 @@ def make_mocks():
         "dms": Mock(),
         "datasync": Mock(),
         "detective": Mock(),
+        "documentdb": Mock(),
     }
 
     services = {
@@ -141,6 +142,7 @@ def make_mocks():
         "dms": Mock(),
         "datasync": Mock(),
         "detective": Mock(),
+        "documentdb": Mock(),
     }
 
     findings = {
@@ -295,6 +297,9 @@ def make_mocks():
         ),
         "detective": Mock(
             rule_id="CS-AWS-DETECTIVE-001"
+        ),
+        "documentdb": Mock(
+            rule_id="CS-AWS-DOCUMENTDB-001"
         ),
     }
 
@@ -583,6 +588,11 @@ def patch_aws_scanners(
                 "DetectiveScanner",
                 "detective",
             ),
+            (
+                "DocumentDBService",
+                "DocumentDBScanner",
+                "documentdb",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -694,6 +704,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["dms"],
         findings["datasync"],
         findings["detective"],
+        findings["documentdb"],
     ]
 
     assert result.errors == []
@@ -825,6 +836,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["dms"],
         findings["datasync"],
         findings["detective"],
+        findings["documentdb"],
     ]
 
     assert result.errors == []
@@ -916,6 +928,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["dms"],
         findings["datasync"],
         findings["detective"],
+        findings["documentdb"],
     ]
 
     assert len(result.errors) == 1
