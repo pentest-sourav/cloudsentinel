@@ -35,6 +35,7 @@ from scanner.aws.scanners.cloudfront import CloudFrontScanner
 from scanner.aws.scanners.route53 import Route53Scanner
 from scanner.aws.scanners.redshift import RedshiftScanner
 from scanner.aws.scanners.neptune import NeptuneScanner
+from scanner.aws.scanners.firehose import FirehoseScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -88,6 +89,7 @@ from scanner.aws.services.cloudfront import CloudFrontService
 from scanner.aws.services.route53 import Route53Service
 from scanner.aws.services.redshift import RedshiftService
 from scanner.aws.services.neptune import NeptuneService
+from scanner.aws.services.firehose import FirehoseService
 
 from scanner.aws.session import create_aws_session
 
@@ -425,6 +427,12 @@ def run_aws_scan(
             "neptune",
             lambda: NeptuneScanner(
                 NeptuneService(session)
+            ),
+        ),
+        (
+            "firehose",
+            lambda: FirehoseScanner(
+                FirehoseService(session)
             ),
         ),
     )

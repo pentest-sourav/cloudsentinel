@@ -60,6 +60,7 @@ def make_mocks():
         "route53": Mock(),
         "redshift": Mock(),
         "neptune": Mock(),
+        "firehose": Mock(),
     }
 
     services = {
@@ -105,6 +106,7 @@ def make_mocks():
         "route53": Mock(),
         "redshift": Mock(),
         "neptune": Mock(),
+        "firehose": Mock(),
     }
 
     findings = {
@@ -205,6 +207,9 @@ def make_mocks():
         ),
         "neptune": Mock(
             rule_id="CS-AWS-NEPTUNE-001"
+        ),
+        "firehose": Mock(
+            rule_id="CS-AWS-FIREHOSE-001"
         ),
     }
 
@@ -403,6 +408,11 @@ def patch_aws_scanners(
                 "NeptuneScanner",
                 "neptune",
             ),
+            (
+                "FirehoseService",
+                "FirehoseScanner",
+                "firehose",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -496,6 +506,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["route53"],
         findings["redshift"],
         findings["neptune"],
+        findings["firehose"],
     ]
 
     assert result.errors == []
@@ -609,6 +620,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["route53"],
         findings["redshift"],
         findings["neptune"],
+        findings["firehose"],
     ]
 
     assert result.errors == []
@@ -682,6 +694,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["route53"],
         findings["redshift"],
         findings["neptune"],
+        findings["firehose"],
     ]
 
     assert len(result.errors) == 1
