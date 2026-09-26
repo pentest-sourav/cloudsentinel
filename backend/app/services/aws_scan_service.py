@@ -39,6 +39,8 @@ from scanner.aws.scanners.firehose import FirehoseScanner
 from scanner.aws.scanners.emr import EMRScanner
 from scanner.aws.scanners.glue import GlueScanner
 from scanner.aws.scanners.fsx import FSxScanner
+from scanner.aws.scanners.mq import MQScanner
+from scanner.aws.services.mq import MQService
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -457,6 +459,12 @@ def run_aws_scan(
             "glue",
             lambda: GlueScanner(
                 GlueService(session)
+            ),
+        ),
+        (
+            "mq",
+            lambda: MQScanner(
+                MQService(session)
             ),
         ),
     )

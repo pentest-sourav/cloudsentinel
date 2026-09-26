@@ -1,0 +1,76 @@
+from engine.rules.aws.mq.protection import (
+    build_mq_active_mq_audit_logs_finding,
+    build_mq_activemq_deployment_finding,
+    build_mq_rabbitmq_deployment_finding,
+    build_mq_tags_finding,
+    check_mq_active_mq_audit_logs,
+    check_mq_activemq_deployment,
+    check_mq_rabbitmq_deployment,
+    check_mq_tags,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+MQ_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-MQ-002",
+            name="mq_activemq_audit_logs",
+            data_source="mq_brokers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "engine_type",
+                "logs_audit",
+                "audit_log_group",
+            ],
+            check=check_mq_active_mq_audit_logs,
+            build_finding=(
+                build_mq_active_mq_audit_logs_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-MQ-004",
+            name="mq_broker_tags",
+            data_source="mq_brokers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "tags",
+            ],
+            check=check_mq_tags,
+            build_finding=build_mq_tags_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-MQ-005",
+            name="mq_activemq_active_standby",
+            data_source="mq_brokers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "engine_type",
+                "deployment_mode",
+            ],
+            check=check_mq_activemq_deployment,
+            build_finding=(
+                build_mq_activemq_deployment_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-MQ-006",
+            name="mq_rabbitmq_cluster",
+            data_source="mq_brokers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "engine_type",
+                "deployment_mode",
+            ],
+            check=check_mq_rabbitmq_deployment,
+            build_finding=(
+                build_mq_rabbitmq_deployment_finding
+            ),
+        ),
+    ]
+)
