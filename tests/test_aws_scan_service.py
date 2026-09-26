@@ -54,6 +54,7 @@ def make_mocks():
         "elb": Mock(),
         "msk": Mock(),
         "cloudfront": Mock(),
+        "codebuild": Mock(),
         "route53": Mock(),
     }
 
@@ -94,6 +95,7 @@ def make_mocks():
         "elb": Mock(),
         "msk": Mock(),
         "cloudfront": Mock(),
+        "codebuild": Mock(),
         "route53": Mock(),
     }
 
@@ -177,6 +179,9 @@ def make_mocks():
         ),
         "cloudfront": Mock(
             rule_id="CS-AWS-CLOUDFRONT-001"
+        ),
+        "codebuild": Mock(
+            rule_id="CS-AWS-CODEBUILD-001"
         ),
         "route53": Mock(
             rule_id="CS-AWS-ROUTE53-001"
@@ -349,6 +354,11 @@ def patch_aws_scanners(
                 "cloudfront",
             ),
             (
+                "CodeBuildService",
+                "CodeBuildScanner",
+                "codebuild",
+            ),
+            (
                 "Route53Service",
                 "Route53Scanner",
                 "route53",
@@ -440,6 +450,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["cloudfront"],
         findings["elb"],
         findings["msk"],
+        findings["codebuild"],
         findings["route53"],
     ]
 
@@ -548,6 +559,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["cloudfront"],
         findings["elb"],
         findings["msk"],
+        findings["codebuild"],
         findings["route53"],
     ]
 
@@ -616,6 +628,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["cloudfront"],
         findings["elb"],
         findings["msk"],
+        findings["codebuild"],
         findings["route53"],
     ]
 
