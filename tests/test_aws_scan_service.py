@@ -58,6 +58,8 @@ def make_mocks():
         "elasticbeanstalk": Mock(),
         "network_firewall": Mock(),
         "route53": Mock(),
+        "redshift": Mock(),
+        "redshift": Mock(),
     }
 
     services = {
@@ -101,6 +103,7 @@ def make_mocks():
         "elasticbeanstalk": Mock(),
         "network_firewall": Mock(),
         "route53": Mock(),
+        "redshift": Mock(),
     }
 
     findings = {
@@ -195,6 +198,9 @@ def make_mocks():
         ),
         "route53": Mock(
             rule_id="CS-AWS-ROUTE53-001"
+        ),
+        "redshift": Mock(
+            rule_id="CS-AWS-REDSHIFT-001"
         ),
     }
 
@@ -383,6 +389,11 @@ def patch_aws_scanners(
                 "Route53Scanner",
                 "route53",
             ),
+            (
+                "RedshiftService",
+                "RedshiftScanner",
+                "redshift",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -474,6 +485,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["elasticbeanstalk"],
         findings["network_firewall"],
         findings["route53"],
+        findings["redshift"],
     ]
 
     assert result.errors == []
@@ -585,6 +597,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["elasticbeanstalk"],
         findings["network_firewall"],
         findings["route53"],
+        findings["redshift"],
     ]
 
     assert result.errors == []
@@ -656,6 +669,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["elasticbeanstalk"],
         findings["network_firewall"],
         findings["route53"],
+        findings["redshift"],
     ]
 
     assert len(result.errors) == 1

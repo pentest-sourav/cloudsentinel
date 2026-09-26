@@ -33,6 +33,7 @@ from scanner.aws.scanners.elasticbeanstalk import ElasticBeanstalkScanner
 from scanner.aws.scanners.network_firewall import NetworkFirewallScanner
 from scanner.aws.scanners.cloudfront import CloudFrontScanner
 from scanner.aws.scanners.route53 import Route53Scanner
+from scanner.aws.scanners.redshift import RedshiftScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -84,6 +85,7 @@ from scanner.aws.services.elasticbeanstalk import ElasticBeanstalkService
 from scanner.aws.services.network_firewall import NetworkFirewallService
 from scanner.aws.services.cloudfront import CloudFrontService
 from scanner.aws.services.route53 import Route53Service
+from scanner.aws.services.redshift import RedshiftService
 
 from scanner.aws.session import create_aws_session
 
@@ -409,6 +411,12 @@ def run_aws_scan(
             "route53",
             lambda: Route53Scanner(
                 Route53Service(session)
+            ),
+        ),
+        (
+            "redshift",
+            lambda: RedshiftScanner(
+                RedshiftService(session)
             ),
         ),
     )
