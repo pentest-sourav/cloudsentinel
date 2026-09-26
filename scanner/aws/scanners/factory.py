@@ -1,9 +1,11 @@
 from scanner.aws.scanners.amplify import AmplifyScanner
 from scanner.aws.scanners.apprunner import AppRunnerScanner
 from scanner.aws.scanners.appconfig import AppConfigScanner
+from scanner.aws.scanners.appflow import AppFlowScanner
 from scanner.aws.services.apprunner import AppRunnerService
 from scanner.aws.services.amplify import AmplifyService
 from scanner.aws.services.appconfig import AppConfigService
+from scanner.aws.services.appflow import AppFlowService
 from scanner.aws.scanners.kms import KMSScanner
 from scanner.aws.scanners.s3 import S3Scanner
 from scanner.aws.scanners.sns import SNSScanner
@@ -119,3 +121,17 @@ def create_appconfig_scanner(
     )
 
     return AppConfigScanner(service)
+
+
+def create_appflow_scanner(
+    profile_name: str | None = None,
+    region_name: str | None = None,
+) -> AppFlowScanner:
+    session = create_aws_session(
+        profile_name=profile_name,
+        region_name=region_name,
+    )
+
+    service = AppFlowService(session)
+
+    return AppFlowScanner(service)
