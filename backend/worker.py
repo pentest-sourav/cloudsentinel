@@ -3,13 +3,16 @@ import signal
 from collections.abc import Callable
 
 from backend.app.core.database import SessionLocal
+from backend.app.models.cloud_account import CloudAccount
 from backend.app.services.aws_scan_service import run_aws_scan
+from backend.app.services.cloud_account_service import get_cloud_account
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_runner import ScanRunner
 from backend.app.services.scan_service import (
     SCAN_STATUS_COMPLETED,
     SCAN_STATUS_FAILED,
-    get_scan,
+    fail_scan,
+    get_scan_for_worker,
     retry_scan,
 )
 
@@ -25,8 +28,23 @@ logging.basicConfig(
 logger = logging.getLogger("cloudsentinel.worker")
 
 
-SCANNERS: dict[str, Callable[[], list]] = {
-    "aws": run_aws_scan,
+def get_scan(db, scan_id: int):
+    return get_scan_for_worker(
+        db=db,
+        scan_id=scan_id,
+    )
+
+
+ScannerFactory = Callable[[CloudAccount], Callable[[], list]]
+
+
+SCANNERS: dict[str, ScannerFactory] = {
+    "aws": lambda account: lambda: run_aws_scan(
+        role_arn=account.role_arn,
+        external_id=account.external_id,
+        region_name=account.region,
+        expected_account_id=account.external_account_id,
+    ),
 }
 
 
@@ -49,6 +67,18 @@ class ScanWorker:
     def stop(self, *_args) -> None:
         logger.info("Shutdown signal received")
         self.running = False
+
+    def _fail_scan(
+        self,
+        db,
+        scan,
+        message: str,
+    ) -> None:
+        fail_scan(
+            db=db,
+            scan=scan,
+            error_message=message,
+        )
 
     def process_job(
         self,
@@ -73,6 +103,25 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
                 return
 
+            if scan.provider != job.provider:
+                logger.error(
+                    "Provider mismatch for scan %s: scan=%s job=%s",
+                    scan.id,
+                    scan.provider,
+                    job.provider,
+                )
+
+                self._fail_scan(
+                    db=db,
+                    scan=scan,
+                    message=(
+                        "Scan provider does not match "
+                        "the queued job provider."
+                    ),
+                )
+                self.queue.acknowledge(message_id)
+                return
+
             if recovered and scan.status == SCAN_STATUS_FAILED:
                 logger.warning(
                     "Retrying failed scan_id=%s message_id=%s",
@@ -85,35 +134,108 @@ class ScanWorker:
                     scan=scan,
                 )
 
-            scanner = SCANNERS.get(job.provider)
+            scanner_factory = SCANNERS.get(job.provider)
 
-            if scanner is None:
+            if scanner_factory is None:
                 logger.error(
                     "Unsupported provider '%s' for scan %s",
                     job.provider,
                     job.scan_id,
                 )
 
-                ScanRunner(db=db).run(
+                self._fail_scan(
+                    db=db,
                     scan=scan,
-                    scanner=lambda: (
-                        (_ for _ in ()).throw(
-                            ValueError(
-                                f"Provider '{job.provider}' "
-                                "is not supported."
-                            )
-                        )
+                    message=(
+                        f"Provider '{job.provider}' "
+                        "is not supported."
                     ),
                 )
-
                 self.queue.acknowledge(message_id)
                 return
 
+            if scan.cloud_account_id is None:
+                logger.error(
+                    "Scan %s has no cloud account configured",
+                    scan.id,
+                )
+
+                self._fail_scan(
+                    db=db,
+                    scan=scan,
+                    message="AWS scan requires a cloud account.",
+                )
+                self.queue.acknowledge(message_id)
+                return
+
+            cloud_account = get_cloud_account(
+                db=db,
+                account_id=scan.cloud_account_id,
+                tenant_id=scan.tenant_id,
+            )
+
+            if cloud_account is None:
+                logger.error(
+                    "Cloud account %s for scan %s was not found "
+                    "within tenant %s",
+                    scan.cloud_account_id,
+                    scan.id,
+                    scan.tenant_id,
+                )
+
+                self._fail_scan(
+                    db=db,
+                    scan=scan,
+                    message=(
+                        "Cloud account configured for this "
+                        "scan was not found."
+                    ),
+                )
+                self.queue.acknowledge(message_id)
+                return
+
+            if cloud_account.status != "active":
+                logger.error(
+                    "Cloud account %s is not active",
+                    cloud_account.id,
+                )
+
+                self._fail_scan(
+                    db=db,
+                    scan=scan,
+                    message="Cloud account is not active.",
+                )
+                self.queue.acknowledge(message_id)
+                return
+
+            if cloud_account.provider != job.provider:
+                logger.error(
+                    "Cloud account provider mismatch for scan %s: "
+                    "account=%s job=%s",
+                    scan.id,
+                    cloud_account.provider,
+                    job.provider,
+                )
+
+                self._fail_scan(
+                    db=db,
+                    scan=scan,
+                    message=(
+                        "Cloud account provider does not "
+                        "match the scan provider."
+                    ),
+                )
+                self.queue.acknowledge(message_id)
+                return
+
+            scanner = scanner_factory(cloud_account)
+
             logger.info(
                 "Starting scan_id=%s provider=%s "
-                "message_id=%s recovered=%s",
-                job.scan_id,
+                "cloud_account_id=%s message_id=%s recovered=%s",
+                scan.id,
                 job.provider,
+                cloud_account.id,
                 message_id,
                 recovered,
             )
@@ -128,7 +250,7 @@ class ScanWorker:
 
                 logger.info(
                     "Finished scan_id=%s message_id=%s",
-                    job.scan_id,
+                    scan.id,
                     message_id,
                 )
                 return
@@ -137,13 +259,13 @@ class ScanWorker:
                 logger.warning(
                     "Scan failed scan_id=%s message_id=%s; "
                     "leaving Redis message pending for recovery",
-                    job.scan_id,
+                    scan.id,
                     message_id,
                 )
                 return
 
             raise RuntimeError(
-                f"Scan {job.scan_id} ended in unexpected "
+                f"Scan {scan.id} ended in unexpected "
                 f"status '{result.status}'."
             )
 

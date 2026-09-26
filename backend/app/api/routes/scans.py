@@ -154,6 +154,7 @@ def get_scan_summary_by_id(
     summary = get_scan_summary(
         db=db,
         scan_id=scan_id,
+        tenant_id=current_user.tenant_id,
     )
 
     if summary is None:

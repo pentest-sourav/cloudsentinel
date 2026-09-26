@@ -84,6 +84,25 @@ def get_scan(
     )
 
 
+def get_scan_for_worker(
+    db: Session,
+    scan_id: int,
+) -> Scan | None:
+    """
+    Load a scan for the trusted background worker.
+
+    Public/API callers must use get_scan(), which requires tenant
+    scoping. The worker receives only an internal Redis scan ID, so
+    it resolves the scan first and subsequently validates the linked
+    tenant-owned cloud account before execution.
+    """
+    return (
+        db.query(Scan)
+        .filter(Scan.id == scan_id)
+        .first()
+    )
+
+
 def start_scan(
     db: Session,
     scan: Scan,

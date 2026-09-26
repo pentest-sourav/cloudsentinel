@@ -11,6 +11,8 @@ from backend.app.services.scan_queue import (
 class FakeScan:
     id: int
     provider: str
+    cloud_account_id: int | None = 1
+    tenant_id: int = 1
     status: str = "pending"
     error_message: str | None = None
 
@@ -53,6 +55,33 @@ class FakeQueue:
         self.closed = True
 
 
+def fake_cloud_account(account_id, tenant_id):
+    return type(
+        "FakeCloudAccount",
+        (),
+        {
+            "id": account_id,
+            "tenant_id": tenant_id,
+            "provider": "aws",
+            "status": "active",
+            "role_arn": "arn:aws:iam::123456789012:role/AuditRole",
+            "external_id": "test-external-id",
+            "region": "ap-south-1",
+            "external_account_id": "123456789012",
+        },
+    )()
+
+
+def patch_cloud_account(monkeypatch):
+    monkeypatch.setattr(
+        "backend.worker.get_cloud_account",
+        lambda db, account_id, tenant_id: fake_cloud_account(
+            account_id,
+            tenant_id,
+        ),
+    )
+
+
 def test_worker_acknowledges_successful_scan(monkeypatch):
     queue = FakeQueue()
     db = FakeDB()
@@ -68,12 +97,14 @@ def test_worker_acknowledges_successful_scan(monkeypatch):
         lambda db, scan_id: scan,
     )
 
+    patch_cloud_account(monkeypatch)
+
     executed = []
 
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda: executed.append(True) or [],
+        lambda account: lambda: executed.append(True) or [],
     )
 
     worker = ScanWorker(queue=queue)
@@ -98,9 +129,7 @@ def test_worker_acknowledges_successful_scan(monkeypatch):
     assert db.closed is True
 
 
-def test_worker_does_not_acknowledge_when_runner_fails(
-    monkeypatch,
-):
+def test_worker_does_not_acknowledge_when_runner_fails(monkeypatch):
     queue = FakeQueue()
     db = FakeDB()
     scan = FakeScan(id=2, provider="aws")
@@ -114,6 +143,8 @@ def test_worker_does_not_acknowledge_when_runner_fails(
         "backend.worker.get_scan",
         lambda db, scan_id: scan,
     )
+
+    patch_cloud_account(monkeypatch)
 
     def failing_run(self, scan, scanner):
         raise RuntimeError("database unavailable")
@@ -135,9 +166,7 @@ def test_worker_does_not_acknowledge_when_runner_fails(
     assert db.closed is True
 
 
-def test_worker_leaves_failed_scan_pending_for_recovery(
-    monkeypatch,
-):
+def test_worker_leaves_failed_scan_pending_for_recovery(monkeypatch):
     queue = FakeQueue()
     db = FakeDB()
     scan = FakeScan(
@@ -156,6 +185,8 @@ def test_worker_leaves_failed_scan_pending_for_recovery(
         lambda db, scan_id: scan,
     )
 
+    patch_cloud_account(monkeypatch)
+
     def fake_run(self, scan, scanner):
         scan.status = "failed"
         scan.error_message = "AWS API unavailable"
@@ -169,7 +200,7 @@ def test_worker_leaves_failed_scan_pending_for_recovery(
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda: [],
+        lambda account: lambda: [],
     )
 
     worker = ScanWorker(queue=queue)
@@ -184,9 +215,7 @@ def test_worker_leaves_failed_scan_pending_for_recovery(
     assert db.closed is True
 
 
-def test_worker_retries_recovered_failed_scan(
-    monkeypatch,
-):
+def test_worker_retries_recovered_failed_scan(monkeypatch):
     queue = FakeQueue()
     db = FakeDB()
     scan = FakeScan(
@@ -206,6 +235,8 @@ def test_worker_retries_recovered_failed_scan(
         lambda db, scan_id: scan,
     )
 
+    patch_cloud_account(monkeypatch)
+
     retry_calls = []
 
     def fake_retry_scan(db, scan):
@@ -224,7 +255,7 @@ def test_worker_retries_recovered_failed_scan(
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda: executed.append(True) or [],
+        lambda account: lambda: executed.append(True) or [],
     )
 
     def fake_run(self, scan, scanner):
@@ -278,9 +309,7 @@ def test_worker_acknowledges_missing_scan(monkeypatch):
     assert db.closed is True
 
 
-def test_worker_acknowledges_unsupported_provider(
-    monkeypatch,
-):
+def test_worker_acknowledges_unsupported_provider(monkeypatch):
     queue = FakeQueue()
     db = FakeDB()
     scan = FakeScan(
@@ -298,10 +327,24 @@ def test_worker_acknowledges_unsupported_provider(
         lambda db, scan_id: scan,
     )
 
+    fail_calls = []
+
+    def fake_fail_scan(db, scan, error_message):
+        fail_calls.append((scan.id, error_message))
+        scan.status = "failed"
+        scan.error_message = error_message
+        return scan
+
+    monkeypatch.setattr(
+        "backend.worker.fail_scan",
+        fake_fail_scan,
+    )
+
     runner_calls = []
 
     def fake_run(self, scan, scanner):
         runner_calls.append(scan.id)
+        return scan
 
     monkeypatch.setattr(
         "backend.worker.ScanRunner.run",
@@ -318,15 +361,17 @@ def test_worker_acknowledges_unsupported_provider(
         ),
     )
 
-    assert runner_calls == [6]
+    assert runner_calls == []
+    assert scan.status == "failed"
+    assert len(fail_calls) == 1
+    assert "not supported" in fail_calls[0][1]
     assert queue.acknowledged == ["6-0"]
     assert db.closed is True
 
 
-def test_worker_run_recovers_pending_jobs_before_new_jobs(
-    monkeypatch,
-):
+def test_worker_run_recovers_pending_jobs_before_new_jobs(monkeypatch):
     queue = FakeQueue()
+
     queue.recovered = [
         RecoveredScanJob(
             message_id="7-0",
@@ -337,6 +382,7 @@ def test_worker_run_recovers_pending_jobs_before_new_jobs(
             retry_count=1,
         )
     ]
+
     queue.read_jobs = [
         (
             "8-0",
@@ -372,6 +418,8 @@ def test_worker_run_recovers_pending_jobs_before_new_jobs(
         lambda db, scan_id: scans[scan_id],
     )
 
+    patch_cloud_account(monkeypatch)
+
     retry_calls = []
 
     def fake_retry_scan(db, scan):
@@ -399,7 +447,7 @@ def test_worker_run_recovers_pending_jobs_before_new_jobs(
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda: [],
+        lambda account: lambda: [],
     )
 
     worker = ScanWorker(queue=queue)

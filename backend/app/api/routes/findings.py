@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_current_user
 from backend.app.core.database import get_db
+from backend.app.models.finding import Finding
+from backend.app.models.scan import Scan
 from backend.app.models.user import User
 from backend.app.schemas.finding import (
     FindingListResponse,
@@ -86,7 +88,23 @@ def list_scan_findings(
         default=None,
     ),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    scan = (
+        db.query(Scan)
+        .filter(
+            Scan.id == scan_id,
+            Scan.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
+
+    if scan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scan not found",
+        )
+
     result = get_findings_by_scan(
         db=db,
         scan_id=scan_id,
@@ -112,10 +130,19 @@ def list_scan_findings(
 def get_finding_by_id(
     finding_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    finding = get_finding(
-        db=db,
-        finding_id=finding_id,
+    finding = (
+        db.query(Finding)
+        .join(
+            Scan,
+            Finding.scan_id == Scan.id,
+        )
+        .filter(
+            Finding.id == finding_id,
+            Scan.tenant_id == current_user.tenant_id,
+        )
+        .first()
     )
 
     if finding is None:
@@ -124,4 +151,7 @@ def get_finding_by_id(
             detail="Finding not found",
         )
 
-    return finding
+    return get_finding(
+        db=db,
+        finding_id=finding_id,
+    )

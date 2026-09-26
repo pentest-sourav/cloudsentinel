@@ -49,6 +49,8 @@ def make_mocks():
         "ses": Mock(),
         "ssm": Mock(),
         "cloudwatch": Mock(),
+        "backup": Mock(),
+        "route53": Mock(),
     }
 
     services = {
@@ -83,6 +85,8 @@ def make_mocks():
         "ses": Mock(),
         "ssm": Mock(),
         "cloudwatch": Mock(),
+        "backup": Mock(),
+        "route53": Mock(),
     }
 
     findings = {
@@ -150,6 +154,12 @@ def make_mocks():
         ),
         "cloudwatch": Mock(
             rule_id="CS-AWS-CLOUDWATCH-001"
+        ),
+        "backup": Mock(
+            rule_id="CS-AWS-BACKUP-001"
+        ),
+        "route53": Mock(
+            rule_id="CS-AWS-ROUTE53-001"
         ),
     }
 
@@ -293,6 +303,16 @@ def patch_aws_scanners(
                 "CloudWatchScanner",
                 "cloudwatch",
             ),
+            (
+                "BackupService",
+                "BackupScanner",
+                "backup",
+            ),
+            (
+                "Route53Service",
+                "Route53Scanner",
+                "route53",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -375,6 +395,8 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["ses"],
         findings["ssm"],
         findings["cloudwatch"],
+        findings["backup"],
+        findings["route53"],
     ]
 
     assert result.errors == []
@@ -477,6 +499,8 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["ses"],
         findings["ssm"],
         findings["cloudwatch"],
+        findings["backup"],
+        findings["route53"],
     ]
 
     assert result.errors == []
@@ -539,6 +563,8 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["ses"],
         findings["ssm"],
         findings["cloudwatch"],
+        findings["backup"],
+        findings["route53"],
     ]
 
     assert len(result.errors) == 1
