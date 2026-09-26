@@ -9,14 +9,26 @@ class ELBService:
     """
     Read-only Elastic Load Balancing discovery service.
 
-    Supports Application, Network, and Gateway Load Balancers
-    through the ELBv2 API.
+    Supports:
+    - Classic Load Balancers through the ELB API.
+    - Application, Network, and Gateway Load Balancers through ELBv2.
+    - Regional AWS WAF association lookup for Application Load Balancers.
     """
 
     def __init__(self, session):
+        self.elb_client = create_aws_client(
+            session,
+            "elb",
+        )
+
         self.elbv2_client = create_aws_client(
             session,
             "elbv2",
+        )
+
+        self.wafv2_client = create_aws_client(
+            session,
+            "wafv2",
         )
 
     @staticmethod
@@ -26,12 +38,7 @@ class ELBService:
     ) -> None:
         if isinstance(exc, ClientError):
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -52,6 +59,68 @@ class ELBService:
             f"Unexpected error during ELB "
             f"{operation}: {exc}"
         ) from exc
+
+    def list_classic_load_balancers(
+        self,
+    ) -> list[dict[str, Any]]:
+        load_balancers: list[dict[str, Any]] = []
+
+        try:
+            paginator = self.elb_client.get_paginator(
+                "describe_load_balancers"
+            )
+
+            for page in paginator.paginate():
+                entries = page.get(
+                    "LoadBalancerDescriptions",
+                    [],
+                )
+
+                if isinstance(entries, list):
+                    load_balancers.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
+
+            return load_balancers
+
+        except Exception as exc:
+            self._raise_api_error(
+                "Classic load-balancer discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
+    def describe_classic_load_balancer_attributes(
+        self,
+        load_balancer_name: str,
+    ) -> dict[str, Any]:
+        try:
+            response = (
+                self.elb_client
+                .describe_load_balancer_attributes(
+                    LoadBalancerName=load_balancer_name,
+                )
+            )
+
+            attributes = response.get(
+                "LoadBalancerAttributes",
+                {},
+            )
+
+            return (
+                attributes
+                if isinstance(attributes, dict)
+                else {}
+            )
+
+        except Exception as exc:
+            self._raise_api_error(
+                "Classic load-balancer attribute discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")
 
     def list_load_balancers(
         self,
@@ -251,6 +320,48 @@ class ELBService:
         except Exception as exc:
             self._raise_api_error(
                 "load-balancer attribute discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
+    def get_web_acl_for_resource(
+        self,
+        resource_arn: str,
+    ) -> dict[str, Any] | None:
+        """
+        Return the WAFv2 WebACL associated with an ALB.
+
+        A missing association is represented by None.
+        """
+        try:
+            response = self.wafv2_client.get_web_acl_for_resource(
+                ResourceArn=resource_arn,
+            )
+
+            web_acl = response.get("WebACL")
+
+            return (
+                web_acl
+                if isinstance(web_acl, dict)
+                else None
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code")
+
+            if code == "WAFNonexistentItemException":
+                return None
+
+            self._raise_api_error(
+                "WAF association discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
+        except Exception as exc:
+            self._raise_api_error(
+                "WAF association discovery",
                 exc,
             )
             raise AssertionError("unreachable")

@@ -6,6 +6,9 @@ from scanner.aws.scanners.elb import ELBScanner
 def test_elb_scanner_executes_registered_rules():
     service = Mock()
 
+    # No Classic ELB fixtures in this ELBv2 scanner test.
+    service.list_classic_load_balancers.return_value = []
+
     service.list_load_balancers.return_value = [
         {
             "LoadBalancerArn": "arn:lb:insecure",
@@ -65,6 +68,9 @@ def test_elb_scanner_executes_registered_rules():
         },
     ]
 
+    # No WAF association for this test ALB.
+    service.get_web_acl_for_resource.return_value = None
+
     findings = ELBScanner(service).scan()
 
     rule_ids = {
@@ -82,4 +88,5 @@ def test_elb_scanner_executes_registered_rules():
         "CS-AWS-ELB-007",
         "CS-AWS-ELB-008",
         "CS-AWS-ELB-009",
+        "CS-AWS-ELB-017",
     }

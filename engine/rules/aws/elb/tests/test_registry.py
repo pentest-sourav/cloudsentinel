@@ -20,6 +20,15 @@ def test_elb_registry_contains_expected_rules():
         "CS-AWS-ELB-007",
         "CS-AWS-ELB-008",
         "CS-AWS-ELB-009",
+        "CS-AWS-ELB-010",
+        "CS-AWS-ELB-011",
+        "CS-AWS-ELB-012",
+        "CS-AWS-ELB-013",
+        "CS-AWS-ELB-014",
+        "CS-AWS-ELB-015",
+        "CS-AWS-ELB-016",
+        "CS-AWS-ELB-017",
+        "CS-AWS-ELB-018",
     ]
 
 

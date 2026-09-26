@@ -5,7 +5,7 @@ from scanner.aws.services.elb import ELBService
 
 class ELBDataCollector:
     """
-    Normalize ELBv2 security configuration.
+    Normalize Classic ELB and ELBv2 security configuration.
 
     AWS API responses are cached for the duration of one scan.
     """
@@ -15,6 +15,10 @@ class ELBDataCollector:
         service: ELBService,
     ):
         self.service = service
+
+        self._classic_load_balancers_cache: (
+            list[dict[str, Any]] | None
+        ) = None
 
         self._load_balancers_cache: (
             list[dict[str, Any]] | None
@@ -32,7 +36,27 @@ class ELBDataCollector:
             dict[str, list[dict[str, Any]]] | None
         ) = None
 
-    def _get_load_balancers(self) -> list[dict[str, Any]]:
+        self._classic_attributes_cache: (
+            dict[str, dict[str, Any]] | None
+        ) = None
+
+        self._waf_cache: (
+            dict[str, dict[str, Any] | None] | None
+        ) = None
+
+    def _get_classic_load_balancers(
+        self,
+    ) -> list[dict[str, Any]]:
+        if self._classic_load_balancers_cache is None:
+            self._classic_load_balancers_cache = (
+                self.service.list_classic_load_balancers()
+            )
+
+        return self._classic_load_balancers_cache
+
+    def _get_load_balancers(
+        self,
+    ) -> list[dict[str, Any]]:
         if self._load_balancers_cache is None:
             self._load_balancers_cache = (
                 self.service.list_load_balancers()
@@ -88,6 +112,43 @@ class ELBDataCollector:
 
         return self._attributes_cache[load_balancer_arn]
 
+    def _get_classic_attributes(
+        self,
+        load_balancer_name: str,
+    ) -> dict[str, Any]:
+        if self._classic_attributes_cache is None:
+            self._classic_attributes_cache = {}
+
+        if load_balancer_name not in self._classic_attributes_cache:
+            self._classic_attributes_cache[
+                load_balancer_name
+            ] = (
+                self.service
+                .describe_classic_load_balancer_attributes(
+                    load_balancer_name
+                )
+            )
+
+        return self._classic_attributes_cache[
+            load_balancer_name
+        ]
+
+    def _get_waf(
+        self,
+        load_balancer_arn: str,
+    ) -> dict[str, Any] | None:
+        if self._waf_cache is None:
+            self._waf_cache = {}
+
+        if load_balancer_arn not in self._waf_cache:
+            self._waf_cache[load_balancer_arn] = (
+                self.service.get_web_acl_for_resource(
+                    load_balancer_arn
+                )
+            )
+
+        return self._waf_cache[load_balancer_arn]
+
     @staticmethod
     def _attribute_map(
         attributes: list[dict[str, Any]],
@@ -98,10 +159,171 @@ class ELBDataCollector:
             if isinstance(item.get("Key"), str)
         }
 
+    @staticmethod
+    def _classic_listener(
+        entry: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        listener = entry.get("Listener")
+
+        if not isinstance(listener, dict):
+            return None
+
+        protocol = listener.get("Protocol")
+        port = listener.get("LoadBalancerPort")
+
+        return {
+            "resource_id": (
+                f"classic-listener:{port}"
+                if port is not None
+                else "classic-listener"
+            ),
+            "resource_type": "classic_elb_listener",
+            "protocol": protocol,
+            "port": port,
+            "instance_protocol": listener.get(
+                "InstanceProtocol"
+            ),
+            "instance_port": listener.get(
+                "InstancePort"
+            ),
+            "ssl_certificate_id": listener.get(
+                "SSLCertificateId"
+            ),
+            "policy_names": (
+                entry.get("PolicyNames", [])
+                if isinstance(
+                    entry.get("PolicyNames", []),
+                    list,
+                )
+                else []
+            ),
+        }
+
+    def _normalize_classic(
+        self,
+        lb: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        name = lb.get("LoadBalancerName")
+
+        if not isinstance(name, str) or not name:
+            return None
+
+        listener_descriptions = lb.get(
+            "ListenerDescriptions",
+            [],
+        )
+
+        listeners: list[dict[str, Any]] = []
+
+        if isinstance(listener_descriptions, list):
+            for entry in listener_descriptions:
+                if not isinstance(entry, dict):
+                    continue
+
+                normalized = self._classic_listener(entry)
+
+                if normalized is not None:
+                    listeners.append(normalized)
+
+        attributes = self._get_classic_attributes(name)
+
+        connection_draining = attributes.get(
+            "ConnectionDraining"
+        )
+        cross_zone = attributes.get(
+            "CrossZoneLoadBalancing"
+        )
+        access_log = attributes.get(
+            "AccessLog"
+        )
+        additional_attributes = attributes.get(
+            "AdditionalAttributes"
+        )
+
+        desync_mode = None
+
+        if isinstance(additional_attributes, list):
+            for item in additional_attributes:
+                if not isinstance(item, dict):
+                    continue
+
+                if item.get("Key") == (
+                    "elb.http.desyncmitigationmode"
+                ):
+                    desync_mode = item.get("Value")
+                    break
+
+        return {
+            "resource_id": name,
+            "resource_type": "classic_load_balancer",
+            "resource_arn": None,
+            "name": name,
+            "type": "classic",
+            "scheme": None,
+            "state": None,
+            "availability_zones": (
+                [
+                    zone
+                    for zone in lb.get(
+                        "AvailabilityZones",
+                        [],
+                    )
+                    if isinstance(zone, str)
+                ]
+                if isinstance(
+                    lb.get(
+                        "AvailabilityZones",
+                        [],
+                    ),
+                    list,
+                )
+                else []
+            ),
+            "security_groups": (
+                lb.get("SecurityGroups", [])
+                if isinstance(
+                    lb.get("SecurityGroups", []),
+                    list,
+                )
+                else []
+            ),
+            "listeners": listeners,
+            "target_groups": [],
+            "attributes": attributes,
+            "deletion_protection": None,
+            "access_logs_enabled": (
+                access_log.get("Enabled")
+                if isinstance(access_log, dict)
+                else None
+            ),
+            "drop_invalid_headers": None,
+            "desync_mitigation_mode": desync_mode,
+            "connection_draining_enabled": (
+                connection_draining.get("Enabled")
+                if isinstance(
+                    connection_draining,
+                    dict,
+                )
+                else None
+            ),
+            "cross_zone_load_balancing_enabled": (
+                cross_zone.get("Enabled")
+                if isinstance(cross_zone, dict)
+                else None
+            ),
+            "waf_web_acl_arn": None,
+        }
+
     def collect_load_balancers(
         self,
     ) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
+
+        for classic_lb in self._get_classic_load_balancers():
+            item = self._normalize_classic(classic_lb)
+
+            if item is not None:
+                normalized.append(item)
 
         for lb in self._get_load_balancers():
             arn = lb.get("LoadBalancerArn")
@@ -113,6 +335,7 @@ class ELBDataCollector:
 
             listeners = self._get_listeners(arn)
             target_groups = self._get_target_groups(arn)
+
             attributes = self._attribute_map(
                 self._get_attributes(arn)
             )
@@ -179,6 +402,9 @@ class ELBDataCollector:
                         "protocol_version": target_group.get(
                             "ProtocolVersion"
                         ),
+                        "target_type": target_group.get(
+                            "TargetType"
+                        ),
                         "health_check_protocol": (
                             target_group.get(
                                 "HealthCheckProtocol"
@@ -186,6 +412,11 @@ class ELBDataCollector:
                         ),
                     }
                 )
+
+            waf_web_acl = None
+
+            if lb_type == "application":
+                waf_web_acl = self._get_waf(arn)
 
             normalized.append(
                 {
@@ -231,10 +462,7 @@ class ELBDataCollector:
                             )
                             else []
                         )
-                        if isinstance(
-                            zone,
-                            dict,
-                        )
+                        if isinstance(zone, dict)
                         and isinstance(
                             zone.get("ZoneName"),
                             str,
@@ -279,6 +507,16 @@ class ELBDataCollector:
                         attributes.get(
                             "routing.http.desync_mitigation_mode"
                         )
+                    ),
+                    "connection_draining_enabled": None,
+                    "cross_zone_load_balancing_enabled": None,
+                    "waf_web_acl_arn": (
+                        waf_web_acl.get("ARN")
+                        if isinstance(
+                            waf_web_acl,
+                            dict,
+                        )
+                        else None
                     ),
                 }
             )

@@ -1,22 +1,40 @@
 from engine.rules.aws.elb.protection import (
-    build_elb_desync_mitigation_finding,
+    build_classic_acm_certificate_finding,
+    build_classic_connection_draining_finding,
+    build_classic_cross_zone_finding,
+    build_classic_desync_finding,
+    build_classic_listener_protocol_finding,
+    build_classic_multi_az_finding,
+    build_classic_security_policy_finding,
     build_elb_deletion_protection_finding,
+    build_elb_desync_mitigation_finding,
     build_elb_health_check_protocol_finding,
     build_elb_http_to_https_finding,
     build_elb_invalid_headers_finding,
     build_elb_listener_protocol_finding,
     build_elb_logging_finding,
     build_elb_multi_az_finding,
+    build_elb_recommended_security_policy_finding,
     build_elb_target_transport_finding,
-    check_elb_desync_mitigation,
+    build_elb_waf_finding,
+    check_classic_acm_certificate,
+    check_classic_connection_draining,
+    check_classic_cross_zone,
+    check_classic_desync,
+    check_classic_listener_protocol,
+    check_classic_multi_az,
+    check_classic_security_policy,
     check_elb_deletion_protection,
+    check_elb_desync_mitigation,
     check_elb_health_check_protocol,
     check_elb_http_to_https,
     check_elb_invalid_headers,
     check_elb_listener_protocol,
     check_elb_logging,
     check_elb_multi_az,
+    check_elb_recommended_security_policy,
     check_elb_target_transport,
+    check_elb_waf,
 )
 from engine.rules.model import RuleDefinition
 from engine.rules.registry.base import RuleRegistry
@@ -143,6 +161,133 @@ ELB_RULES = RuleRegistry(
             check=check_elb_target_transport,
             build_finding=(
                 build_elb_target_transport_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-010",
+            name="classic_acm_certificate",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "listeners",
+            ],
+            check=check_classic_acm_certificate,
+            build_finding=(
+                build_classic_acm_certificate_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-011",
+            name="classic_listener_encryption",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "listeners",
+            ],
+            check=check_classic_listener_protocol,
+            build_finding=(
+                build_classic_listener_protocol_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-012",
+            name="classic_connection_draining",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "connection_draining_enabled",
+            ],
+            check=check_classic_connection_draining,
+            build_finding=(
+                build_classic_connection_draining_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-013",
+            name="classic_security_policy",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "listeners",
+            ],
+            check=check_classic_security_policy,
+            build_finding=(
+                build_classic_security_policy_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-014",
+            name="classic_cross_zone",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "cross_zone_load_balancing_enabled",
+            ],
+            check=check_classic_cross_zone,
+            build_finding=build_classic_cross_zone_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-015",
+            name="classic_multi_availability_zone",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "availability_zones",
+            ],
+            check=check_classic_multi_az,
+            build_finding=build_classic_multi_az_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-016",
+            name="classic_desync_mitigation",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "desync_mitigation_mode",
+            ],
+            check=check_classic_desync,
+            build_finding=build_classic_desync_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-017",
+            name="alb_waf_association",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "waf_web_acl_arn",
+            ],
+            check=check_elb_waf,
+            build_finding=build_elb_waf_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-ELB-018",
+            name="elb_recommended_security_policy",
+            data_source="elb_load_balancers",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "listeners",
+            ],
+            check=check_elb_recommended_security_policy,
+            build_finding=(
+                build_elb_recommended_security_policy_finding
             ),
         ),
     ]

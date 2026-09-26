@@ -1,227 +1,360 @@
 from engine.findings.model import Severity
 from engine.rules.aws.elb.protection import (
-    build_elb_deletion_protection_finding,
-    build_elb_desync_mitigation_finding,
+    CLASSIC_STRONG_SSL_POLICY,
+    RECOMMENDED_V2_SSL_POLICIES,
+    build_classic_acm_certificate_finding,
+    build_classic_connection_draining_finding,
+    build_classic_cross_zone_finding,
+    build_classic_desync_finding,
+    build_classic_listener_protocol_finding,
+    build_classic_multi_az_finding,
+    build_classic_security_policy_finding,
     build_elb_health_check_protocol_finding,
-    build_elb_http_to_https_finding,
-    build_elb_invalid_headers_finding,
-    build_elb_listener_protocol_finding,
-    build_elb_logging_finding,
-    build_elb_multi_az_finding,
+    build_elb_recommended_security_policy_finding,
     build_elb_target_transport_finding,
-    check_elb_deletion_protection,
-    check_elb_desync_mitigation,
+    build_elb_waf_finding,
+    check_classic_acm_certificate,
+    check_classic_connection_draining,
+    check_classic_cross_zone,
+    check_classic_desync,
+    check_classic_listener_protocol,
+    check_classic_multi_az,
+    check_classic_security_policy,
     check_elb_health_check_protocol,
-    check_elb_http_to_https,
-    check_elb_invalid_headers,
-    check_elb_listener_protocol,
-    check_elb_logging,
-    check_elb_multi_az,
+    check_elb_recommended_security_policy,
     check_elb_target_transport,
+    check_elb_waf,
 )
 
 
-def test_http_listener_without_redirect_fails():
-    result = check_elb_http_to_https(
-        "arn:lb",
-        "application_load_balancer",
+def classic(
+    listeners=None,
+    **kwargs,
+):
+    return {
+        "resource_id": "classic-lb",
+        "resource_type": "classic_load_balancer",
+        "listeners": listeners or [],
+        **kwargs,
+    }
+
+
+def test_classic_non_acm_certificate_fails():
+    result = check_classic_acm_certificate(
+        "classic-lb",
+        "classic_load_balancer",
         [
             {
-                "resource_id": "arn:listener",
-                "protocol": "HTTP",
-                "port": 80,
-                "default_actions": [
-                    {"Type": "forward"},
-                ],
-            },
+                "resource_id": "classic-listener:443",
+                "protocol": "HTTPS",
+                "ssl_certificate_id": (
+                    "arn:aws:iam::123:server-certificate/test"
+                ),
+            }
         ],
     )
 
-    finding = build_elb_http_to_https_finding(result)
+    finding = build_classic_acm_certificate_finding(result)
 
-    assert finding.rule_id == "CS-AWS-ELB-001"
+    assert finding.rule_id == "CS-AWS-ELB-010"
     assert finding.severity == Severity.MEDIUM
 
 
-def test_http_redirect_passes():
-    assert check_elb_http_to_https(
-        "arn:lb",
-        "application_load_balancer",
+def test_classic_acm_certificate_passes():
+    assert check_classic_acm_certificate(
+        "classic-lb",
+        "classic_load_balancer",
         [
             {
-                "resource_id": "arn:listener",
-                "protocol": "HTTP",
-                "port": 80,
-                "default_actions": [
-                    {
-                        "Type": "redirect",
-                        "RedirectConfig": {
-                            "Protocol": "HTTPS",
-                        },
-                    },
-                ],
-            },
+                "resource_id": "classic-listener:443",
+                "protocol": "HTTPS",
+                "ssl_certificate_id": (
+                    "arn:aws:acm:us-east-1:123:"
+                    "certificate/test"
+                ),
+            }
         ],
     ) is None
 
 
-def test_logging_disabled_fails():
-    result = check_elb_logging(
-        "arn:lb",
-        "application_load_balancer",
+def test_classic_http_listener_fails():
+    result = check_classic_listener_protocol(
+        "classic-lb",
+        "classic_load_balancer",
+        [
+            {
+                "resource_id": "classic-listener:80",
+                "protocol": "HTTP",
+            }
+        ],
+    )
+
+    finding = build_classic_listener_protocol_finding(result)
+
+    assert finding.rule_id == "CS-AWS-ELB-011"
+
+
+def test_classic_https_listener_passes():
+    assert check_classic_listener_protocol(
+        "classic-lb",
+        "classic_load_balancer",
+        [
+            {
+                "resource_id": "classic-listener:443",
+                "protocol": "HTTPS",
+            }
+        ],
+    ) is None
+
+
+def test_classic_connection_draining_disabled_fails():
+    result = check_classic_connection_draining(
+        "classic-lb",
+        "classic_load_balancer",
         False,
     )
 
-    finding = build_elb_logging_finding(result)
+    finding = build_classic_connection_draining_finding(result)
 
-    assert finding.rule_id == "CS-AWS-ELB-002"
+    assert finding.rule_id == "CS-AWS-ELB-012"
+    assert finding.severity == Severity.LOW
 
 
-def test_deletion_protection_disabled_fails():
-    result = check_elb_deletion_protection(
-        "arn:lb",
-        "network_load_balancer",
+def test_classic_connection_draining_enabled_passes():
+    assert check_classic_connection_draining(
+        "classic-lb",
+        "classic_load_balancer",
+        True,
+    ) is None
+
+
+def test_classic_security_policy_fails():
+    result = check_classic_security_policy(
+        "classic-lb",
+        "classic_load_balancer",
+        [
+            {
+                "resource_id": "classic-listener:443",
+                "protocol": "HTTPS",
+                "policy_names": [
+                    "ELBSecurityPolicy-Old"
+                ],
+            }
+        ],
+    )
+
+    finding = build_classic_security_policy_finding(result)
+
+    assert finding.rule_id == "CS-AWS-ELB-013"
+
+
+def test_classic_security_policy_passes():
+    assert check_classic_security_policy(
+        "classic-lb",
+        "classic_load_balancer",
+        [
+            {
+                "resource_id": "classic-listener:443",
+                "protocol": "HTTPS",
+                "policy_names": [
+                    CLASSIC_STRONG_SSL_POLICY
+                ],
+            }
+        ],
+    ) is None
+
+
+def test_classic_cross_zone_disabled_fails():
+    result = check_classic_cross_zone(
+        "classic-lb",
+        "classic_load_balancer",
         False,
     )
 
-    finding = build_elb_deletion_protection_finding(result)
+    finding = build_classic_cross_zone_finding(result)
 
-    assert finding.rule_id == "CS-AWS-ELB-003"
+    assert finding.rule_id == "CS-AWS-ELB-014"
 
 
-def test_invalid_headers_disabled_fails():
-    result = check_elb_invalid_headers(
-        "arn:lb",
-        "application_load_balancer",
-        False,
+def test_classic_cross_zone_enabled_passes():
+    assert check_classic_cross_zone(
+        "classic-lb",
+        "classic_load_balancer",
+        True,
+    ) is None
+
+
+def test_classic_single_az_fails():
+    result = check_classic_multi_az(
+        "classic-lb",
+        "classic_load_balancer",
+        ["us-east-1a"],
     )
 
-    finding = build_elb_invalid_headers_finding(result)
+    finding = build_classic_multi_az_finding(result)
 
-    assert finding.rule_id == "CS-AWS-ELB-004"
-
-
-def test_desync_mode_monitor_fails():
-    result = check_elb_desync_mitigation(
-        "arn:lb",
-        "application_load_balancer",
-        "monitor",
-    )
-
-    finding = build_elb_desync_mitigation_finding(result)
-
-    assert finding.rule_id == "CS-AWS-ELB-005"
+    assert finding.rule_id == "CS-AWS-ELB-015"
 
 
-def test_two_availability_zones_pass():
-    assert check_elb_multi_az(
-        "arn:lb",
-        "application_load_balancer",
+def test_classic_two_az_passes():
+    assert check_classic_multi_az(
+        "classic-lb",
+        "classic_load_balancer",
         ["us-east-1a", "us-east-1b"],
     ) is None
 
 
-def test_one_availability_zone_fails():
-    result = check_elb_multi_az(
-        "arn:lb",
-        "application_load_balancer",
-        ["us-east-1a"],
+def test_classic_desync_monitor_fails():
+    result = check_classic_desync(
+        "classic-lb",
+        "classic_load_balancer",
+        "monitor",
     )
 
-    finding = build_elb_multi_az_finding(result)
+    finding = build_classic_desync_finding(result)
 
-    assert finding.rule_id == "CS-AWS-ELB-006"
+    assert finding.rule_id == "CS-AWS-ELB-016"
 
 
-def test_alb_http_listener_fails():
-    result = check_elb_listener_protocol(
-        "arn:lb",
+def test_classic_desync_strictest_passes():
+    assert check_classic_desync(
+        "classic-lb",
+        "classic_load_balancer",
+        "strictest",
+    ) is None
+
+
+def test_alb_without_waf_fails():
+    result = check_elb_waf(
+        "arn:alb",
         "application_load_balancer",
-        [
-            {
-                "resource_id": "arn:listener",
-                "protocol": "HTTP",
-                "port": 80,
-            },
-        ],
+        None,
     )
 
-    finding = build_elb_listener_protocol_finding(result)
+    finding = build_elb_waf_finding(result)
 
-    assert finding.rule_id == "CS-AWS-ELB-007"
+    assert finding.rule_id == "CS-AWS-ELB-017"
 
 
-def test_alb_https_listener_passes():
-    assert check_elb_listener_protocol(
-        "arn:lb",
+def test_alb_with_waf_passes():
+    assert check_elb_waf(
+        "arn:alb",
+        "application_load_balancer",
+        "arn:aws:wafv2:region:123:regional/webacl/test/id",
+    ) is None
+
+
+def test_recommended_alb_policy_fails():
+    result = check_elb_recommended_security_policy(
+        "arn:alb",
         "application_load_balancer",
         [
             {
                 "resource_id": "arn:listener",
                 "protocol": "HTTPS",
-                "port": 443,
-            },
+                "ssl_policy": "ELBSecurityPolicy-Old",
+            }
+        ],
+    )
+
+    finding = build_elb_recommended_security_policy_finding(
+        result
+    )
+
+    assert finding.rule_id == "CS-AWS-ELB-018"
+
+
+def test_recommended_alb_policy_passes():
+    policy = sorted(
+        RECOMMENDED_V2_SSL_POLICIES
+    )[0]
+
+    assert check_elb_recommended_security_policy(
+        "arn:alb",
+        "application_load_balancer",
+        [
+            {
+                "resource_id": "arn:listener",
+                "protocol": "HTTPS",
+                "ssl_policy": policy,
+            }
         ],
     ) is None
 
 
-def test_unencrypted_health_check_fails():
+def test_health_check_requires_https():
     result = check_elb_health_check_protocol(
-        "arn:lb",
+        "arn:alb",
         "application_load_balancer",
         [
             {
                 "resource_id": "arn:tg",
+                "target_type": "instance",
                 "health_check_protocol": "HTTP",
-            },
+            }
         ],
     )
 
-    finding = build_elb_health_check_protocol_finding(
-        result
-    )
+    finding = build_elb_health_check_protocol_finding(result)
 
     assert finding.rule_id == "CS-AWS-ELB-008"
 
 
-def test_encrypted_health_check_passes():
+def test_lambda_health_check_is_not_applicable():
     assert check_elb_health_check_protocol(
-        "arn:lb",
-        "network_load_balancer",
-        [
-            {
-                "resource_id": "arn:tg",
-                "health_check_protocol": "TLS",
-            },
-        ],
-    ) is None
-
-
-def test_unencrypted_target_transport_fails():
-    result = check_elb_target_transport(
-        "arn:lb",
+        "arn:alb",
         "application_load_balancer",
         [
             {
                 "resource_id": "arn:tg",
+                "target_type": "lambda",
+                "health_check_protocol": "HTTP",
+            }
+        ],
+    ) is None
+
+
+def test_target_transport_accepts_quic():
+    assert check_elb_target_transport(
+        "arn:alb",
+        "application_load_balancer",
+        [
+            {
+                "resource_id": "arn:tg",
+                "target_type": "ip",
+                "protocol": "QUIC",
+            }
+        ],
+    ) is None
+
+
+def test_target_transport_skips_geneve():
+    assert check_elb_target_transport(
+        "arn:nlb",
+        "network_load_balancer",
+        [
+            {
+                "resource_id": "arn:tg",
+                "target_type": "instance",
+                "protocol": "GENEVE",
+            }
+        ],
+    ) is None
+
+
+def test_target_transport_http_fails():
+    result = check_elb_target_transport(
+        "arn:alb",
+        "application_load_balancer",
+        [
+            {
+                "resource_id": "arn:tg",
+                "target_type": "instance",
                 "protocol": "HTTP",
-            },
+            }
         ],
     )
 
     finding = build_elb_target_transport_finding(result)
 
     assert finding.rule_id == "CS-AWS-ELB-009"
-
-
-def test_encrypted_target_transport_passes():
-    assert check_elb_target_transport(
-        "arn:lb",
-        "network_load_balancer",
-        [
-            {
-                "resource_id": "arn:tg",
-                "protocol": "TLS",
-            },
-        ],
-    ) is None
