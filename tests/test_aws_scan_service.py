@@ -59,7 +59,7 @@ def make_mocks():
         "network_firewall": Mock(),
         "route53": Mock(),
         "redshift": Mock(),
-        "redshift": Mock(),
+        "neptune": Mock(),
     }
 
     services = {
@@ -104,6 +104,7 @@ def make_mocks():
         "network_firewall": Mock(),
         "route53": Mock(),
         "redshift": Mock(),
+        "neptune": Mock(),
     }
 
     findings = {
@@ -201,6 +202,9 @@ def make_mocks():
         ),
         "redshift": Mock(
             rule_id="CS-AWS-REDSHIFT-001"
+        ),
+        "neptune": Mock(
+            rule_id="CS-AWS-NEPTUNE-001"
         ),
     }
 
@@ -394,6 +398,11 @@ def patch_aws_scanners(
                 "RedshiftScanner",
                 "redshift",
             ),
+            (
+                "NeptuneService",
+                "NeptuneScanner",
+                "neptune",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -486,6 +495,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["network_firewall"],
         findings["route53"],
         findings["redshift"],
+        findings["neptune"],
     ]
 
     assert result.errors == []
@@ -598,6 +608,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["network_firewall"],
         findings["route53"],
         findings["redshift"],
+        findings["neptune"],
     ]
 
     assert result.errors == []
@@ -670,6 +681,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["network_firewall"],
         findings["route53"],
         findings["redshift"],
+        findings["neptune"],
     ]
 
     assert len(result.errors) == 1
