@@ -77,6 +77,7 @@ def make_mocks():
         "batch": Mock(),
         "dms": Mock(),
         "datasync": Mock(),
+        "detective": Mock(),
     }
 
     services = {
@@ -139,6 +140,7 @@ def make_mocks():
         "batch": Mock(),
         "dms": Mock(),
         "datasync": Mock(),
+        "detective": Mock(),
     }
 
     findings = {
@@ -290,6 +292,9 @@ def make_mocks():
         ),
         "datasync": Mock(
             rule_id="CS-AWS-DATASYNC-001"
+        ),
+        "detective": Mock(
+            rule_id="CS-AWS-DETECTIVE-001"
         ),
     }
 
@@ -573,6 +578,11 @@ def patch_aws_scanners(
                 "DataSyncScanner",
                 "datasync",
             ),
+            (
+                "DetectiveService",
+                "DetectiveScanner",
+                "detective",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -683,6 +693,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["batch"],
         findings["dms"],
         findings["datasync"],
+        findings["detective"],
     ]
 
     assert result.errors == []
@@ -813,6 +824,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["batch"],
         findings["dms"],
         findings["datasync"],
+        findings["detective"],
     ]
 
     assert result.errors == []
@@ -903,6 +915,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["batch"],
         findings["dms"],
         findings["datasync"],
+        findings["detective"],
     ]
 
     assert len(result.errors) == 1

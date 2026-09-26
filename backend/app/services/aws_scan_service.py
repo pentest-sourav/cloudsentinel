@@ -51,6 +51,7 @@ from scanner.aws.scanners.appflow import AppFlowScanner
 from scanner.aws.scanners.batch import BatchScanner
 from scanner.aws.scanners.dms import DMSScanner
 from scanner.aws.scanners.datasync import DataSyncScanner
+from scanner.aws.scanners.detective import DetectiveScanner
 from scanner.aws.scanners.autoscaling import AutoScalingScanner
 from scanner.aws.services.autoscaling import AutoScalingService
 from scanner.aws.services.mq import MQService
@@ -65,6 +66,7 @@ from scanner.aws.services.appflow import AppFlowService
 from scanner.aws.services.batch import BatchService
 from scanner.aws.services.dms import DMSService
 from scanner.aws.services.datasync import DataSyncService
+from scanner.aws.services.detective import DetectiveService
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -573,6 +575,12 @@ def run_aws_scan(
             "datasync",
             lambda: DataSyncScanner(
                 DataSyncService(session)
+            ),
+        ),
+        (
+            "detective",
+            lambda: DetectiveScanner(
+                DetectiveService(session)
             ),
         ),
     )
