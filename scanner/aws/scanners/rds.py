@@ -11,16 +11,14 @@ from scanner.aws.services.rds import RDSService
 
 class RDSScanner:
     """
-    Runs registered RDS security rules against AWS data.
+    Execute the registered RDS security rules.
 
-    AWS collection, rule execution, and finding generation
-    remain separated through the existing CloudSentinel
-    architecture.
+    Collection remains centralized in RDSDataCollector so multiple
+    rules reuse the same AWS API responses.
     """
 
     def __init__(self, service: RDSService):
         self.collector = RDSDataCollector(service)
-
         self.executor = RuleExecutor(
             handlers=RDS_DATA_SOURCE_HANDLERS,
         )

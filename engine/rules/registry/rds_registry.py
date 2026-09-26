@@ -38,9 +38,48 @@ from engine.rules.aws.rds.storage_encryption import (
     check_rds_storage_encryption,
 )
 
+from engine.rules.aws.rds.advanced_controls import (
+    build_aurora_mysql_audit_logs_finding,
+    build_rds_cluster_admin_username_finding,
+    build_rds_cluster_backup_retention_finding,
+    build_rds_cluster_copy_tags_finding,
+    build_rds_cluster_deletion_protection_finding,
+    build_rds_cluster_encryption_finding,
+    build_rds_cluster_iam_auth_finding,
+    build_rds_cluster_snapshot_encryption_finding,
+    build_rds_cluster_snapshot_private_finding,
+    build_rds_cluster_minor_upgrade_finding,
+    build_rds_default_port_finding,
+    build_rds_instance_admin_username_finding,
+    build_rds_snapshot_encryption_finding,
+    build_rds_snapshot_private_finding,
+    build_rds_tag_finding,
+    check_aurora_mysql_audit_logs,
+    check_rds_cluster_admin_username,
+    check_rds_cluster_backup_retention,
+    check_rds_cluster_copy_tags,
+    check_rds_cluster_deletion_protection,
+    check_rds_cluster_encryption,
+    check_rds_cluster_iam_auth,
+    check_rds_cluster_minor_upgrade,
+    check_rds_cluster_snapshot_encryption,
+    check_rds_cluster_snapshot_private,
+    check_rds_cluster_snapshot_tagged,
+    check_rds_cluster_tagged,
+    check_rds_default_port,
+    check_rds_instance_admin_username,
+    check_rds_instance_tagged,
+    check_rds_security_group_tagged,
+    check_rds_snapshot_encryption,
+    check_rds_snapshot_private,
+    check_rds_snapshot_tagged,
+    check_rds_subnet_group_tagged,
+)
+
 
 RDS_RULES = RuleRegistry(
     [
+        # Existing CloudSentinel RDS controls.
         RuleDefinition(
             rule_id="CS-AWS-RDS-001",
             name="public_rds",
@@ -125,9 +164,7 @@ RDS_RULES = RuleRegistry(
                 "iam_database_authentication_enabled",
             ],
             check=check_rds_iam_database_authentication,
-            build_finding=(
-                build_rds_iam_database_authentication_finding
-            ),
+            build_finding=build_rds_iam_database_authentication_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-RDS-008",
@@ -153,6 +190,288 @@ RDS_RULES = RuleRegistry(
             ],
             check=check_rds_enhanced_monitoring,
             build_finding=build_rds_enhanced_monitoring_finding,
+        ),
+
+        # Snapshot controls.
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-010",
+            name="rds_snapshot_private",
+            data_source="rds_snapshots",
+            collection_mode="multiple",
+            check_arguments=[
+                "snapshot_id",
+                "shared_accounts",
+            ],
+            check=check_rds_snapshot_private,
+            build_finding=build_rds_snapshot_private_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-011",
+            name="rds_snapshot_encryption",
+            data_source="rds_snapshots",
+            collection_mode="multiple",
+            check_arguments=[
+                "snapshot_id",
+                "encrypted",
+            ],
+            check=check_rds_snapshot_encryption,
+            build_finding=build_rds_snapshot_encryption_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-012",
+            name="rds_cluster_snapshot_private",
+            data_source="rds_cluster_snapshots",
+            collection_mode="multiple",
+            check_arguments=[
+                "snapshot_id",
+                "shared_accounts",
+            ],
+            check=check_rds_cluster_snapshot_private,
+            build_finding=build_rds_cluster_snapshot_private_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-013",
+            name="rds_cluster_snapshot_encryption",
+            data_source="rds_cluster_snapshots",
+            collection_mode="multiple",
+            check_arguments=[
+                "snapshot_id",
+                "encrypted",
+            ],
+            check=check_rds_cluster_snapshot_encryption,
+            build_finding=build_rds_cluster_snapshot_encryption_finding,
+        ),
+
+        # Cluster controls.
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-014",
+            name="rds_cluster_deletion_protection",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "deletion_protection",
+            ],
+            check=check_rds_cluster_deletion_protection,
+            build_finding=build_rds_cluster_deletion_protection_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-015",
+            name="rds_cluster_encryption",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "storage_encrypted",
+            ],
+            check=check_rds_cluster_encryption,
+            build_finding=build_rds_cluster_encryption_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-016",
+            name="rds_cluster_iam_authentication",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "engine",
+                "iam_database_authentication_enabled",
+            ],
+            check=check_rds_cluster_iam_auth,
+            build_finding=build_rds_cluster_iam_auth_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-017",
+            name="rds_cluster_backup_retention",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "backup_retention_period",
+            ],
+            check=check_rds_cluster_backup_retention,
+            build_finding=build_rds_cluster_backup_retention_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-018",
+            name="rds_cluster_minor_version_upgrade",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "engine",
+                "auto_minor_version_upgrade",
+            ],
+            check=check_rds_cluster_minor_upgrade,
+            build_finding=build_rds_cluster_minor_upgrade_finding,
+        ),
+
+        # Instance configuration controls.
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-019",
+            name="rds_non_default_port",
+            data_source="rds_instances",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_instance_id",
+                "engine",
+                "port",
+            ],
+            check=check_rds_default_port,
+            build_finding=build_rds_default_port_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-020",
+            name="rds_instance_custom_admin_username",
+            data_source="rds_instances",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_instance_id",
+                "engine",
+                "admin_username",
+                "db_cluster_identifier",
+            ],
+            check=check_rds_instance_admin_username,
+            build_finding=build_rds_instance_admin_username_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-021",
+            name="rds_cluster_custom_admin_username",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "engine",
+                "master_username",
+            ],
+            check=check_rds_cluster_admin_username,
+            build_finding=build_rds_cluster_admin_username_finding,
+        ),
+
+        # Aurora logging.
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-022",
+            name="aurora_mysql_audit_logs",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "engine",
+                "enabled_cloudwatch_logs_exports",
+            ],
+            check=check_aurora_mysql_audit_logs,
+            build_finding=build_aurora_mysql_audit_logs_finding,
+        ),
+
+        # Tagging.
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-023",
+            name="rds_cluster_copy_tags_to_snapshot",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "engine",
+                "copy_tags_to_snapshot",
+            ],
+            check=check_rds_cluster_copy_tags,
+            build_finding=build_rds_cluster_copy_tags_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-024",
+            name="rds_cluster_tagged",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "tags",
+            ],
+            check=check_rds_cluster_tagged,
+            build_finding=lambda result: build_rds_tag_finding(
+                result,
+                "CS-AWS-RDS-024",
+                "RDS DB Cluster Is Not Tagged",
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-025",
+            name="rds_cluster_snapshot_tagged",
+            data_source="rds_cluster_snapshots",
+            collection_mode="multiple",
+            check_arguments=[
+                "snapshot_id",
+                "tags",
+            ],
+            check=check_rds_cluster_snapshot_tagged,
+            build_finding=lambda result: build_rds_tag_finding(
+                result,
+                "CS-AWS-RDS-025",
+                "RDS Cluster Snapshot Is Not Tagged",
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-026",
+            name="rds_instance_tagged",
+            data_source="rds_instances",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_instance_id",
+                "tags",
+            ],
+            check=check_rds_instance_tagged,
+            build_finding=lambda result: build_rds_tag_finding(
+                result,
+                "CS-AWS-RDS-026",
+                "RDS DB Instance Is Not Tagged",
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-027",
+            name="rds_snapshot_tagged",
+            data_source="rds_snapshots",
+            collection_mode="multiple",
+            check_arguments=[
+                "snapshot_id",
+                "tags",
+            ],
+            check=check_rds_snapshot_tagged,
+            build_finding=lambda result: build_rds_tag_finding(
+                result,
+                "CS-AWS-RDS-027",
+                "RDS DB Snapshot Is Not Tagged",
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-028",
+            name="rds_subnet_group_tagged",
+            data_source="rds_subnet_groups",
+            collection_mode="multiple",
+            check_arguments=[
+                "subnet_group_name",
+                "tags",
+            ],
+            check=check_rds_subnet_group_tagged,
+            build_finding=lambda result: build_rds_tag_finding(
+                result,
+                "CS-AWS-RDS-028",
+                "RDS DB Subnet Group Is Not Tagged",
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-029",
+            name="rds_security_group_tagged",
+            data_source="rds_security_groups",
+            collection_mode="multiple",
+            check_arguments=[
+                "security_group_name",
+                "tags",
+            ],
+            check=check_rds_security_group_tagged,
+            build_finding=lambda result: build_rds_tag_finding(
+                result,
+                "CS-AWS-RDS-029",
+                "RDS DB Security Group Is Not Tagged",
+            ),
         ),
     ]
 )

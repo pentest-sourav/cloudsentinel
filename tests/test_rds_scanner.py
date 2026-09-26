@@ -177,3 +177,58 @@ def test_rds_scanner_detects_disabled_deletion_protection():
     assert finding.resource_id == "cloudsentinel-db"
     assert finding.severity.value == "medium"
     assert finding.evidence["deletion_protection"] is False
+
+
+def test_rds_scanner_detects_disabled_enhanced_monitoring():
+    service = MagicMock()
+
+    service.describe_db_instances.return_value = [
+        {
+            "DBInstanceIdentifier": "cloudsentinel-db",
+            "Engine": "postgres",
+            "EngineVersion": "16.3",
+            "PubliclyAccessible": False,
+            "StorageEncrypted": True,
+            "BackupRetentionPeriod": 7,
+            "MultiAZ": True,
+            "DeletionProtection": True,
+            "MonitoringInterval": 0,
+        }
+    ]
+
+    scanner = RDSScanner(service)
+
+    findings = scanner.scan()
+
+    assert len(findings) == 1
+
+    finding = findings[0]
+
+    assert finding.rule_id == "CS-AWS-RDS-009"
+    assert finding.resource_id == "cloudsentinel-db"
+    assert finding.severity.value == "low"
+    assert finding.evidence["monitoring_interval"] == 0
+
+
+def test_rds_scanner_does_not_flag_enabled_enhanced_monitoring():
+    service = MagicMock()
+
+    service.describe_db_instances.return_value = [
+        {
+            "DBInstanceIdentifier": "cloudsentinel-db",
+            "Engine": "postgres",
+            "EngineVersion": "16.3",
+            "PubliclyAccessible": False,
+            "StorageEncrypted": True,
+            "BackupRetentionPeriod": 7,
+            "MultiAZ": True,
+            "DeletionProtection": True,
+            "MonitoringInterval": 30,
+        }
+    ]
+
+    scanner = RDSScanner(service)
+
+    findings = scanner.scan()
+
+    assert findings == []

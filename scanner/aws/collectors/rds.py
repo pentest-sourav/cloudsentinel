@@ -237,6 +237,9 @@ class RDSDataCollector:
                         "CopyTagsToSnapshot"
                     ),
                     "engine_mode": cluster.get("EngineMode"),
+                    "auto_minor_version_upgrade": cluster.get(
+                        "AutoMinorVersionUpgrade"
+                    ),
                     "availability_zones": cluster.get(
                         "AvailabilityZones"
                     ),
