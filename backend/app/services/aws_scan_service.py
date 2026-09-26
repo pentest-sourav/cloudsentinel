@@ -45,6 +45,7 @@ from scanner.aws.scanners.athena import AthenaScanner
 from scanner.aws.scanners.config import ConfigScanner
 from scanner.aws.scanners.cloudformation import CloudFormationScanner
 from scanner.aws.scanners.amplify import AmplifyScanner
+from scanner.aws.scanners.apprunner import AppRunnerScanner
 from scanner.aws.scanners.autoscaling import AutoScalingScanner
 from scanner.aws.services.autoscaling import AutoScalingService
 from scanner.aws.services.mq import MQService
@@ -53,6 +54,7 @@ from scanner.aws.services.athena import AthenaService
 from scanner.aws.services.config import ConfigService
 from scanner.aws.services.cloudformation import CloudFormationService
 from scanner.aws.services.amplify import AmplifyService
+from scanner.aws.services.apprunner import AppRunnerService
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -521,6 +523,12 @@ def run_aws_scan(
             "amplify",
             lambda: AmplifyScanner(
                 AmplifyService(session)
+            ),
+        ),
+        (
+            "apprunner",
+            lambda: AppRunnerScanner(
+                AppRunnerService(session)
             ),
         ),
     )

@@ -1,4 +1,6 @@
 from scanner.aws.scanners.amplify import AmplifyScanner
+from scanner.aws.scanners.apprunner import AppRunnerScanner
+from scanner.aws.services.apprunner import AppRunnerService
 from scanner.aws.services.amplify import AmplifyService
 from scanner.aws.scanners.kms import KMSScanner
 from scanner.aws.scanners.s3 import S3Scanner
@@ -82,3 +84,16 @@ def create_amplify_scanner(
     service = AmplifyService(session)
 
     return AmplifyScanner(service)
+
+def create_apprunner_scanner(
+    profile_name: str | None = None,
+    region_name: str | None = None,
+) -> AppRunnerScanner:
+    session = create_aws_session(
+        profile_name=profile_name,
+        region_name=region_name,
+    )
+
+    service = AppRunnerService(session)
+
+    return AppRunnerScanner(service)

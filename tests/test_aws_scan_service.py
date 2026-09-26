@@ -71,6 +71,7 @@ def make_mocks():
         "config": Mock(),
         "cloudformation": Mock(),
         "amplify": Mock(),
+        "apprunner": Mock(),
     }
 
     services = {
@@ -127,6 +128,7 @@ def make_mocks():
         "config": Mock(),
         "cloudformation": Mock(),
         "amplify": Mock(),
+        "apprunner": Mock(),
     }
 
     findings = {
@@ -260,6 +262,9 @@ def make_mocks():
         ),
         "amplify": Mock(
             rule_id="CS-AWS-AMPLIFY-001"
+        ),
+        "apprunner": Mock(
+            rule_id="CS-AWS-APPRUNNER-001"
         ),
     }
 
@@ -513,6 +518,11 @@ def patch_aws_scanners(
                 "AmplifyScanner",
                 "amplify",
             ),
+            (
+                "AppRunnerService",
+                "AppRunnerScanner",
+                "apprunner",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -617,6 +627,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["config"],
         findings["cloudformation"],
         findings["amplify"],
+        findings["apprunner"],
     ]
 
     assert result.errors == []
@@ -741,6 +752,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["config"],
         findings["cloudformation"],
         findings["amplify"],
+        findings["apprunner"],
     ]
 
     assert result.errors == []
@@ -825,6 +837,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["config"],
         findings["cloudformation"],
         findings["amplify"],
+        findings["apprunner"],
     ]
 
     assert len(result.errors) == 1
