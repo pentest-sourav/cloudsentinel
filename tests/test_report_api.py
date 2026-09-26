@@ -123,17 +123,23 @@ def _create_scan_with_finding(TestSession, tenant_id: int) -> int:
         db.close()
 
 
-def test_report_route_requires_authentication(test_context):
+def test_report_routes_require_authentication(test_context):
     client, _ = test_context
 
-    response = client.get(
+    html_response = client.get(
         "/api/v1/reports/scans/1/html"
     )
+    pdf_response = client.get(
+        "/api/v1/reports/scans/1/pdf"
+    )
 
-    assert response.status_code == 401
+    assert html_response.status_code == 401
+    assert pdf_response.status_code == 401
 
 
-def test_authenticated_user_can_access_own_tenant_report(test_context):
+def test_authenticated_user_can_access_own_tenant_html_report(
+    test_context,
+):
     client, TestSession = test_context
 
     token = _register_and_login(
@@ -191,6 +197,63 @@ def test_authenticated_user_can_access_own_tenant_report(test_context):
     assert f"cloudsentinel-scan-{scan_id}.html" in content_disposition
 
 
+def test_authenticated_user_can_download_own_tenant_pdf_report(
+    test_context,
+):
+    client, TestSession = test_context
+
+    token = _register_and_login(
+        client,
+        email="pdf-owner@example.com",
+        full_name="PDF Owner",
+        tenant_name="PDF Owner Tenant",
+    )
+
+    db = TestSession()
+    try:
+        user = (
+            db.query(User)
+            .filter(
+                User.email == "pdf-owner@example.com"
+            )
+            .first()
+        )
+
+        assert user is not None
+        tenant_id = user.tenant_id
+    finally:
+        db.close()
+
+    scan_id = _create_scan_with_finding(
+        TestSession,
+        tenant_id,
+    )
+
+    response = client.get(
+        f"/api/v1/reports/scans/{scan_id}/pdf",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(
+        "application/pdf"
+    )
+    assert response.content.startswith(b"%PDF-")
+    assert b"%%EOF" in response.content
+
+    assert response.headers["cache-control"] == "no-store, max-age=0"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["referrer-policy"] == "no-referrer"
+
+    content_disposition = response.headers["content-disposition"]
+    assert (
+        f'attachment; filename="cloudsentinel-scan-{scan_id}.pdf"'
+        in content_disposition
+    )
+
+
 def test_report_isolated_between_tenants(test_context):
     client, TestSession = test_context
 
@@ -237,37 +300,61 @@ def test_report_isolated_between_tenants(test_context):
     finally:
         db.close()
 
-    owner_response = client.get(
+    owner_html = client.get(
         f"/api/v1/reports/scans/{scan_id}/html",
         headers={
             "Authorization": f"Bearer {owner_token}",
         },
     )
 
-    assert owner_response.status_code == 200
+    owner_pdf = client.get(
+        f"/api/v1/reports/scans/{scan_id}/pdf",
+        headers={
+            "Authorization": f"Bearer {owner_token}",
+        },
+    )
 
-    attacker_response = client.get(
+    assert owner_html.status_code == 200
+    assert owner_pdf.status_code == 200
+
+    attacker_html = client.get(
         f"/api/v1/reports/scans/{scan_id}/html",
         headers={
             "Authorization": f"Bearer {attacker_token}",
         },
     )
 
+    attacker_pdf = client.get(
+        f"/api/v1/reports/scans/{scan_id}/pdf",
+        headers={
+            "Authorization": f"Bearer {attacker_token}",
+        },
+    )
+
     # Do not reveal whether a resource exists in another tenant.
-    assert attacker_response.status_code == 404
-    assert attacker_response.json()["detail"] == "Scan not found"
+    assert attacker_html.status_code == 404
+    assert attacker_html.json()["detail"] == "Scan not found"
+
+    assert attacker_pdf.status_code == 404
+    assert attacker_pdf.json()["detail"] == "Scan not found"
 
 
-def test_report_route_is_registered():
+def test_report_routes_are_registered():
     openapi_paths = app.openapi()["paths"]
 
     assert "/api/v1/reports/scans/{scan_id}/html" in openapi_paths
+    assert "/api/v1/reports/scans/{scan_id}/pdf" in openapi_paths
 
-    operation = openapi_paths[
+    html_operation = openapi_paths[
         "/api/v1/reports/scans/{scan_id}/html"
     ]["get"]
 
-    assert operation["responses"]
+    pdf_operation = openapi_paths[
+        "/api/v1/reports/scans/{scan_id}/pdf"
+    ]["get"]
+
+    assert html_operation["responses"]
+    assert pdf_operation["responses"]
 
 
 def test_frontend_report_does_not_put_token_in_url():
@@ -275,7 +362,14 @@ def test_frontend_report_does_not_put_token_in_url():
 
     source = Path("frontend/app.js").read_text()
 
-    assert "/reports/scans/${encodeURIComponent(scanId)}/html" in source
+    assert (
+        "/reports/scans/${encodeURIComponent(scanId)}/html"
+        in source
+    )
+    assert (
+        "/reports/scans/${encodeURIComponent(scanId)}/pdf"
+        in source
+    )
     assert "Authorization: `Bearer ${state.token}`" in source
 
     # The old insecure direct-navigation pattern must not return.

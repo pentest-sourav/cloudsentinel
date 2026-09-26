@@ -1112,6 +1112,87 @@ async function openReport(scanId = state.currentScanId) {
 }
 
 
+
+async function downloadPdfReport(scanId = state.currentScanId) {
+    if (!scanId) {
+        return;
+    }
+
+    if (!state.token) {
+        showToast("Your session has expired.", "error");
+        showAuth();
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${API}/reports/scans/${encodeURIComponent(scanId)}/pdf`,
+            {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${state.token}`,
+                    Accept: "application/pdf",
+                },
+                cache: "no-store",
+                credentials: "same-origin",
+            }
+        );
+
+        if (response.status === 401) {
+            logout(false);
+            throw new Error("Your session has expired.");
+        }
+
+        if (!response.ok) {
+            let message =
+                `PDF report request failed (${response.status})`;
+
+            const contentType =
+                response.headers.get("content-type") || "";
+
+            if (contentType.includes("application/json")) {
+                const payload = await response.json();
+                message = payload.detail || message;
+            }
+
+            throw new Error(message);
+        }
+
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        if (!contentType.toLowerCase().includes("application/pdf")) {
+            throw new Error(
+                "The report response was not a valid PDF."
+            );
+        }
+
+        const blob = await response.blob();
+
+        if (blob.size === 0) {
+            throw new Error("The generated PDF was empty.");
+        }
+
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+
+        anchor.href = url;
+        anchor.download =
+            `cloudsentinel-scan-${encodeURIComponent(scanId)}.pdf`;
+
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+        }, 60_000);
+    } catch (error) {
+        showToast(error.message, "error");
+    }
+}
+
+
 async function refreshCurrentView() {
     if (state.currentView === "dashboard") {
         await loadDashboard();
@@ -1308,6 +1389,11 @@ document.addEventListener(
             () => openReport()
         );
 
+        $("pdf-report-btn").addEventListener(
+            "click",
+            () => downloadPdfReport()
+        );
+
 
         $("back-findings-btn").addEventListener(
             "click",
@@ -1333,3 +1419,4 @@ document.addEventListener(
 window.openScan = openScan;
 window.openFinding = openFinding;
 window.openReport = openReport;
+window.downloadPdfReport = downloadPdfReport;
