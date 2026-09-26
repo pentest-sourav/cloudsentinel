@@ -56,6 +56,7 @@ def make_mocks():
         "cloudfront": Mock(),
         "codebuild": Mock(),
         "elasticbeanstalk": Mock(),
+        "network_firewall": Mock(),
         "route53": Mock(),
     }
 
@@ -98,6 +99,7 @@ def make_mocks():
         "cloudfront": Mock(),
         "codebuild": Mock(),
         "elasticbeanstalk": Mock(),
+        "network_firewall": Mock(),
         "route53": Mock(),
     }
 
@@ -187,6 +189,9 @@ def make_mocks():
         ),
         "elasticbeanstalk": Mock(
             rule_id="CS-AWS-ELASTICBEANSTALK-001"
+        ),
+        "network_firewall": Mock(
+            rule_id="CS-AWS-NETWORKFIREWALL-001"
         ),
         "route53": Mock(
             rule_id="CS-AWS-ROUTE53-001"
@@ -369,6 +374,11 @@ def patch_aws_scanners(
                 "elasticbeanstalk",
             ),
             (
+                "NetworkFirewallService",
+                "NetworkFirewallScanner",
+                "network_firewall",
+            ),
+            (
                 "Route53Service",
                 "Route53Scanner",
                 "route53",
@@ -462,6 +472,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["msk"],
         findings["codebuild"],
         findings["elasticbeanstalk"],
+        findings["network_firewall"],
         findings["route53"],
     ]
 
@@ -572,6 +583,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["msk"],
         findings["codebuild"],
         findings["elasticbeanstalk"],
+        findings["network_firewall"],
         findings["route53"],
     ]
 
@@ -642,6 +654,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["msk"],
         findings["codebuild"],
         findings["elasticbeanstalk"],
+        findings["network_firewall"],
         findings["route53"],
     ]
 
