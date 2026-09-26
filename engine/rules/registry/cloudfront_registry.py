@@ -1,0 +1,91 @@
+from engine.rules.aws.cloudfront.protection import (
+    build_cloudfront_default_root_object_finding,
+    build_cloudfront_logging_finding,
+    build_cloudfront_s3_oac_finding,
+    build_cloudfront_viewer_https_finding,
+    build_cloudfront_waf_finding,
+    check_cloudfront_default_root_object,
+    check_cloudfront_logging,
+    check_cloudfront_s3_oac,
+    check_cloudfront_viewer_https,
+    check_cloudfront_waf,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+CLOUDFRONT_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-001",
+            name="cloudfront_default_root_object",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "s3_origins",
+                "default_root_object",
+            ],
+            check=check_cloudfront_default_root_object,
+            build_finding=(
+                build_cloudfront_default_root_object_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-002",
+            name="cloudfront_viewer_https",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "viewer_protocol_policies",
+            ],
+            check=check_cloudfront_viewer_https,
+            build_finding=(
+                build_cloudfront_viewer_https_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-003",
+            name="cloudfront_logging",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "logging_enabled",
+            ],
+            check=check_cloudfront_logging,
+            build_finding=build_cloudfront_logging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-004",
+            name="cloudfront_waf",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "waf_enabled",
+                "waf_web_acl_id",
+            ],
+            check=check_cloudfront_waf,
+            build_finding=build_cloudfront_waf_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-005",
+            name="cloudfront_s3_origin_access_control",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "s3_origins",
+            ],
+            check=check_cloudfront_s3_oac,
+            build_finding=build_cloudfront_s3_oac_finding,
+        ),
+    ]
+)

@@ -26,6 +26,7 @@ from scanner.aws.scanners.ses import SESScanner
 from scanner.aws.scanners.cloudwatch import CloudWatchScanner
 from scanner.aws.scanners.backup import BackupScanner
 from scanner.aws.scanners.efs import EFSScanner
+from scanner.aws.scanners.cloudfront import CloudFrontScanner
 from scanner.aws.scanners.route53 import Route53Scanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
