@@ -70,6 +70,7 @@ def make_mocks():
         "autoscaling": Mock(),
         "config": Mock(),
         "cloudformation": Mock(),
+        "amplify": Mock(),
     }
 
     services = {
@@ -125,6 +126,7 @@ def make_mocks():
         "autoscaling": Mock(),
         "config": Mock(),
         "cloudformation": Mock(),
+        "amplify": Mock(),
     }
 
     findings = {
@@ -255,6 +257,9 @@ def make_mocks():
         ),
         "cloudformation": Mock(
             rule_id="CS-AWS-CLOUDFORMATION-002"
+        ),
+        "amplify": Mock(
+            rule_id="CS-AWS-AMPLIFY-001"
         ),
     }
 
@@ -503,6 +508,11 @@ def patch_aws_scanners(
                 "CloudFormationScanner",
                 "cloudformation",
             ),
+            (
+                "AmplifyService",
+                "AmplifyScanner",
+                "amplify",
+            ),
         )
 
         for service_name, scanner_name, key in service_scanner_pairs:
@@ -606,6 +616,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["athena"],
         findings["config"],
         findings["cloudformation"],
+        findings["amplify"],
     ]
 
     assert result.errors == []
@@ -729,6 +740,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["athena"],
         findings["config"],
         findings["cloudformation"],
+        findings["amplify"],
     ]
 
     assert result.errors == []
@@ -812,6 +824,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["athena"],
         findings["config"],
         findings["cloudformation"],
+        findings["amplify"],
     ]
 
     assert len(result.errors) == 1
