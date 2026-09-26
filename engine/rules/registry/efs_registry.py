@@ -1,0 +1,73 @@
+from engine.rules.aws.efs.protection import (
+    build_efs_access_point_root_directory_finding,
+    build_efs_access_point_user_identity_finding,
+    build_efs_automatic_backups_finding,
+    build_efs_encryption_finding,
+    check_efs_access_point_root_directory,
+    check_efs_access_point_user_identity,
+    check_efs_automatic_backups,
+    check_efs_encryption,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+EFS_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-EFS-001",
+            name="efs_encryption_at_rest",
+            data_source="efs_file_systems",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "encrypted",
+                "kms_key_id",
+            ],
+            check=check_efs_encryption,
+            build_finding=build_efs_encryption_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EFS-002",
+            name="efs_automatic_backups",
+            data_source="efs_file_systems",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "backup",
+                "backup_policy_status",
+            ],
+            check=check_efs_automatic_backups,
+            build_finding=build_efs_automatic_backups_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EFS-003",
+            name="efs_access_point_root_directory",
+            data_source="efs_access_points",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "root_directory_path",
+            ],
+            check=check_efs_access_point_root_directory,
+            build_finding=(
+                build_efs_access_point_root_directory_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EFS-004",
+            name="efs_access_point_user_identity",
+            data_source="efs_access_points",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "posix_uid",
+                "posix_gid",
+            ],
+            check=check_efs_access_point_user_identity,
+            build_finding=(
+                build_efs_access_point_user_identity_finding
+            ),
+        ),
+    ]
+)

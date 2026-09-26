@@ -25,6 +25,7 @@ from scanner.aws.scanners.kinesis import KinesisScanner
 from scanner.aws.scanners.ses import SESScanner
 from scanner.aws.scanners.cloudwatch import CloudWatchScanner
 from scanner.aws.scanners.backup import BackupScanner
+from scanner.aws.scanners.efs import EFSScanner
 from scanner.aws.scanners.route53 import Route53Scanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
@@ -69,6 +70,7 @@ from scanner.aws.services.vpc import VPCService
 from scanner.aws.services.security_groups import SecurityGroupService
 from scanner.aws.services.route_tables import RouteTableService
 from scanner.aws.services.backup import BackupService
+from scanner.aws.services.efs import EFSService
 from scanner.aws.services.route53 import Route53Service
 
 from scanner.aws.session import create_aws_session
@@ -347,6 +349,12 @@ def run_aws_scan(
             "backup",
             lambda: BackupScanner(
                 BackupService(session)
+            ),
+        ),
+        (
+            "efs",
+            lambda: EFSScanner(
+                EFSService(session)
             ),
         ),
         (
