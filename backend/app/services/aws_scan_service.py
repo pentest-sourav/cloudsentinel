@@ -37,6 +37,7 @@ from scanner.aws.scanners.redshift import RedshiftScanner
 from scanner.aws.scanners.neptune import NeptuneScanner
 from scanner.aws.scanners.firehose import FirehoseScanner
 from scanner.aws.scanners.emr import EMRScanner
+from scanner.aws.scanners.fsx import FSxScanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
 from scanner.aws.scanners.elasticache import ElastiCacheScanner
 from scanner.aws.scanners.iam import IAMScanner
@@ -92,6 +93,7 @@ from scanner.aws.services.redshift import RedshiftService
 from scanner.aws.services.neptune import NeptuneService
 from scanner.aws.services.firehose import FirehoseService
 from scanner.aws.services.emr import EMRService
+from scanner.aws.services.fsx import FSxService
 
 from scanner.aws.session import create_aws_session
 
@@ -441,6 +443,12 @@ def run_aws_scan(
             "emr",
             lambda: EMRScanner(
                 EMRService(session)
+            ),
+        ),
+        (
+            "fsx",
+            lambda: FSxScanner(
+                FSxService(session)
             ),
         ),
     )

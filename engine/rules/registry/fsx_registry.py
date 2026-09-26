@@ -1,0 +1,86 @@
+from engine.rules.aws.fsx.protection import (
+    build_fsx_lustre_copy_tags_finding,
+    build_fsx_ontap_multi_az_finding,
+    build_fsx_openzfs_copy_tags_finding,
+    build_fsx_openzfs_multi_az_finding,
+    build_fsx_windows_multi_az_finding,
+    check_fsx_lustre_copy_tags,
+    check_fsx_ontap_multi_az,
+    check_fsx_openzfs_copy_tags,
+    check_fsx_openzfs_multi_az,
+    check_fsx_windows_multi_az,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+FSX_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-FSX-001",
+            name="fsx_openzfs_copy_tags",
+            data_source="fsx_file_systems",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "file_system_type",
+                "openzfs_copy_tags_to_backups",
+                "openzfs_copy_tags_to_volumes",
+            ],
+            check=check_fsx_openzfs_copy_tags,
+            build_finding=build_fsx_openzfs_copy_tags_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-FSX-002",
+            name="fsx_lustre_copy_tags",
+            data_source="fsx_file_systems",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "file_system_type",
+                "lustre_copy_tags_to_backups",
+            ],
+            check=check_fsx_lustre_copy_tags,
+            build_finding=build_fsx_lustre_copy_tags_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-FSX-003",
+            name="fsx_openzfs_multi_az",
+            data_source="fsx_file_systems",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "file_system_type",
+                "openzfs_deployment_type",
+            ],
+            check=check_fsx_openzfs_multi_az,
+            build_finding=build_fsx_openzfs_multi_az_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-FSX-004",
+            name="fsx_ontap_multi_az",
+            data_source="fsx_file_systems",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "file_system_type",
+                "ontap_deployment_type",
+            ],
+            check=check_fsx_ontap_multi_az,
+            build_finding=build_fsx_ontap_multi_az_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-FSX-005",
+            name="fsx_windows_multi_az",
+            data_source="fsx_file_systems",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "file_system_type",
+                "windows_deployment_type",
+            ],
+            check=check_fsx_windows_multi_az,
+            build_finding=build_fsx_windows_multi_az_finding,
+        ),
+    ]
+)
