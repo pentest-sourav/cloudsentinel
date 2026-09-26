@@ -51,6 +51,8 @@ def make_mocks():
         "cloudwatch": Mock(),
         "backup": Mock(),
         "efs": Mock(),
+        "elb": Mock(),
+        "cloudfront": Mock(),
         "route53": Mock(),
     }
 
@@ -88,6 +90,8 @@ def make_mocks():
         "cloudwatch": Mock(),
         "backup": Mock(),
         "efs": Mock(),
+        "elb": Mock(),
+        "cloudfront": Mock(),
         "route53": Mock(),
     }
 
@@ -162,6 +166,12 @@ def make_mocks():
         ),
         "efs": Mock(
             rule_id="CS-AWS-EFS-001"
+        ),
+        "elb": Mock(
+            rule_id="CS-AWS-ELB-001"
+        ),
+        "cloudfront": Mock(
+            rule_id="CS-AWS-CLOUDFRONT-001"
         ),
         "route53": Mock(
             rule_id="CS-AWS-ROUTE53-001"
@@ -319,6 +329,16 @@ def patch_aws_scanners(
                 "efs",
             ),
             (
+                "ELBService",
+                "ELBScanner",
+                "elb",
+            ),
+            (
+                "CloudFrontService",
+                "CloudFrontScanner",
+                "cloudfront",
+            ),
+            (
                 "Route53Service",
                 "Route53Scanner",
                 "route53",
@@ -407,6 +427,8 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["cloudwatch"],
         findings["backup"],
         findings["efs"],
+        findings["cloudfront"],
+        findings["elb"],
         findings["route53"],
     ]
 
@@ -512,6 +534,8 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["cloudwatch"],
         findings["backup"],
         findings["efs"],
+        findings["cloudfront"],
+        findings["elb"],
         findings["route53"],
     ]
 
@@ -577,6 +601,8 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["cloudwatch"],
         findings["backup"],
         findings["efs"],
+        findings["cloudfront"],
+        findings["elb"],
         findings["route53"],
     ]
 

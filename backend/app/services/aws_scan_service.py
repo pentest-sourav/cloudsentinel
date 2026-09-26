@@ -26,6 +26,7 @@ from scanner.aws.scanners.ses import SESScanner
 from scanner.aws.scanners.cloudwatch import CloudWatchScanner
 from scanner.aws.scanners.backup import BackupScanner
 from scanner.aws.scanners.efs import EFSScanner
+from scanner.aws.scanners.elb import ELBScanner
 from scanner.aws.scanners.cloudfront import CloudFrontScanner
 from scanner.aws.scanners.route53 import Route53Scanner
 from scanner.aws.scanners.opensearch import OpenSearchScanner
@@ -72,6 +73,8 @@ from scanner.aws.services.security_groups import SecurityGroupService
 from scanner.aws.services.route_tables import RouteTableService
 from scanner.aws.services.backup import BackupService
 from scanner.aws.services.efs import EFSService
+from scanner.aws.services.elb import ELBService
+from scanner.aws.services.cloudfront import CloudFrontService
 from scanner.aws.services.route53 import Route53Service
 
 from scanner.aws.session import create_aws_session
@@ -356,6 +359,18 @@ def run_aws_scan(
             "efs",
             lambda: EFSScanner(
                 EFSService(session)
+            ),
+        ),
+        (
+            "cloudfront",
+            lambda: CloudFrontScanner(
+                CloudFrontService(session)
+            ),
+        ),
+        (
+            "elb",
+            lambda: ELBScanner(
+                ELBService(session)
             ),
         ),
         (
