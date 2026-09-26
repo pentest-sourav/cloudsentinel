@@ -2,10 +2,12 @@ from scanner.aws.scanners.amplify import AmplifyScanner
 from scanner.aws.scanners.apprunner import AppRunnerScanner
 from scanner.aws.scanners.appconfig import AppConfigScanner
 from scanner.aws.scanners.appflow import AppFlowScanner
+from scanner.aws.scanners.batch import BatchScanner
 from scanner.aws.services.apprunner import AppRunnerService
 from scanner.aws.services.amplify import AmplifyService
 from scanner.aws.services.appconfig import AppConfigService
 from scanner.aws.services.appflow import AppFlowService
+from scanner.aws.services.batch import BatchService
 from scanner.aws.scanners.kms import KMSScanner
 from scanner.aws.scanners.s3 import S3Scanner
 from scanner.aws.scanners.sns import SNSScanner
@@ -135,3 +137,18 @@ def create_appflow_scanner(
     service = AppFlowService(session)
 
     return AppFlowScanner(service)
+
+
+
+def create_batch_scanner(
+    profile_name: str | None = None,
+    region_name: str | None = None,
+) -> BatchScanner:
+    session = create_aws_session(
+        profile_name=profile_name,
+        region_name=region_name,
+    )
+
+    service = BatchService(session)
+
+    return BatchScanner(service)
