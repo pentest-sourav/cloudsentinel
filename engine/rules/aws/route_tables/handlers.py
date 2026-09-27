@@ -21,6 +21,22 @@ def collect_routes(
     return normalized_routes
 
 
+def collect_route_table_inventory(
+    collector: RouteTableDataCollector,
+) -> list[dict]:
+    route_tables = collector.collect_route_tables()
+
+    return [
+        {
+            "route_table_id": route_table["route_table_id"],
+            "vpc_id": route_table["vpc_id"],
+            "tags": route_table.get("tags", []),
+        }
+        for route_table in route_tables
+    ]
+
+
 ROUTE_TABLE_DATA_SOURCE_HANDLERS = {
     "routes": collect_routes,
+    "route_table_inventory": collect_route_table_inventory,
 }

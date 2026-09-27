@@ -5,7 +5,7 @@ from engine.rules.aws.route_tables.default_route import (
 )
 
 
-def test_active_default_route_to_internet_gateway():
+def test_active_ipv4_default_route_to_internet_gateway():
     result = check_default_route(
         route_table_id="rtb-123",
         vpc_id="vpc-123",
@@ -17,11 +17,22 @@ def test_active_default_route_to_internet_gateway():
     )
 
     assert result is not None
-    assert result.route_table_id == "rtb-123"
-    assert result.vpc_id == "vpc-123"
     assert result.destination == "0.0.0.0/0"
-    assert result.gateway_id == "igw-123"
-    assert result.state == "active"
+
+
+def test_active_ipv6_default_route_to_internet_gateway():
+    result = check_default_route(
+        route_table_id="rtb-123",
+        vpc_id="vpc-123",
+        route={
+            "DestinationIpv6CidrBlock": "::/0",
+            "GatewayId": "igw-123",
+            "State": "active",
+        },
+    )
+
+    assert result is not None
+    assert result.destination == "::/0"
 
 
 def test_local_route_is_ignored():

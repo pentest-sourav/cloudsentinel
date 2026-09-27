@@ -22,7 +22,7 @@ class RouteTableDataCollector:
         return self._route_tables_cache
 
     def collect_route_tables(self) -> list[dict[str, Any]]:
-        normalized = []
+        normalized: list[dict[str, Any]] = []
 
         for table in self._get_route_tables():
             route_table_id = table.get("RouteTableId")
@@ -35,11 +35,15 @@ class RouteTableDataCollector:
                     "route_table_id": route_table_id,
                     "vpc_id": table.get("VpcId"),
                     "routes": table.get("Routes", []),
-                    "associations": table.get("Associations", []),
+                    "associations": table.get(
+                        "Associations",
+                        [],
+                    ),
                     "propagating_vgws": table.get(
                         "PropagatingVgws",
                         [],
                     ),
+                    "tags": table.get("Tags", []),
                 }
             )
 

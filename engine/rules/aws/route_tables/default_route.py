@@ -18,15 +18,22 @@ def check_default_route(
     route: dict,
 ):
     """
-    Detect an active IPv4 default route that points
+    Detect an active IPv4 or IPv6 default route that points
     directly to an Internet Gateway.
     """
 
     destination = route.get("DestinationCidrBlock")
+
+    if destination is None:
+        destination = route.get("DestinationIpv6CidrBlock")
+
     gateway_id = route.get("GatewayId")
     state = route.get("State")
 
-    if destination != "0.0.0.0/0":
+    if destination not in {
+        "0.0.0.0/0",
+        "::/0",
+    }:
         return None
 
     if not gateway_id or not gateway_id.startswith("igw-"):
@@ -49,18 +56,21 @@ def build_default_route_finding(
 ) -> Finding:
     return Finding(
         rule_id="CS-AWS-RT-001",
-        title="Route Table has an active default route to an Internet Gateway",
+        title=(
+            "Route Table has an active default route "
+            "to an Internet Gateway"
+        ),
         severity=Severity.LOW,
         provider="aws",
         resource_type="route_table",
         resource_id=result.route_table_id,
         description=(
-            "The Route Table contains an active IPv4 default route "
-            "to an Internet Gateway. This provides a path to the "
-            "internet for resources associated with the relevant "
-            "subnets. Internet reachability should be reviewed "
-            "together with subnet, resource, and Security Group "
-            "configuration."
+            "The Route Table contains an active IPv4 or IPv6 "
+            "default route to an Internet Gateway. This provides "
+            "a path to the internet for resources associated with "
+            "the relevant subnets. Internet reachability should "
+            "be reviewed together with subnet, resource, and "
+            "Security Group configuration."
         ),
         evidence={
             "route_table_id": result.route_table_id,

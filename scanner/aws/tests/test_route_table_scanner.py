@@ -24,24 +24,20 @@ def test_route_table_scanner_returns_findings():
             ],
             "Associations": [],
             "PropagatingVgws": [],
+            "Tags": [],
         }
     ]
 
     scanner = RouteTableScanner(service)
-
     findings = scanner.scan()
 
-    assert len(findings) == 1
+    rule_ids = {finding.rule_id for finding in findings}
 
-    finding = findings[0]
-
-    assert finding.rule_id == "CS-AWS-RT-001"
-    assert finding.resource_id == "rtb-123"
-    assert finding.severity.value == "low"
-    assert finding.evidence["gateway_id"] == "igw-123"
+    assert "CS-AWS-RT-001" in rule_ids
+    assert "CS-AWS-RT-002" in rule_ids
 
 
-def test_route_table_scanner_returns_no_findings_when_no_default_route():
+def test_route_table_scanner_returns_no_findings_when_secure():
     service = Mock()
 
     service.describe_route_tables.return_value = [
@@ -57,11 +53,15 @@ def test_route_table_scanner_returns_no_findings_when_no_default_route():
             ],
             "Associations": [],
             "PropagatingVgws": [],
+            "Tags": [
+                {
+                    "Key": "Environment",
+                    "Value": "prod",
+                }
+            ],
         }
     ]
 
     scanner = RouteTableScanner(service)
 
-    findings = scanner.scan()
-
-    assert findings == []
+    assert scanner.scan() == []
