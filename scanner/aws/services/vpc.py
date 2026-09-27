@@ -141,6 +141,38 @@ class VPCService:
                 f"{exc}"
             ) from exc
 
+    def describe_subnets(self) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_subnets"
+            )
+
+            subnets: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                subnets.extend(
+                    page.get("Subnets", [])
+                )
+
+            return subnets
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"Subnet discovery failed: {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during subnet discovery: {exc}"
+            ) from exc
+
     def describe_vpc_block_public_access_options(
         self,
     ) -> dict[str, Any]:

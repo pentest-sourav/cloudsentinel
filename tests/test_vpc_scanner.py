@@ -5,6 +5,18 @@ from scanner.aws.scanners.vpc_scanner import VPCScanner
 
 def base_service():
     service = Mock()
+
+    # Keep legacy VPC scanner fixtures isolated from newer controls.
+    service.describe_subnets.return_value = []
+
+    # VPC-011..015 require interface endpoint discovery.
+    # Legacy tests should not produce endpoint findings unless
+    # they explicitly configure endpoint fixtures.
+    service.describe_vpc_endpoints.return_value = []
+
+    # VPC-009/010 require NACL association/entry context.
+    # Default fixture should remain neutral for legacy tests.
+    service.describe_network_acls.return_value = []
     service.ec2_client.meta.region_name = "us-east-1"
     service.describe_vpcs.return_value = []
     service.describe_internet_gateways.return_value = []
@@ -19,14 +31,66 @@ def base_service():
         "ManagedBy": "account",
         "ExclusionsAllowed": "allowed",
     }
+    # Keep all newer VPC endpoint controls compliant in legacy
+    # scanner fixtures unless a test explicitly overrides them.
     service.describe_vpc_endpoints.return_value = [
         {
             "VpcId": "vpc-12345678",
             "ServiceName": "com.amazonaws.us-east-1.ec2",
         },
         {
+            "VpcId": "vpc-12345678",
+            "ServiceName": "com.amazonaws.us-east-1.ecr.api",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-12345678",
+            "ServiceName": "com.amazonaws.us-east-1.ecr.dkr",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-12345678",
+            "ServiceName": "com.amazonaws.us-east-1.ssm",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-12345678",
+            "ServiceName": "com.amazonaws.us-east-1.ssm-contacts",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-12345678",
+            "ServiceName": "com.amazonaws.us-east-1.ssm-incidents",
+            "VpcEndpointType": "Interface",
+        },
+        {
             "VpcId": "vpc-87654321",
             "ServiceName": "com.amazonaws.us-east-1.ec2",
+        },
+        {
+            "VpcId": "vpc-87654321",
+            "ServiceName": "com.amazonaws.us-east-1.ecr.api",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-87654321",
+            "ServiceName": "com.amazonaws.us-east-1.ecr.dkr",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-87654321",
+            "ServiceName": "com.amazonaws.us-east-1.ssm",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-87654321",
+            "ServiceName": "com.amazonaws.us-east-1.ssm-contacts",
+            "VpcEndpointType": "Interface",
+        },
+        {
+            "VpcId": "vpc-87654321",
+            "ServiceName": "com.amazonaws.us-east-1.ssm-incidents",
+            "VpcEndpointType": "Interface",
         },
     ]
     return service
@@ -299,8 +363,13 @@ def test_vpc_scanner_detects_unrestricted_network_acl():
 
     findings = scanner.scan()
 
-    assert len(findings) == 1
-    assert findings[0].rule_id == "CS-AWS-VPC-005"
+    rule_ids = {finding.rule_id for finding in findings}
+
+    assert rule_ids == {
+        "CS-AWS-VPC-009",
+        "CS-AWS-VPC-010",
+        "CS-AWS-VPC-005",
+    }
 
 
 def test_vpc_scanner_does_not_flag_default_network_acl():
@@ -327,7 +396,12 @@ def test_vpc_scanner_does_not_flag_default_network_acl():
 
     findings = scanner.scan()
 
-    assert findings == []
+    assert {
+        finding.rule_id
+        for finding in findings
+    } == {
+        "CS-AWS-VPC-010",
+    }
 
 
 def test_vpc_scanner_detects_missing_ec2_endpoint():
@@ -665,3 +739,89 @@ def test_vpc_scanner_accepts_ingress_only_vpc_bpa():
         for finding in findings
         if finding.rule_id == "CS-AWS-VPC-007"
     ]
+
+
+def test_vpc_scanner_detects_additional_vpc_controls():
+    from unittest.mock import MagicMock
+
+    service = MagicMock()
+    service.ec2_client.meta.region_name = "us-east-1"
+
+    service.describe_vpcs.return_value = [
+        {"VpcId": "vpc-1"}
+    ]
+
+    service.describe_internet_gateways.return_value = []
+    service.describe_default_security_groups.return_value = []
+    service.describe_flow_logs.return_value = []
+    service.describe_vpc_endpoints.return_value = [
+        {
+            "VpcId": "vpc-1",
+            "ServiceName": "com.amazonaws.us-east-1.ecr.api",
+            "VpcEndpointType": "Interface",
+        }
+    ]
+
+    service.describe_vpc_block_public_access_options.return_value = {
+        "AwsRegion": "us-east-1",
+        "State": "update-complete",
+        "InternetGatewayBlockMode": "block-bidirectional",
+        "ManagedBy": "account",
+        "ExclusionsAllowed": "allowed",
+    }
+
+    service.describe_network_acls.return_value = [
+        {
+            "NetworkAclId": "acl-unused",
+            "VpcId": "vpc-1",
+            "IsDefault": False,
+            "Associations": [],
+            "Entries": [],
+        },
+        {
+            "NetworkAclId": "acl-admin",
+            "VpcId": "vpc-1",
+            "IsDefault": False,
+            "Associations": [
+                {"NetworkAclAssociationId": "assoc-1"}
+            ],
+            "Entries": [
+                {
+                    "RuleNumber": 100,
+                    "Egress": False,
+                    "RuleAction": "allow",
+                    "Protocol": "6",
+                    "CidrBlock": "0.0.0.0/0",
+                    "PortRange": {
+                        "From": 22,
+                        "To": 22,
+                    },
+                }
+            ],
+        },
+    ]
+
+    service.describe_subnets.return_value = [
+        {
+            "SubnetId": "subnet-public",
+            "VpcId": "vpc-1",
+            "MapPublicIpOnLaunch": True,
+        }
+    ]
+
+    scanner = VPCScanner(service)
+    findings = scanner.scan()
+
+    rule_ids = {
+        finding.rule_id
+        for finding in findings
+    }
+
+    assert "CS-AWS-VPC-008" in rule_ids
+    assert "CS-AWS-VPC-009" in rule_ids
+    assert "CS-AWS-VPC-010" in rule_ids
+    assert "CS-AWS-VPC-011" not in rule_ids
+    assert "CS-AWS-VPC-012" in rule_ids
+    assert "CS-AWS-VPC-013" in rule_ids
+    assert "CS-AWS-VPC-014" in rule_ids
+    assert "CS-AWS-VPC-015" in rule_ids

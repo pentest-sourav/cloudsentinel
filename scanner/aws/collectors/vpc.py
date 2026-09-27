@@ -20,6 +20,7 @@ class VPCDataCollector:
         self._network_acls_cache: list[dict[str, Any]] | None = None
         self._vpc_endpoints_cache: list[dict[str, Any]] | None = None
         self._vpc_bpa_options_cache: dict[str, Any] | None = None
+        self._subnets_cache: list[dict[str, Any]] | None = None
 
     def _get_vpcs(self) -> list[dict[str, Any]]:
         if self._vpcs_cache is None:
@@ -102,6 +103,70 @@ class VPCDataCollector:
                 "ExclusionsAllowed"
             ),
         }
+
+    def _get_subnets(self) -> list[dict[str, Any]]:
+        if self._subnets_cache is None:
+            self._subnets_cache = self.service.describe_subnets()
+
+        return self._subnets_cache
+
+    def collect_subnet_public_ip_coverage(
+        self,
+    ) -> list[dict[str, Any]]:
+        normalized = []
+
+        for subnet in self._get_subnets():
+            subnet_id = subnet.get("SubnetId")
+
+            if not subnet_id:
+                continue
+
+            normalized.append(
+                {
+                    "subnet_id": subnet_id,
+                    "vpc_id": subnet.get("VpcId"),
+                    "map_public_ip_on_launch": bool(
+                        subnet.get(
+                            "MapPublicIpOnLaunch",
+                            False,
+                        )
+                    ),
+                }
+            )
+
+        return normalized
+
+    def collect_unused_network_acl_coverage(
+        self,
+    ) -> list[dict[str, Any]]:
+        normalized = []
+
+        for network_acl in self._get_network_acls():
+            network_acl_id = network_acl.get("NetworkAclId")
+
+            if not network_acl_id:
+                continue
+
+            normalized.append(
+                {
+                    "network_acl_id": network_acl_id,
+                    "vpc_id": network_acl.get("VpcId"),
+                    "association_count": len(
+                        network_acl.get(
+                            "Associations",
+                            [],
+                        )
+                    ),
+                    "is_default": bool(
+                        network_acl.get(
+                            "IsDefault",
+                            False,
+                        )
+                    ),
+                }
+            )
+
+        return normalized
 
     def _get_network_acls(self) -> list[dict[str, Any]]:
         if self._network_acls_cache is None:
@@ -311,6 +376,62 @@ class VPCDataCollector:
 
         return normalized
 
+    def collect_required_endpoint_coverage(
+        self,
+        service_name: str,
+    ) -> list[dict[str, Any]]:
+        vpcs = self._get_vpcs()
+        endpoints = self._get_vpc_endpoints()
+
+        region = getattr(
+            self.service.ec2_client.meta,
+            "region_name",
+            None,
+        )
+
+        covered_vpcs: set[str] = set()
+
+        for endpoint in endpoints:
+            vpc_id = endpoint.get("VpcId")
+
+            if not vpc_id:
+                continue
+
+            if endpoint.get("ServiceName") != service_name:
+                continue
+
+            if str(
+                endpoint.get(
+                    "VpcEndpointType",
+                    "",
+                )
+            ).lower() != "interface":
+                continue
+
+            covered_vpcs.add(vpc_id)
+
+        normalized = []
+
+        for vpc in vpcs:
+            vpc_id = vpc.get("VpcId")
+
+            if not vpc_id:
+                continue
+
+            normalized.append(
+                {
+                    "vpc_id": vpc_id,
+                    "region": region,
+                    "service_name": service_name,
+                    "endpoint_type": "interface",
+                    "endpoint_enabled": (
+                        vpc_id in covered_vpcs
+                    ),
+                }
+            )
+
+        return normalized
+
     def collect_network_acls(self) -> list[dict[str, Any]]:
         normalized = []
 
@@ -337,6 +458,12 @@ class VPCDataCollector:
                         "cidr_block": entry.get("CidrBlock"),
                         "ipv6_cidr_block": entry.get(
                             "Ipv6CidrBlock"
+                        ),
+                        "from_port": (
+                            entry.get("PortRange", {}).get("From")
+                        ),
+                        "to_port": (
+                            entry.get("PortRange", {}).get("To")
                         ),
                     }
                 )
