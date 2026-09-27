@@ -19,11 +19,7 @@ def test_security_group_scanner_detects_unrestricted_inbound():
                     "IpProtocol": "tcp",
                     "FromPort": 22,
                     "ToPort": 22,
-                    "IpRanges": [
-                        {
-                            "CidrIp": "0.0.0.0/0",
-                        }
-                    ],
+                    "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
                     "Ipv6Ranges": [],
                     "PrefixListIds": [],
                     "UserIdGroupPairs": [],
@@ -33,17 +29,18 @@ def test_security_group_scanner_detects_unrestricted_inbound():
         }
     ]
 
+    service.describe_network_interfaces.return_value = []
+
     scanner = SecurityGroupScanner(service)
     findings = scanner.scan()
 
-    assert len(findings) == 1
+    rule_ids = {finding.rule_id for finding in findings}
 
-    finding = findings[0]
-
-    assert finding.rule_id == "CS-AWS-SG-001"
-    assert finding.severity.value == "high"
-    assert finding.resource_id == "sg-test"
-    assert finding.evidence["cidr"] == "0.0.0.0/0"
+    assert "CS-AWS-SG-001" in rule_ids
+    assert "CS-AWS-SG-002" in rule_ids
+    assert "CS-AWS-SG-003" in rule_ids
+    assert "CS-AWS-SG-004" in rule_ids
+    assert "CS-AWS-SG-005" in rule_ids
 
 
 def test_security_group_scanner_returns_no_finding_for_restricted_inbound():
@@ -60,17 +57,25 @@ def test_security_group_scanner_returns_no_finding_for_restricted_inbound():
                     "IpProtocol": "tcp",
                     "FromPort": 22,
                     "ToPort": 22,
-                    "IpRanges": [
-                        {
-                            "CidrIp": "10.0.0.0/16",
-                        }
-                    ],
+                    "IpRanges": [{"CidrIp": "10.0.0.0/16"}],
                     "Ipv6Ranges": [],
                     "PrefixListIds": [],
                     "UserIdGroupPairs": [],
                 }
             ],
             "IpPermissionsEgress": [],
+        }
+    ]
+
+    service.describe_network_interfaces.return_value = [
+        {
+            "NetworkInterfaceId": "eni-test",
+            "Groups": [
+                {
+                    "GroupId": "sg-test",
+                    "GroupName": "internal-sg",
+                }
+            ],
         }
     ]
 

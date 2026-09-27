@@ -23,6 +23,13 @@ def collect_security_groups(
     return normalized_rules
 
 
+def collect_security_group_inventory(
+    collector: SecurityGroupDataCollector,
+) -> list[dict]:
+    return collector.collect_security_group_inventory()
+
+
 SECURITY_GROUP_DATA_SOURCE_HANDLERS = {
     "security_groups": collect_security_groups,
+    "security_group_inventory": collect_security_group_inventory,
 }
