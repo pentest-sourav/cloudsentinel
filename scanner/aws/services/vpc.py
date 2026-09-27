@@ -141,6 +141,46 @@ class VPCService:
                 f"{exc}"
             ) from exc
 
+    def describe_vpc_block_public_access_options(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Return the regional VPC Block Public Access configuration.
+
+        AWS exposes VPC BPA configuration through a dedicated EC2 API.
+        This is account/Region-level configuration rather than a
+        per-VPC resource.
+        """
+        try:
+            response = (
+                self.ec2_client
+                .describe_vpc_block_public_access_options()
+            )
+
+            return response.get(
+                "VpcBlockPublicAccessOptions",
+                {},
+            )
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"VPC Block Public Access discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during VPC Block Public Access "
+                f"discovery: {exc}"
+            ) from exc
+
     def describe_vpc_endpoints(self) -> list[dict[str, Any]]:
         """
         Return all VPC endpoints in the current AWS account/region.

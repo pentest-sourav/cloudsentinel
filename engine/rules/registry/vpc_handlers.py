@@ -31,6 +31,12 @@ def collect_ec2_endpoint_coverage(
     return collector.collect_ec2_endpoint_coverage()
 
 
+def collect_vpc_block_public_access_options(
+    collector: VPCDataCollector,
+) -> dict:
+    return collector.collect_vpc_block_public_access_options()
+
+
 def collect_network_acls(
     collector: VPCDataCollector,
 ) -> list[dict]:
@@ -42,6 +48,9 @@ VPC_DATA_SOURCE_HANDLERS = {
     "internet_gateways": collect_internet_gateways,
     "default_security_groups": collect_default_security_groups,
     "flow_log_coverage": collect_flow_log_coverage,
+    "vpc_block_public_access_options": (
+        collect_vpc_block_public_access_options
+    ),
     "network_acls": collect_network_acls,
     "ec2_endpoint_coverage": collect_ec2_endpoint_coverage,
 }

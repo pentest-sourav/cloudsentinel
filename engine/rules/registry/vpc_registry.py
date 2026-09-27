@@ -2,6 +2,10 @@ from engine.rules.aws.vpc.ec2_endpoint import (
     build_ec2_vpc_endpoint_finding,
     check_ec2_vpc_endpoint,
 )
+from engine.rules.aws.vpc.block_public_access import (
+    build_vpc_block_public_access_finding,
+    check_vpc_block_public_access,
+)
 from engine.rules.aws.vpc.default_security_group import (
     build_default_security_group_finding,
     check_default_security_group,
@@ -95,6 +99,21 @@ VPC_RULES = RuleRegistry(
             ],
             check=check_ec2_vpc_endpoint,
             build_finding=build_ec2_vpc_endpoint_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-007",
+            name="vpc_block_public_access",
+            data_source="vpc_block_public_access_options",
+            collection_mode="single",
+            check_arguments=[
+                "region",
+                "internet_gateway_block_mode",
+                "state",
+                "managed_by",
+                "exclusions_allowed",
+            ],
+            check=check_vpc_block_public_access,
+            build_finding=build_vpc_block_public_access_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-VPC-005",

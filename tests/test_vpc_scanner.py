@@ -11,6 +11,14 @@ def base_service():
     service.describe_default_security_groups.return_value = []
     service.describe_flow_logs.return_value = []
     service.describe_network_acls.return_value = []
+    service.describe_vpc_block_public_access_options.return_value = {
+        "AwsAccountId": "123456789012",
+        "AwsRegion": "us-east-1",
+        "State": "update-complete",
+        "InternetGatewayBlockMode": "block-bidirectional",
+        "ManagedBy": "account",
+        "ExclusionsAllowed": "allowed",
+    }
     service.describe_vpc_endpoints.return_value = [
         {
             "VpcId": "vpc-12345678",
@@ -555,3 +563,105 @@ def test_collect_ec2_endpoint_coverage_ignores_other_services():
         record["ec2_endpoint_enabled"] is False
         for record in records
     )
+
+
+def test_vpc_scanner_detects_unprotected_vpc_bpa():
+    from unittest.mock import MagicMock
+
+    service = MagicMock()
+    service.ec2_client.meta.region_name = "us-east-1"
+
+    service.describe_vpcs.return_value = []
+    service.describe_internet_gateways.return_value = []
+    service.describe_default_security_groups.return_value = []
+    service.describe_flow_logs.return_value = []
+    service.describe_network_acls.return_value = []
+    service.describe_vpc_endpoints.return_value = []
+    service.describe_vpc_block_public_access_options.return_value = {
+        "AwsAccountId": "123456789012",
+        "AwsRegion": "us-east-1",
+        "State": "update-complete",
+        "InternetGatewayBlockMode": "off",
+        "ManagedBy": "account",
+        "ExclusionsAllowed": "allowed",
+    }
+
+    scanner = VPCScanner(service)
+
+    findings = scanner.scan()
+
+    endpoint = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-VPC-007"
+    ]
+
+    assert len(endpoint) == 1
+    assert endpoint[0].resource_id == "vpc-bpa:us-east-1"
+    assert endpoint[0].evidence[
+        "internet_gateway_block_mode"
+    ] == "off"
+
+
+def test_vpc_scanner_accepts_bidirectional_vpc_bpa():
+    from unittest.mock import MagicMock
+
+    service = MagicMock()
+    service.ec2_client.meta.region_name = "us-east-1"
+
+    service.describe_vpcs.return_value = []
+    service.describe_internet_gateways.return_value = []
+    service.describe_default_security_groups.return_value = []
+    service.describe_flow_logs.return_value = []
+    service.describe_network_acls.return_value = []
+    service.describe_vpc_endpoints.return_value = []
+    service.describe_vpc_block_public_access_options.return_value = {
+        "AwsAccountId": "123456789012",
+        "AwsRegion": "us-east-1",
+        "State": "update-complete",
+        "InternetGatewayBlockMode": "block-bidirectional",
+        "ManagedBy": "account",
+        "ExclusionsAllowed": "allowed",
+    }
+
+    scanner = VPCScanner(service)
+
+    findings = scanner.scan()
+
+    assert not [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-VPC-007"
+    ]
+
+
+def test_vpc_scanner_accepts_ingress_only_vpc_bpa():
+    from unittest.mock import MagicMock
+
+    service = MagicMock()
+    service.ec2_client.meta.region_name = "us-east-1"
+
+    service.describe_vpcs.return_value = []
+    service.describe_internet_gateways.return_value = []
+    service.describe_default_security_groups.return_value = []
+    service.describe_flow_logs.return_value = []
+    service.describe_network_acls.return_value = []
+    service.describe_vpc_endpoints.return_value = []
+    service.describe_vpc_block_public_access_options.return_value = {
+        "AwsAccountId": "123456789012",
+        "AwsRegion": "us-east-1",
+        "State": "update-complete",
+        "InternetGatewayBlockMode": "block-ingress",
+        "ManagedBy": "account",
+        "ExclusionsAllowed": "allowed",
+    }
+
+    scanner = VPCScanner(service)
+
+    findings = scanner.scan()
+
+    assert not [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-VPC-007"
+    ]

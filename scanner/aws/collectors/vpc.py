@@ -19,6 +19,7 @@ class VPCDataCollector:
         self._flow_logs_cache: list[dict[str, Any]] | None = None
         self._network_acls_cache: list[dict[str, Any]] | None = None
         self._vpc_endpoints_cache: list[dict[str, Any]] | None = None
+        self._vpc_bpa_options_cache: dict[str, Any] | None = None
 
     def _get_vpcs(self) -> list[dict[str, Any]]:
         if self._vpcs_cache is None:
@@ -55,6 +56,52 @@ class VPCDataCollector:
             )
 
         return self._vpc_endpoints_cache
+
+    def _get_vpc_block_public_access_options(
+        self,
+    ) -> dict[str, Any]:
+        if self._vpc_bpa_options_cache is None:
+            self._vpc_bpa_options_cache = (
+                self.service
+                .describe_vpc_block_public_access_options()
+            )
+
+        return self._vpc_bpa_options_cache
+
+    def collect_vpc_block_public_access_options(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Normalize the regional VPC Block Public Access configuration.
+
+        EC2.172 evaluates account/Region-level BPA configuration,
+        so this data source intentionally returns one normalized
+        record rather than one record per VPC.
+        """
+        options = self._get_vpc_block_public_access_options()
+
+        region = options.get(
+            "AwsRegion"
+        )
+
+        if not region:
+            region = getattr(
+                self.service.ec2_client.meta,
+                "region_name",
+                None,
+            )
+
+        return {
+            "region": region,
+            "internet_gateway_block_mode": options.get(
+                "InternetGatewayBlockMode"
+            ),
+            "state": options.get("State"),
+            "managed_by": options.get("ManagedBy"),
+            "exclusions_allowed": options.get(
+                "ExclusionsAllowed"
+            ),
+        }
 
     def _get_network_acls(self) -> list[dict[str, Any]]:
         if self._network_acls_cache is None:
