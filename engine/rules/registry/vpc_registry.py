@@ -42,6 +42,27 @@ from engine.rules.aws.vpc.unused_network_acl import (
     build_unused_network_acl_finding,
     check_unused_network_acl,
 )
+from engine.rules.aws.vpc.client_vpn_logging import (
+    build_client_vpn_logging_finding,
+    check_client_vpn_logging,
+)
+from engine.rules.aws.vpc.vpn_logging import (
+    build_vpn_logging_finding,
+    check_vpn_logging,
+)
+from engine.rules.aws.vpc.spot_fleet_ebs_encryption import (
+    build_spot_fleet_ebs_encryption_finding,
+    check_spot_fleet_ebs_encryption,
+)
+from engine.rules.aws.vpc.eni_source_destination_check import (
+    build_eni_source_destination_check_finding,
+    check_eni_source_destination_check,
+)
+from engine.rules.aws.vpc.vpn_ikev2 import (
+    build_vpn_ikev2_finding,
+    check_vpn_ikev2,
+)
+
 from engine.rules.aws.vpc.unrestricted_network_acl import (
     build_unrestricted_network_acl_finding,
     check_unrestricted_network_acl,
@@ -274,6 +295,78 @@ VPC_RULES = RuleRegistry(
             ],
             check=check_unrestricted_network_acl,
             build_finding=build_unrestricted_network_acl_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-016",
+            name="client_vpn_logging",
+            data_source="client_vpn_logging_coverage",
+            collection_mode="multiple",
+            check_arguments=[
+                "endpoint_id",
+                "vpc_id",
+                "connection_log_enabled",
+            ],
+            check=check_client_vpn_logging,
+            build_finding=build_client_vpn_logging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-017",
+            name="vpn_logging",
+            data_source="vpn_logging_coverage",
+            collection_mode="multiple",
+            check_arguments=[
+                "vpn_connection_id",
+                "tunnel_1_logging_enabled",
+                "tunnel_2_logging_enabled",
+            ],
+            check=check_vpn_logging,
+            build_finding=build_vpn_logging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-018",
+            name="spot_fleet_ebs_encryption",
+            data_source="spot_fleet_ebs_encryption_coverage",
+            collection_mode="multiple",
+            check_arguments=[
+                "spot_fleet_request_id",
+                "launch_parameters_present",
+                "ebs_volume_count",
+                "unencrypted_volume_count",
+            ],
+            check=check_spot_fleet_ebs_encryption,
+            build_finding=(
+                build_spot_fleet_ebs_encryption_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-019",
+            name="eni_source_destination_check",
+            data_source="eni_source_destination_check_coverage",
+            collection_mode="multiple",
+            check_arguments=[
+                "network_interface_id",
+                "interface_type",
+                "source_dest_check",
+                "vpc_id",
+                "subnet_id",
+            ],
+            check=check_eni_source_destination_check,
+            build_finding=(
+                build_eni_source_destination_check_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-020",
+            name="vpn_ikev2",
+            data_source="vpn_ikev2_coverage",
+            collection_mode="multiple",
+            check_arguments=[
+                "vpn_connection_id",
+                "tunnel_1_ike_versions",
+                "tunnel_2_ike_versions",
+            ],
+            check=check_vpn_ikev2,
+            build_finding=build_vpn_ikev2_finding,
         ),
     ]
 )

@@ -253,6 +253,131 @@ class VPCService:
                 f"{exc}"
             ) from exc
 
+    def describe_client_vpn_endpoints(self) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_client_vpn_endpoints"
+            )
+
+            endpoints: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                endpoints.extend(
+                    page.get("ClientVpnEndpoints", [])
+                )
+
+            return endpoints
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"Client VPN endpoint discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during Client VPN endpoint discovery: "
+                f"{exc}"
+            ) from exc
+
+    def describe_vpn_connections(self) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_vpn_connections"
+            )
+
+            connections: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                connections.extend(
+                    page.get("VpnConnections", [])
+                )
+
+            return connections
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"VPN connection discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during VPN connection discovery: "
+                f"{exc}"
+            ) from exc
+
+    def describe_spot_fleet_requests(self) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_spot_fleet_requests"
+            )
+
+            fleets: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                fleets.extend(
+                    page.get("SpotFleetRequestConfigs", [])
+                )
+
+            return fleets
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"Spot Fleet discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during Spot Fleet discovery: "
+                f"{exc}"
+            ) from exc
+
+    def describe_network_interfaces(self) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_network_interfaces"
+            )
+
+            interfaces: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                interfaces.extend(
+                    page.get("NetworkInterfaces", [])
+                )
+
+            return interfaces
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+
+            raise RuntimeError(
+                f"Network interface discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during network interface discovery: "
+                f"{exc}"
+            ) from exc
+
+
     def describe_network_acls(self) -> list[dict[str, Any]]:
         try:
             paginator = self.ec2_client.get_paginator(

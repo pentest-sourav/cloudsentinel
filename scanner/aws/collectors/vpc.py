@@ -21,6 +21,10 @@ class VPCDataCollector:
         self._vpc_endpoints_cache: list[dict[str, Any]] | None = None
         self._vpc_bpa_options_cache: dict[str, Any] | None = None
         self._subnets_cache: list[dict[str, Any]] | None = None
+        self._client_vpn_endpoints_cache: list[dict[str, Any]] | None = None
+        self._vpn_connections_cache: list[dict[str, Any]] | None = None
+        self._spot_fleet_requests_cache: list[dict[str, Any]] | None = None
+        self._network_interfaces_cache: list[dict[str, Any]] | None = None
 
     def _get_vpcs(self) -> list[dict[str, Any]]:
         if self._vpcs_cache is None:
@@ -175,6 +179,294 @@ class VPCDataCollector:
             )
 
         return self._network_acls_cache
+
+    def _get_client_vpn_endpoints(self) -> list[dict[str, Any]]:
+        if self._client_vpn_endpoints_cache is None:
+            self._client_vpn_endpoints_cache = (
+                self.service.describe_client_vpn_endpoints()
+            )
+
+        return self._client_vpn_endpoints_cache
+
+    def _get_vpn_connections(self) -> list[dict[str, Any]]:
+        if self._vpn_connections_cache is None:
+            self._vpn_connections_cache = (
+                self.service.describe_vpn_connections()
+            )
+
+        return self._vpn_connections_cache
+
+    def _get_spot_fleet_requests(self) -> list[dict[str, Any]]:
+        if self._spot_fleet_requests_cache is None:
+            self._spot_fleet_requests_cache = (
+                self.service.describe_spot_fleet_requests()
+            )
+
+        return self._spot_fleet_requests_cache
+
+    def _get_network_interfaces(self) -> list[dict[str, Any]]:
+        if self._network_interfaces_cache is None:
+            self._network_interfaces_cache = (
+                self.service.describe_network_interfaces()
+            )
+
+        return self._network_interfaces_cache
+
+    def collect_client_vpn_logging_coverage(
+        self,
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+
+        for endpoint in self._get_client_vpn_endpoints():
+            endpoint_id = endpoint.get("ClientVpnEndpointId")
+
+            if not endpoint_id:
+                continue
+
+            log_options = endpoint.get(
+                "ConnectionLogOptions",
+                {},
+            )
+
+            normalized.append(
+                {
+                    "endpoint_id": endpoint_id,
+                    "vpc_id": endpoint.get("VpcId"),
+                    "connection_log_enabled": bool(
+                        log_options.get("Enabled", False)
+                    ),
+                }
+            )
+
+        return normalized
+
+    @staticmethod
+    def _vpn_tunnel_log_enabled(
+        tunnel: dict[str, Any],
+    ) -> bool:
+        log_options = tunnel.get("LogOptions", {})
+        cloudwatch = log_options.get(
+            "CloudwatchLogOptions",
+            {},
+        )
+
+        return bool(cloudwatch.get("LogEnabled", False))
+
+    @staticmethod
+    def _vpn_tunnel_ike_versions(
+        tunnel: dict[str, Any],
+    ) -> list[str]:
+        versions = tunnel.get("IkeVersions", [])
+
+        normalized: list[str] = []
+
+        for version in versions:
+            if isinstance(version, dict):
+                value = version.get("Value")
+            else:
+                value = version
+
+            if value:
+                normalized.append(str(value).lower())
+
+        return normalized
+
+    def _vpn_tunnel_options(
+        self,
+        connection: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        options = connection.get(
+            "VgwTelemetry",
+        )
+
+        if options:
+            return []
+
+        return connection.get(
+            "Options",
+            {},
+        ).get(
+            "TunnelOptions",
+            [],
+        )
+
+    def collect_vpn_logging_coverage(
+        self,
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+
+        for connection in self._get_vpn_connections():
+            connection_id = connection.get("VpnConnectionId")
+
+            if not connection_id:
+                continue
+
+            tunnels = connection.get(
+                "Options",
+                {},
+            ).get(
+                "TunnelOptions",
+                [],
+            )
+
+            log_statuses = [
+                self._vpn_tunnel_log_enabled(tunnel)
+                for tunnel in tunnels[:2]
+            ]
+
+            while len(log_statuses) < 2:
+                log_statuses.append(False)
+
+            normalized.append(
+                {
+                    "vpn_connection_id": connection_id,
+                    "tunnel_1_logging_enabled": log_statuses[0],
+                    "tunnel_2_logging_enabled": log_statuses[1],
+                }
+            )
+
+        return normalized
+
+    def collect_spot_fleet_ebs_encryption_coverage(
+        self,
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+
+        for fleet in self._get_spot_fleet_requests():
+            fleet_id = fleet.get("SpotFleetRequestId")
+
+            if not fleet_id:
+                continue
+
+            config = fleet.get(
+                "SpotFleetRequestConfig",
+                {},
+            )
+
+            launch_specs = config.get(
+                "LaunchSpecifications",
+                [],
+            )
+
+            launch_template_configs = config.get(
+                "LaunchTemplateConfigs",
+                [],
+            )
+
+            has_launch_parameters = bool(
+                launch_specs or launch_template_configs
+            )
+
+            unencrypted_volume_count = 0
+            ebs_volume_count = 0
+
+            for specification in launch_specs:
+                for mapping in specification.get(
+                    "BlockDeviceMappings",
+                    [],
+                ):
+                    ebs = mapping.get("Ebs")
+
+                    if not ebs:
+                        continue
+
+                    ebs_volume_count += 1
+
+                    if ebs.get("Encrypted") is not True:
+                        unencrypted_volume_count += 1
+
+            normalized.append(
+                {
+                    "spot_fleet_request_id": fleet_id,
+                    "launch_parameters_present": has_launch_parameters,
+                    "ebs_volume_count": ebs_volume_count,
+                    "unencrypted_volume_count": (
+                        unencrypted_volume_count
+                    ),
+                }
+            )
+
+        return normalized
+
+    def collect_eni_source_destination_check_coverage(
+        self,
+    ) -> list[dict[str, Any]]:
+        managed_types = {
+            "aws_codestar_connections_managed",
+            "branch",
+            "efa",
+            "interface",
+            "lambda",
+            "quicksight",
+        }
+
+        normalized: list[dict[str, Any]] = []
+
+        for interface in self._get_network_interfaces():
+            interface_id = interface.get("NetworkInterfaceId")
+
+            if not interface_id:
+                continue
+
+            interface_type = str(
+                interface.get("InterfaceType", "interface")
+            ).lower()
+
+            if interface_type not in managed_types:
+                continue
+
+            normalized.append(
+                {
+                    "network_interface_id": interface_id,
+                    "interface_type": interface_type,
+                    "source_dest_check": interface.get(
+                        "SourceDestCheck",
+                        True,
+                    ),
+                    "vpc_id": interface.get("VpcId"),
+                    "subnet_id": interface.get("SubnetId"),
+                }
+            )
+
+        return normalized
+
+    def collect_vpn_ikev2_coverage(
+        self,
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+
+        for connection in self._get_vpn_connections():
+            connection_id = connection.get("VpnConnectionId")
+
+            if not connection_id:
+                continue
+
+            tunnels = connection.get(
+                "Options",
+                {},
+            ).get(
+                "TunnelOptions",
+                [],
+            )
+
+            versions = [
+                self._vpn_tunnel_ike_versions(tunnel)
+                for tunnel in tunnels[:2]
+            ]
+
+            while len(versions) < 2:
+                versions.append([])
+
+            normalized.append(
+                {
+                    "vpn_connection_id": connection_id,
+                    "tunnel_1_ike_versions": versions[0],
+                    "tunnel_2_ike_versions": versions[1],
+                }
+            )
+
+        return normalized
+
 
     def collect_vpcs(self) -> list[dict[str, Any]]:
         normalized = []

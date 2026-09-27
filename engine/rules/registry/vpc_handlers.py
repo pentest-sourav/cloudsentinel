@@ -135,6 +135,37 @@ def collect_network_acls(
     return collector.collect_network_acls()
 
 
+def collect_client_vpn_logging_coverage(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_client_vpn_logging_coverage()
+
+
+def collect_vpn_logging_coverage(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_vpn_logging_coverage()
+
+
+def collect_spot_fleet_ebs_encryption_coverage(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_spot_fleet_ebs_encryption_coverage()
+
+
+def collect_eni_source_destination_check_coverage(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_eni_source_destination_check_coverage()
+
+
+def collect_vpn_ikev2_coverage(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_vpn_ikev2_coverage()
+
+
+
 VPC_DATA_SOURCE_HANDLERS = {
     "vpcs": collect_vpcs,
     "internet_gateways": collect_internet_gateways,
@@ -152,4 +183,15 @@ VPC_DATA_SOURCE_HANDLERS = {
     ),
     "network_acls": collect_network_acls,
     "ec2_endpoint_coverage": collect_ec2_endpoint_coverage,
+    "client_vpn_logging_coverage": (
+        collect_client_vpn_logging_coverage
+    ),
+    "vpn_logging_coverage": collect_vpn_logging_coverage,
+    "spot_fleet_ebs_encryption_coverage": (
+        collect_spot_fleet_ebs_encryption_coverage
+    ),
+    "eni_source_destination_check_coverage": (
+        collect_eni_source_destination_check_coverage
+    ),
+    "vpn_ikev2_coverage": collect_vpn_ikev2_coverage,
 }

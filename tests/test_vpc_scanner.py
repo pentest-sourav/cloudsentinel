@@ -8,6 +8,10 @@ def base_service():
 
     # Keep legacy VPC scanner fixtures isolated from newer controls.
     service.describe_subnets.return_value = []
+    service.describe_client_vpn_endpoints.return_value = []
+    service.describe_vpn_connections.return_value = []
+    service.describe_spot_fleet_requests.return_value = []
+    service.describe_network_interfaces.return_value = []
 
     # VPC-011..015 require interface endpoint discovery.
     # Legacy tests should not produce endpoint findings unless
