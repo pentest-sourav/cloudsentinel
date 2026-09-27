@@ -127,3 +127,54 @@ def test_describe_network_acls():
     client.get_paginator.assert_called_once_with(
         "describe_network_acls"
     )
+
+
+def test_describe_vpc_endpoints_returns_paginated_endpoints():
+    from unittest.mock import MagicMock
+
+    session = MagicMock()
+    client = MagicMock()
+    session.client.return_value = client
+
+    paginator = MagicMock()
+    paginator.paginate.return_value = [
+        {
+            "VpcEndpoints": [
+                {
+                    "VpcEndpointId": "vpce-123",
+                    "VpcId": "vpc-123",
+                    "ServiceName": "com.amazonaws.us-east-1.ec2",
+                }
+            ]
+        },
+        {
+            "VpcEndpoints": [
+                {
+                    "VpcEndpointId": "vpce-456",
+                    "VpcId": "vpc-456",
+                    "ServiceName": "com.amazonaws.us-east-1.ec2-fips",
+                }
+            ]
+        },
+    ]
+
+    client.get_paginator.return_value = paginator
+
+    service = VPCService(session)
+
+    assert service.describe_vpc_endpoints() == [
+        {
+            "VpcEndpointId": "vpce-123",
+            "VpcId": "vpc-123",
+            "ServiceName": "com.amazonaws.us-east-1.ec2",
+        },
+        {
+            "VpcEndpointId": "vpce-456",
+            "VpcId": "vpc-456",
+            "ServiceName": "com.amazonaws.us-east-1.ec2-fips",
+        },
+    ]
+
+    client.get_paginator.assert_called_once_with(
+        "describe_vpc_endpoints"
+    )

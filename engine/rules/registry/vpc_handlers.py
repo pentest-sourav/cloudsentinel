@@ -25,6 +25,12 @@ def collect_flow_log_coverage(
     return collector.collect_flow_log_coverage()
 
 
+def collect_ec2_endpoint_coverage(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_endpoint_coverage()
+
+
 def collect_network_acls(
     collector: VPCDataCollector,
 ) -> list[dict]:
@@ -37,4 +43,5 @@ VPC_DATA_SOURCE_HANDLERS = {
     "default_security_groups": collect_default_security_groups,
     "flow_log_coverage": collect_flow_log_coverage,
     "network_acls": collect_network_acls,
+    "ec2_endpoint_coverage": collect_ec2_endpoint_coverage,
 }

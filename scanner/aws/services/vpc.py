@@ -141,6 +141,46 @@ class VPCService:
                 f"{exc}"
             ) from exc
 
+    def describe_vpc_endpoints(self) -> list[dict[str, Any]]:
+        """
+        Return all VPC endpoints in the current AWS account/region.
+
+        AWS API access remains isolated to the service layer.
+        Security evaluation is performed by the collector/rule layers.
+        """
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_vpc_endpoints"
+            )
+
+            endpoints: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                endpoints.extend(
+                    page.get("VpcEndpoints", [])
+                )
+
+            return endpoints
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"VPC endpoint discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during VPC endpoint discovery: "
+                f"{exc}"
+            ) from exc
+
     def describe_network_acls(self) -> list[dict[str, Any]]:
         try:
             paginator = self.ec2_client.get_paginator(

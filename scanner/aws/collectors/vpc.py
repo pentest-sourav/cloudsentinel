@@ -18,6 +18,7 @@ class VPCDataCollector:
         ) = None
         self._flow_logs_cache: list[dict[str, Any]] | None = None
         self._network_acls_cache: list[dict[str, Any]] | None = None
+        self._vpc_endpoints_cache: list[dict[str, Any]] | None = None
 
     def _get_vpcs(self) -> list[dict[str, Any]]:
         if self._vpcs_cache is None:
@@ -46,6 +47,14 @@ class VPCDataCollector:
             self._flow_logs_cache = self.service.describe_flow_logs()
 
         return self._flow_logs_cache
+
+    def _get_vpc_endpoints(self) -> list[dict[str, Any]]:
+        if self._vpc_endpoints_cache is None:
+            self._vpc_endpoints_cache = (
+                self.service.describe_vpc_endpoints()
+            )
+
+        return self._vpc_endpoints_cache
 
     def _get_network_acls(self) -> list[dict[str, Any]]:
         if self._network_acls_cache is None:
@@ -186,6 +195,70 @@ class VPCDataCollector:
                     "flow_log_count": len(vpc_flow_logs),
                     "active_flow_log_count": len(active_flow_logs),
                     "flow_logging_enabled": bool(active_flow_logs),
+                }
+            )
+
+        return normalized
+
+    def collect_ec2_endpoint_coverage(self) -> list[dict[str, Any]]:
+        """
+        Normalize EC2 VPC endpoint coverage per VPC.
+
+        Security Hub EC2.10 requires an Amazon EC2 endpoint for
+        every VPC. Both the standard regional EC2 endpoint service
+        name and the FIPS variant are treated as compliant.
+
+        Example:
+            com.amazonaws.us-east-1.ec2
+            com.amazonaws.us-east-1.ec2-fips
+        """
+        vpcs = self._get_vpcs()
+        endpoints = self._get_vpc_endpoints()
+
+        region = getattr(
+            self.service.ec2_client.meta,
+            "region_name",
+            None,
+        )
+
+        expected_service_names: set[str] = set()
+
+        if region:
+            expected_service_names.add(
+                f"com.amazonaws.{region}.ec2"
+            )
+            expected_service_names.add(
+                f"com.amazonaws.{region}.ec2-fips"
+            )
+
+        covered_vpcs: set[str] = set()
+
+        for endpoint in endpoints:
+            vpc_id = endpoint.get("VpcId")
+
+            if not vpc_id:
+                continue
+
+            service_name = endpoint.get("ServiceName")
+
+            if service_name in expected_service_names:
+                covered_vpcs.add(vpc_id)
+
+        normalized: list[dict[str, Any]] = []
+
+        for vpc in vpcs:
+            vpc_id = vpc.get("VpcId")
+
+            if not vpc_id:
+                continue
+
+            normalized.append(
+                {
+                    "vpc_id": vpc_id,
+                    "region": region,
+                    "ec2_endpoint_enabled": (
+                        vpc_id in covered_vpcs
+                    ),
                 }
             )
 

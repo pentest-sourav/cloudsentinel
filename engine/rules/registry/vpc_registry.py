@@ -1,3 +1,7 @@
+from engine.rules.aws.vpc.ec2_endpoint import (
+    build_ec2_vpc_endpoint_finding,
+    check_ec2_vpc_endpoint,
+)
 from engine.rules.aws.vpc.default_security_group import (
     build_default_security_group_finding,
     check_default_security_group,
@@ -78,6 +82,19 @@ VPC_RULES = RuleRegistry(
             ],
             check=check_vpc_flow_logs,
             build_finding=build_vpc_flow_logs_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-VPC-006",
+            name="ec2_vpc_endpoint",
+            data_source="ec2_endpoint_coverage",
+            collection_mode="multiple",
+            check_arguments=[
+                "vpc_id",
+                "region",
+                "ec2_endpoint_enabled",
+            ],
+            check=check_ec2_vpc_endpoint,
+            build_finding=build_ec2_vpc_endpoint_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-VPC-005",
