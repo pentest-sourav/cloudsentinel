@@ -5,11 +5,22 @@ from scanner.aws.scanners.vpc_scanner import VPCScanner
 
 def base_service():
     service = Mock()
+    service.ec2_client.meta.region_name = "us-east-1"
     service.describe_vpcs.return_value = []
     service.describe_internet_gateways.return_value = []
     service.describe_default_security_groups.return_value = []
     service.describe_flow_logs.return_value = []
     service.describe_network_acls.return_value = []
+    service.describe_vpc_endpoints.return_value = [
+        {
+            "VpcId": "vpc-12345678",
+            "ServiceName": "com.amazonaws.us-east-1.ec2",
+        },
+        {
+            "VpcId": "vpc-87654321",
+            "ServiceName": "com.amazonaws.us-east-1.ec2",
+        },
+    ]
     return service
 
 
