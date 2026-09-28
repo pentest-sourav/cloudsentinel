@@ -156,6 +156,23 @@ from engine.rules.aws.iam.access_analyzer_security_warning import (
     build_access_analyzer_security_warning_finding,
 )
 
+from engine.rules.aws.iam.tagging import (
+    check_iam_tagging,
+    build_iam_tagging_finding,
+)
+from engine.rules.aws.iam.expired_server_certificate import (
+    check_expired_server_certificate,
+    build_expired_server_certificate_finding,
+)
+from engine.rules.aws.iam.cloudshell_full_access import (
+    check_cloudshell_full_access,
+    build_cloudshell_full_access_finding,
+)
+from engine.rules.aws.iam.external_access_analyzer import (
+    check_external_access_analyzer,
+    build_external_access_analyzer_finding,
+)
+
 
 IAM_RULES = RuleRegistry(
     [
@@ -808,5 +825,101 @@ IAM_RULES = RuleRegistry(
                 build_access_analyzer_security_warning_finding
             ),
         ),
+
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-040",
+            name="access_analyzer_tagging",
+            data_source="access_analyzer_tagging",
+            collection_mode="multiple",
+            check_arguments=[
+                "analyzer_arn",
+                "tags",
+            ],
+            check=lambda **kwargs: check_iam_tagging(
+                rule_id="CS-AWS-IAM-040",
+                resource_type="iam_access_analyzer",
+                resource_id=kwargs["analyzer_arn"],
+                title="IAM Access Analyzer Should Be Tagged",
+                tags=kwargs["tags"],
+            ),
+            build_finding=build_iam_tagging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-041",
+            name="role_tagging",
+            data_source="role_tagging",
+            collection_mode="multiple",
+            check_arguments=[
+                "role_arn",
+                "tags",
+            ],
+            check=lambda **kwargs: check_iam_tagging(
+                rule_id="CS-AWS-IAM-041",
+                resource_type="iam_role",
+                resource_id=kwargs["role_arn"],
+                title="IAM Role Should Be Tagged",
+                tags=kwargs["tags"],
+            ),
+            build_finding=build_iam_tagging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-042",
+            name="user_tagging",
+            data_source="user_tagging",
+            collection_mode="multiple",
+            check_arguments=[
+                "user_arn",
+                "tags",
+            ],
+            check=lambda **kwargs: check_iam_tagging(
+                rule_id="CS-AWS-IAM-042",
+                resource_type="iam_user",
+                resource_id=kwargs["user_arn"],
+                title="IAM User Should Be Tagged",
+                tags=kwargs["tags"],
+            ),
+            build_finding=build_iam_tagging_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-043",
+            name="expired_server_certificate",
+            data_source="expired_server_certificates",
+            collection_mode="multiple",
+            check_arguments=[
+                "certificate_name",
+                "certificate_arn",
+                "certificate_id",
+                "expiration",
+            ],
+            check=check_expired_server_certificate,
+            build_finding=build_expired_server_certificate_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-044",
+            name="cloudshell_full_access",
+            data_source="cloudshell_full_access_identities",
+            collection_mode="multiple",
+            check_arguments=[
+                "identity_type",
+                "identity_name",
+                "identity_arn",
+                "policy_arn",
+            ],
+            check=check_cloudshell_full_access,
+            build_finding=build_cloudshell_full_access_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-IAM-045",
+            name="external_access_analyzer",
+            data_source="external_access_analyzer",
+            collection_mode="single",
+            check_arguments=[
+                "external_access_analyzer_enabled",
+                "analyzer_arns",
+            ],
+            check=check_external_access_analyzer,
+            build_finding=build_external_access_analyzer_finding,
+        ),
+
     ]
 )

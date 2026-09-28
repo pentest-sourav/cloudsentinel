@@ -90,6 +90,12 @@ def test_iam_rules_have_valid_data_sources():
         "self_modifiable_policies",
         "cross_account_role_trusts",
         "access_analyzer_policy_validation",
+        "access_analyzer_tagging",
+        "role_tagging",
+        "user_tagging",
+        "expired_server_certificates",
+        "cloudshell_full_access_identities",
+        "external_access_analyzer",
     }
 
     for rule in IAM_RULES:

@@ -32,6 +32,12 @@ def test_iam_data_source_handlers_have_expected_sources():
         "self_modifiable_policies",
         "cross_account_role_trusts",
         "access_analyzer_policy_validation",
+        "access_analyzer_tagging",
+        "role_tagging",
+        "user_tagging",
+        "expired_server_certificates",
+        "cloudshell_full_access_identities",
+        "external_access_analyzer",
     }
 
     assert set(IAM_DATA_SOURCE_HANDLERS) == expected_sources

@@ -235,6 +235,42 @@ def collect_access_analyzer_policy_validation(
     return collector.collect_access_analyzer_policy_validation()
 
 
+def collect_access_analyzer_tagging(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_access_analyzer_tagging()
+
+
+def collect_role_tagging(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_role_tagging()
+
+
+def collect_user_tagging(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_user_tagging()
+
+
+def collect_expired_server_certificates(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_expired_server_certificates()
+
+
+def collect_cloudshell_full_access_identities(
+    collector: IAMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_cloudshell_full_access_identities()
+
+
+def collect_external_access_analyzer(
+    collector: IAMDataCollector,
+) -> dict[str, Any]:
+    return collector.collect_external_access_analyzer()
+
+
 IAM_DATA_SOURCE_HANDLERS: dict[
     str,
     Callable[[IAMDataCollector], Any],
@@ -298,5 +334,23 @@ IAM_DATA_SOURCE_HANDLERS: dict[
     ),
     "access_analyzer_policy_validation": (
         collect_access_analyzer_policy_validation
+    ),
+    "access_analyzer_tagging": (
+        collect_access_analyzer_tagging
+    ),
+    "role_tagging": (
+        collect_role_tagging
+    ),
+    "user_tagging": (
+        collect_user_tagging
+    ),
+    "expired_server_certificates": (
+        collect_expired_server_certificates
+    ),
+    "cloudshell_full_access_identities": (
+        collect_cloudshell_full_access_identities
+    ),
+    "external_access_analyzer": (
+        collect_external_access_analyzer
     ),
 }

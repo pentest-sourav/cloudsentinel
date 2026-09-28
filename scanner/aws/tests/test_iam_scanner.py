@@ -62,6 +62,26 @@ def _configure_common_iam_service(service, username):
         "MaxPasswordAge": 90,
     }
 
+    # IAM-040 through IAM-045 default mock data sources.
+    # Individual tests can override these when testing the new rules.
+    service.list_access_analyzer_analyzers.return_value = [
+        {
+            "arn": "arn:aws:access-analyzer:us-east-1:123456789012:analyzer/test-external",
+            "status": "ACTIVE",
+            "tags": {
+                "Environment": "test",
+            },
+        }
+    ]
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "Users": [],
+        "Groups": [],
+        "Roles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+
     _configure_credential_report(service)
     _configure_broad_user_policies(service)
     _configure_broad_user_inline_policies(service)
@@ -74,6 +94,15 @@ def _configure_common_iam_service(service, username):
 
 def test_iam_scanner_detects_old_active_access_key():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "Users": [],
+        "Groups": [],
+        "Roles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
     service.list_roles.return_value = []
 
     service.get_account_summary.return_value = {
@@ -141,6 +170,15 @@ def test_iam_scanner_detects_old_active_access_key():
 
 def test_iam_scanner_returns_root_and_user_mfa_findings():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "Users": [],
+        "Groups": [],
+        "Roles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = False
@@ -180,6 +218,18 @@ def test_iam_scanner_returns_no_mfa_findings_when_users_are_protected():
         service,
         "protected-user",
     )
+    service.list_user_tags.return_value = [
+        {"Key": "Environment", "Value": "test"},
+    ]
+    service.list_access_analyzer_analyzers.return_value = [
+        {
+            "arn": "arn:aws:access-analyzer:us-east-1:123456789012:analyzer/test-external",
+            "status": "ACTIVE",
+            "tags": {
+                "Environment": "test",
+            },
+        }
+    ]
 
     scanner = IAMScanner(service)
 
@@ -196,6 +246,18 @@ def test_iam_scanner_uses_registry_data_sources():
         service,
         "test-user",
     )
+    service.list_user_tags.return_value = [
+        {"Key": "Environment", "Value": "test"},
+    ]
+    service.list_access_analyzer_analyzers.return_value = [
+        {
+            "arn": "arn:aws:access-analyzer:us-east-1:123456789012:analyzer/test-external",
+            "status": "ACTIVE",
+            "tags": {
+                "Environment": "test",
+            },
+        }
+    ]
 
     scanner = IAMScanner(service)
 
@@ -462,6 +524,23 @@ def test_iam_scanner_does_not_report_group_deny_statement():
 
 def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = [
+        {
+            "arn": "arn:aws:access-analyzer:us-east-1:123456789012:analyzer/test-external",
+            "status": "ACTIVE",
+            "tags": {
+                "Environment": "test",
+            },
+        }
+    ]
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "Users": [],
+        "Groups": [],
+        "Roles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -496,6 +575,10 @@ def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
         "PasswordReusePrevention": 24,
         "MaxPasswordAge": 90,
     }
+
+    service.list_user_tags.return_value = [
+        {"Key": "Environment", "Value": "test"},
+    ]
 
     _configure_credential_report(service)
     _configure_broad_user_policies(service)

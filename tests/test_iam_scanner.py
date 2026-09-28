@@ -80,10 +80,67 @@ def _configure_common_iam_service(service, username):
     # unless a test explicitly configures them.
     service.validate_policy.return_value = []
 
+    # IAM-040..045: default fixtures for the newly registered
+    # IAM data sources. Keep these neutral so legacy tests only
+    # exercise the IAM rule behavior they explicitly configure.
+    service.list_access_analyzer_analyzers.return_value = [
+        {
+            "arn": (
+                "arn:aws:access-analyzer:us-east-1:"
+                "123456789012:analyzer/test-external"
+            ),
+            "status": "ACTIVE",
+            "type": "ACCOUNT",
+            "tags": {
+                "Environment": "test",
+            },
+        }
+    ]
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = [
+        {
+            "Key": "Environment",
+            "Value": "test",
+        }
+    ]
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+
 
 def test_iam_scanner_returns_root_and_user_mfa_findings():
     service = Mock()
     service.list_roles.return_value = []
+
+    service.list_access_analyzer_analyzers.return_value = [
+        {
+            "arn": (
+                "arn:aws:access-analyzer:us-east-1:"
+                "123456789012:analyzer/test-external"
+            ),
+            "status": "ACTIVE",
+            "type": "ACCOUNT",
+            "tags": {
+                "Environment": "test",
+            },
+        }
+    ]
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = [
+        {
+            "Key": "Environment",
+            "Value": "test",
+        }
+    ]
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
 
     service.get_root_mfa_status.return_value = False
 
@@ -402,6 +459,33 @@ def test_iam_scanner_does_not_report_group_deny_statement():
 def test_iam_scanner_reuses_group_policy_collection_for_shared_group():
     service = Mock()
     service.list_roles.return_value = []
+
+    service.list_access_analyzer_analyzers.return_value = [
+        {
+            "arn": (
+                "arn:aws:access-analyzer:us-east-1:"
+                "123456789012:analyzer/test-external"
+            ),
+            "status": "ACTIVE",
+            "type": "ACCOUNT",
+            "tags": {
+                "Environment": "test",
+            },
+        }
+    ]
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = [
+        {
+            "Key": "Environment",
+            "Value": "test",
+        }
+    ]
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
 
     service.get_root_mfa_status.return_value = True
     service.get_root_access_keys_present.return_value = False

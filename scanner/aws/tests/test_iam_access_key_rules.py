@@ -25,6 +25,23 @@ def _configure_broad_group_policies(service):
 
 def test_iam_scanner_evaluates_access_key_rules_together():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -109,6 +126,23 @@ def test_iam_scanner_evaluates_access_key_rules_together():
 
 def test_iam_scanner_detects_multiple_active_access_keys():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -198,6 +232,23 @@ def test_iam_scanner_detects_multiple_active_access_keys():
 
 def test_iam_scanner_does_not_detect_single_active_access_key():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -262,6 +313,23 @@ def test_iam_scanner_does_not_detect_single_active_access_key():
 
 def test_iam_scanner_detects_multiple_authentication_methods():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -338,6 +406,23 @@ def test_iam_scanner_detects_multiple_authentication_methods():
 
 def test_iam_scanner_does_not_detect_multiple_authentication_methods_when_password_disabled():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -399,6 +484,23 @@ def test_iam_scanner_does_not_detect_multiple_authentication_methods_when_passwo
 
 def test_iam_scanner_does_not_detect_multiple_authentication_methods_without_active_key():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -460,6 +562,23 @@ def test_iam_scanner_does_not_detect_multiple_authentication_methods_without_act
 
 def test_iam_scanner_detects_active_access_key_that_has_never_been_used():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -534,6 +653,23 @@ def test_iam_scanner_detects_active_access_key_that_has_never_been_used():
 
 def test_iam_scanner_does_not_detect_active_access_key_that_was_used():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
@@ -601,6 +737,23 @@ def test_iam_scanner_does_not_detect_active_access_key_that_was_used():
 
 def test_iam_scanner_does_not_detect_inactive_access_key_that_has_never_been_used():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True

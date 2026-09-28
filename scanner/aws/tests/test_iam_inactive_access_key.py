@@ -25,6 +25,23 @@ def _configure_broad_group_policies(service):
 
 def test_iam_scanner_detects_inactive_access_key():
     service = Mock()
+    service.list_access_analyzer_analyzers.return_value = []
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
+    service.list_role_tags.return_value = []
+    service.list_user_tags.return_value = []
+    service.list_server_certificates.return_value = []
+    service.list_entities_for_policy.return_value = {
+        "PolicyUsers": [],
+        "PolicyGroups": [],
+        "PolicyRoles": [],
+    }
     service.list_roles.return_value = []
 
     service.get_root_mfa_status.return_value = True
