@@ -52,3 +52,39 @@ def get_cloud_account(
         )
         .first()
     )
+
+
+def delete_cloud_account(
+    db: Session,
+    account_id: int,
+    tenant_id: int,
+) -> bool:
+    account = get_cloud_account(
+        db=db,
+        account_id=account_id,
+        tenant_id=tenant_id,
+    )
+
+    if account is None:
+        return False
+
+    # Preserve historical scans/findings while removing the
+    # cloud-account configuration itself.
+    from backend.app.models.scan import Scan
+
+    (
+        db.query(Scan)
+        .filter(
+            Scan.cloud_account_id == account.id,
+            Scan.tenant_id == tenant_id,
+        )
+        .update(
+            {Scan.cloud_account_id: None},
+            synchronize_session=False,
+        )
+    )
+
+    db.delete(account)
+    db.commit()
+
+    return True

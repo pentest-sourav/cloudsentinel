@@ -21,6 +21,7 @@ COPY engine ./engine
 COPY scanner ./scanner
 COPY reporting ./reporting
 COPY database ./database
+COPY frontend ./frontend
 COPY tests ./tests
 COPY pyproject.toml .
 

@@ -6,12 +6,15 @@ from pydantic import BaseModel, Field
 class CloudAccountCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     provider: Literal["aws", "azure"]
-    external_account_id: str | None = Field(
-        default=None,
-        max_length=100,
+    external_account_id: str = Field(
+        ...,
+        min_length=12,
+        max_length=12,
+        pattern=r"^[0-9]{12}$",
     )
-    role_arn: str | None = Field(
-        default=None,
+    role_arn: str = Field(
+        ...,
+        min_length=1,
         max_length=2048,
     )
     external_id: str | None = Field(

@@ -12,6 +12,7 @@ from backend.app.services.cloud_account_service import (
     create_cloud_account,
     get_cloud_accounts,
     get_cloud_account,
+    delete_cloud_account,
 )
 
 
@@ -74,3 +75,27 @@ def get_cloud_account_by_id(
         )
 
     return account
+
+
+@router.delete(
+    "/{account_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_cloud_account(
+    account_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    deleted = delete_cloud_account(
+        db=db,
+        account_id=account_id,
+        tenant_id=current_user.tenant_id,
+    )
+
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cloud account not found",
+        )
+
+    return None

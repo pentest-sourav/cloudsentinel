@@ -2,15 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <meta
         name="description"
-        content="CloudSentinel Multi-Cloud Security Posture & Compliance Auditor"
+        content="CloudSentinel Multi-Cloud Security Posture & Compliance Platform"
     >
-    <title>CloudSentinel</title>
+
+    <meta name="theme-color" content="#07111f">
+
+    <title>CloudSentinel | Security Posture</title>
+
     <link rel="stylesheet" href="/styles.css">
 </head>
 
@@ -18,477 +20,809 @@
 
 <div id="toast-container"></div>
 
-<!-- LOGIN -->
+<!-- =========================================================
+     AUTH
+========================================================= -->
 <section id="auth-screen" class="auth-screen">
+
+    <div class="auth-background">
+        <div class="grid-glow"></div>
+        <div class="orb orb-one"></div>
+        <div class="orb orb-two"></div>
+    </div>
+
     <div class="auth-card">
-        <div class="brand">
+
+        <div class="auth-brand">
             <div class="brand-mark">CS</div>
+
             <div>
-                <h1>CloudSentinel</h1>
-                <p>Cloud Security Posture Management</p>
+                <div class="brand-name">CloudSentinel</div>
+                <div class="brand-subtitle">
+                    Cloud Security Posture Management
+                </div>
             </div>
+        </div>
+
+        <div class="auth-heading">
+            <span class="eyebrow">SECURITY OPERATIONS</span>
+            <h1>Secure your cloud.</h1>
+            <p>
+                Detect misconfigurations, understand risk,
+                and track security posture from one place.
+            </p>
         </div>
 
         <div class="auth-tabs">
             <button
                 class="auth-tab active"
                 data-auth-tab="login"
+                type="button"
             >
-                Login
+                Sign in
             </button>
+
             <button
                 class="auth-tab"
                 data-auth-tab="register"
+                type="button"
             >
-                Register
+                Create account
             </button>
         </div>
 
         <form id="login-form" class="auth-form">
+
             <label>
-                Organization
+                <span>Organization</span>
                 <input
                     id="login-tenant"
                     type="text"
                     autocomplete="organization"
                     maxlength="100"
+                    placeholder="Acme Security"
                     required
                 >
             </label>
 
             <label>
-                Email
+                <span>Email</span>
                 <input
                     id="login-email"
                     type="email"
                     autocomplete="email"
+                    placeholder="you@company.com"
                     required
                 >
             </label>
 
             <label>
-                Password
+                <span>Password</span>
                 <input
                     id="login-password"
                     type="password"
                     autocomplete="current-password"
                     minlength="12"
+                    placeholder="Minimum 12 characters"
                     required
                 >
             </label>
 
-            <button class="primary-btn" type="submit">
-                Sign in
+            <button class="primary-btn full" type="submit">
+                <span>Sign in</span>
+                <span class="btn-arrow">→</span>
             </button>
+
         </form>
 
         <form id="register-form" class="auth-form hidden">
+
             <label>
-                Full name
+                <span>Full name</span>
                 <input
                     id="register-name"
                     type="text"
                     autocomplete="name"
+                    placeholder="Your name"
                     required
                 >
             </label>
 
             <label>
-                Organization
+                <span>Organization</span>
                 <input
                     id="register-tenant"
                     type="text"
+                    autocomplete="organization"
+                    placeholder="Acme Security"
                     required
                 >
             </label>
 
             <label>
-                Email
+                <span>Email</span>
                 <input
                     id="register-email"
                     type="email"
                     autocomplete="email"
+                    placeholder="you@company.com"
                     required
                 >
             </label>
 
             <label>
-                Password
+                <span>Password</span>
                 <input
                     id="register-password"
                     type="password"
                     autocomplete="new-password"
                     minlength="12"
+                    placeholder="Minimum 12 characters"
                     required
                 >
             </label>
 
-            <button class="primary-btn" type="submit">
-                Create account
+            <button class="primary-btn full" type="submit">
+                <span>Create account</span>
+                <span class="btn-arrow">→</span>
             </button>
+
         </form>
 
         <div id="auth-error" class="error-box hidden"></div>
+
+        <div class="auth-footer">
+            <span class="status-dot"></span>
+            Your cloud security workspace
+        </div>
+
     </div>
 </section>
 
 
-<!-- APPLICATION -->
+<!-- =========================================================
+     APPLICATION
+========================================================= -->
 <section id="app-screen" class="app-shell hidden">
 
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-mark">CS</div>
-            <div>
-                <strong>CloudSentinel</strong>
-                <span>CSPM Platform</span>
+    <!-- MOBILE OVERLAY -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+
+        <div class="sidebar-top">
+
+            <div class="sidebar-brand">
+
+                <div class="brand-mark">CS</div>
+
+                <div class="sidebar-brand-copy">
+                    <strong>CloudSentinel</strong>
+                    <span>Security Platform</span>
+                </div>
+
             </div>
+
+            <button
+                id="mobile-sidebar-close"
+                class="icon-btn mobile-only"
+                type="button"
+                aria-label="Close navigation"
+            >
+                ×
+            </button>
+
         </div>
 
-        <nav>
-            <button class="nav-item active" data-view="dashboard">
-                <span>◈</span>
-                Dashboard
+
+        <div class="workspace-card">
+
+            <div class="workspace-icon">⌁</div>
+
+            <div>
+                <span class="workspace-label">WORKSPACE</span>
+                <strong id="workspace-name">Security Operations</strong>
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <div class="nav-section-label">MONITOR</div>
+
+            <button
+                class="nav-item active"
+                data-view="dashboard"
+                type="button"
+            >
+                <span class="nav-icon">◈</span>
+                <span>Overview</span>
             </button>
 
-            <button class="nav-item" data-view="accounts">
-                <span>☁</span>
-                AWS Accounts
+            <button
+                class="nav-item"
+                data-view="findings"
+                type="button"
+            >
+                <span class="nav-icon">!</span>
+                <span>Findings</span>
+                <span id="nav-findings-count" class="nav-count hidden">0</span>
             </button>
 
-            <button class="nav-item" data-view="scans">
-                <span>⌁</span>
-                Scan History
+            <button
+                class="nav-item"
+                data-view="scans"
+                type="button"
+            >
+                <span class="nav-icon">⌁</span>
+                <span>Scan History</span>
             </button>
+
+            <button
+                class="nav-item"
+                data-view="lifecycle"
+                type="button"
+            >
+                <span class="nav-icon">↔</span>
+                <span>Changes</span>
+            </button>
+
+
+            <div class="nav-section-label nav-gap">MANAGE</div>
+
+            <button
+                class="nav-item"
+                data-view="accounts"
+                type="button"
+            >
+                <span class="nav-icon">☁</span>
+                <span>Cloud Accounts</span>
+            </button>
+
+            <button
+                class="nav-item"
+                data-view="reports"
+                type="button"
+            >
+                <span class="nav-icon">▤</span>
+                <span>Reports</span>
+            </button>
+
         </nav>
 
-        <div class="sidebar-bottom">
-            <div id="current-user" class="current-user"></div>
 
-            <button id="logout-btn" class="logout-btn">
-                Sign out
-            </button>
+        <div class="sidebar-bottom">
+
+            <div class="connection-status">
+                <span class="status-dot"></span>
+
+                <div>
+                    <strong>Platform online</strong>
+                    <span>API connected</span>
+                </div>
+            </div>
+
+
+            <div class="current-user">
+
+                <div class="avatar" id="user-avatar">CS</div>
+
+                <div class="current-user-copy">
+                    <strong id="current-user-name">CloudSentinel User</strong>
+                    <span id="current-user-email">—</span>
+                </div>
+
+                <button
+                    id="logout-btn"
+                    class="user-menu-btn"
+                    type="button"
+                    title="Sign out"
+                >
+                    ↪
+                </button>
+
+            </div>
+
         </div>
+
     </aside>
 
 
+    <!-- MAIN -->
     <main class="main-content">
 
+        <!-- TOPBAR -->
         <header class="topbar">
-            <div>
-                <h2 id="page-title">Security Dashboard</h2>
-                <p id="page-subtitle">
-                    Monitor cloud security posture and compliance.
-                </p>
+
+            <div class="topbar-left">
+
+                <button
+                    id="mobile-sidebar-open"
+                    class="icon-btn mobile-only"
+                    type="button"
+                    aria-label="Open navigation"
+                >
+                    ☰
+                </button>
+
+                <div>
+                    <div class="breadcrumb">
+                        CloudSentinel
+                        <span>/</span>
+                        <span id="breadcrumb-current">Overview</span>
+                    </div>
+
+                    <h1 id="page-title">Security Overview</h1>
+
+                    <p id="page-subtitle">
+                        Monitor your cloud security posture and risk.
+                    </p>
+                </div>
+
             </div>
 
+
             <div class="topbar-actions">
+
+                <div id="last-refresh" class="last-refresh">
+                    Not refreshed yet
+                </div>
+
                 <button
                     id="refresh-btn"
                     class="secondary-btn"
+                    type="button"
                 >
+                    <span class="refresh-icon">↻</span>
                     Refresh
                 </button>
+
+                <button
+                    id="theme-toggle"
+                    class="theme-toggle"
+                    type="button"
+                    aria-label="Switch to light mode"
+                    title="Switch to light mode"
+                >
+                    <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+                    <span class="theme-toggle-label">Light</span>
+                </button>
+
+                <button
+                    id="header-scan-btn"
+                    class="primary-btn"
+                    type="button"
+                >
+                    + New Scan
+                </button>
+
             </div>
+
         </header>
 
 
-        <!-- DASHBOARD -->
-        <section id="view-dashboard" class="view">
+        <div class="content-area">
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <span>Total Findings</span>
-                    <strong id="stat-total">—</strong>
+            <!-- =================================================
+                 DASHBOARD
+            ================================================== -->
+            <section id="view-dashboard" class="view">
+
+                <div id="global-loading" class="loading-bar hidden">
+                    <span></span>
                 </div>
 
-                <div class="stat-card critical">
-                    <span>Critical</span>
-                    <strong id="stat-critical">—</strong>
-                </div>
 
-                <div class="stat-card high">
-                    <span>High</span>
-                    <strong id="stat-high">—</strong>
-                </div>
+                <!-- HERO -->
+                <div class="dashboard-hero">
 
-                <div class="stat-card medium">
-                    <span>Medium</span>
-                    <strong id="stat-medium">—</strong>
-                </div>
-
-                <div class="stat-card low">
-                    <span>Low</span>
-                    <strong id="stat-low">—</strong>
-                </div>
-
-                <div class="stat-card info">
-                    <span>Info</span>
-                    <strong id="stat-info">—</strong>
-                </div>
-            </div>
-
-
-            <div class="panel">
-                <div class="panel-header">
                     <div>
-                        <h3>Latest Scan</h3>
-                        <p id="latest-scan-description">
-                            No scan available.
-                        </p>
-                    </div>
 
-                    <button
-                        id="dashboard-scan-btn"
-                        class="primary-btn small"
-                    >
-                        Start AWS Scan
-                    </button>
-                </div>
+                        <span class="eyebrow">SECURITY POSTURE</span>
 
-                <div id="latest-scan" class="latest-scan">
-                    <div class="empty-state">
-                        Run your first AWS scan to populate the dashboard.
-                    </div>
-                </div>
-            </div>
+                        <h2>
+                            Know what is exposed.
+                            <span>Fix what matters.</span>
+                        </h2>
 
-
-            <div class="panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>Recent Scans</h3>
-                        <p>Latest security assessment history.</p>
-                    </div>
-                </div>
-
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Provider</th>
-                            <th>Status</th>
-                            <th>Findings</th>
-                            <th>Critical</th>
-                            <th>High</th>
-                            <th>Completed</th>
-                            <th></th>
-                        </tr>
-                        </thead>
-
-                        <tbody id="recent-scans-body"></tbody>
-                    </table>
-                </div>
-            </div>
-
-        </section>
-
-
-        <!-- ACCOUNTS -->
-        <section id="view-accounts" class="view hidden">
-
-            <div class="panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>AWS Accounts</h3>
                         <p>
-                            Configure read-only cross-account scanning
-                            credentials.
+                            CloudSentinel continuously turns cloud
+                            configuration data into actionable security
+                            findings and risk intelligence.
                         </p>
+
                     </div>
 
-                    <button
-                        id="show-account-form-btn"
-                        class="primary-btn small"
-                    >
-                        Add AWS Account
-                    </button>
+                    <div class="hero-actions">
+
+                        <button
+                            id="hero-scan-btn"
+                            class="primary-btn"
+                            type="button"
+                        >
+                            Run AWS Security Scan
+                        </button>
+
+                        <button
+                            id="hero-report-btn"
+                            class="secondary-btn"
+                            type="button"
+                        >
+                            View Latest Report
+                        </button>
+
+                    </div>
+
                 </div>
 
-                <div
-                    id="account-form-container"
-                    class="account-form-container hidden"
-                >
-                    <form id="account-form" class="account-form">
 
-                        <label>
-                            Account name
-                            <input
-                                id="account-name"
-                                type="text"
-                                maxlength="100"
-                                placeholder="Production AWS"
-                                required
-                            >
-                        </label>
+                <!-- KPI GRID -->
+                <div class="kpi-grid">
 
-                        <label>
-                            AWS Account ID
-                            <input
-                                id="account-id"
-                                type="text"
-                                inputmode="numeric"
-                                pattern="[0-9]{12}"
-                                maxlength="12"
-                                placeholder="123456789012"
-                            >
-                        </label>
+                    <article class="kpi-card kpi-main">
 
-                        <label>
-                            IAM Role ARN
-                            <input
-                                id="role-arn"
-                                type="text"
-                                maxlength="2048"
-                                placeholder="arn:aws:iam::123456789012:role/CloudSentinelReadOnly"
-                            >
-                        </label>
+                        <div class="kpi-top">
+                            <span>Security Findings</span>
+                            <span class="kpi-icon">!</span>
+                        </div>
 
-                        <label>
-                            External ID
-                            <input
-                                id="external-id"
-                                type="text"
-                                maxlength="1024"
-                            >
-                        </label>
+                        <div class="kpi-value" id="stat-total">—</div>
 
-                        <label>
-                            Region
-                            <input
-                                id="account-region"
-                                type="text"
-                                value="us-east-1"
-                                maxlength="100"
-                            >
-                        </label>
+                        <div class="kpi-footer">
+                            <span id="stat-total-caption">
+                                Findings in latest scan
+                            </span>
+                        </div>
 
-                        <div class="form-actions">
+                    </article>
+
+
+                    <article class="kpi-card kpi-critical">
+
+                        <div class="kpi-top">
+                            <span>Critical</span>
+                            <span class="severity-dot critical"></span>
+                        </div>
+
+                        <div class="kpi-value" id="stat-critical">—</div>
+
+                        <div class="kpi-footer">
                             <button
+                                class="kpi-link"
+                                data-severity-link="critical"
                                 type="button"
-                                id="cancel-account-btn"
-                                class="secondary-btn"
                             >
-                                Cancel
-                            </button>
-
-                            <button
-                                type="submit"
-                                class="primary-btn"
-                            >
-                                Save Account
+                                View critical findings →
                             </button>
                         </div>
-                    </form>
+
+                    </article>
+
+
+                    <article class="kpi-card kpi-high">
+
+                        <div class="kpi-top">
+                            <span>High Risk</span>
+                            <span class="severity-dot high"></span>
+                        </div>
+
+                        <div class="kpi-value" id="stat-high">—</div>
+
+                        <div class="kpi-footer">
+                            <button
+                                class="kpi-link"
+                                data-severity-link="high"
+                                type="button"
+                            >
+                                View high findings →
+                            </button>
+                        </div>
+
+                    </article>
+
+
+                    <article class="kpi-card kpi-medium">
+
+                        <div class="kpi-top">
+                            <span>Medium</span>
+                            <span class="severity-dot medium"></span>
+                        </div>
+
+                        <div class="kpi-value" id="stat-medium">—</div>
+
+                        <div class="kpi-footer">
+                            <span>Needs attention</span>
+                        </div>
+
+                    </article>
+
+
+                    <article class="kpi-card kpi-low">
+
+                        <div class="kpi-top">
+                            <span>Low / Info</span>
+                            <span class="severity-dot low"></span>
+                        </div>
+
+                        <div class="kpi-value" id="stat-low-info">—</div>
+
+                        <div class="kpi-footer">
+                            <span>Lower priority</span>
+                        </div>
+
+                    </article>
+
                 </div>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Provider</th>
-                            <th>Account ID</th>
-                            <th>Region</th>
-                            <th>Status</th>
-                            <th>Created</th>
-                        </tr>
-                        </thead>
 
-                        <tbody id="accounts-body"></tbody>
-                    </table>
+                <!-- TWO COLUMN -->
+                <div class="dashboard-grid">
+
+                    <!-- RISK BREAKDOWN -->
+                    <article class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <span class="panel-eyebrow">RISK PROFILE</span>
+                                <h3>Finding distribution</h3>
+                                <p>
+                                    Severity breakdown from the latest scan.
+                                </p>
+                            </div>
+
+                            <button
+                                id="distribution-findings-btn"
+                                class="icon-btn"
+                                type="button"
+                                title="Open findings"
+                            >
+                                →
+                            </button>
+
+                        </div>
+
+                        <div class="risk-chart">
+
+                            <div class="risk-ring" id="risk-ring">
+                                <div class="risk-ring-inner">
+                                    <strong id="risk-total">—</strong>
+                                    <span>findings</span>
+                                </div>
+                            </div>
+
+                            <div class="risk-legend">
+
+                                <div class="legend-row">
+                                    <span class="legend-name">
+                                        <i class="legend-dot critical"></i>
+                                        Critical
+                                    </span>
+                                    <strong id="legend-critical">0</strong>
+                                </div>
+
+                                <div class="legend-row">
+                                    <span class="legend-name">
+                                        <i class="legend-dot high"></i>
+                                        High
+                                    </span>
+                                    <strong id="legend-high">0</strong>
+                                </div>
+
+                                <div class="legend-row">
+                                    <span class="legend-name">
+                                        <i class="legend-dot medium"></i>
+                                        Medium
+                                    </span>
+                                    <strong id="legend-medium">0</strong>
+                                </div>
+
+                                <div class="legend-row">
+                                    <span class="legend-name">
+                                        <i class="legend-dot low"></i>
+                                        Low
+                                    </span>
+                                    <strong id="legend-low">0</strong>
+                                </div>
+
+                                <div class="legend-row">
+                                    <span class="legend-name">
+                                        <i class="legend-dot info"></i>
+                                        Info
+                                    </span>
+                                    <strong id="legend-info">0</strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+
+                    <!-- LATEST SCAN -->
+                    <article class="panel">
+
+                        <div class="panel-header">
+
+                            <div>
+                                <span class="panel-eyebrow">LATEST ASSESSMENT</span>
+                                <h3>Latest scan</h3>
+                                <p id="latest-scan-description">
+                                    No completed scan yet.
+                                </p>
+                            </div>
+
+                            <span
+                                id="latest-scan-status"
+                                class="status-pill neutral"
+                            >
+                                No scan
+                            </span>
+
+                        </div>
+
+                        <div id="latest-scan" class="latest-scan-card">
+
+                            <div class="empty-state compact">
+                                <div class="empty-icon">⌁</div>
+                                <strong>No security scan yet</strong>
+                                <span>
+                                    Run an AWS scan to populate your
+                                    security posture.
+                                </span>
+                            </div>
+
+                        </div>
+
+                    </article>
+
                 </div>
-            </div>
-
-        </section>
 
 
-        <!-- SCANS -->
-        <section id="view-scans" class="view hidden">
+                <!-- RECENT SCANS -->
+                <article class="panel">
 
-            <div class="panel">
-                <div class="panel-header">
-                    <div>
-                        <h3>Scan History</h3>
-                        <p>
-                            Historical cloud security assessments.
-                        </p>
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-eyebrow">ACTIVITY</span>
+                            <h3>Recent scans</h3>
+                            <p>
+                                Your latest cloud security assessments.
+                            </p>
+                        </div>
+
+                        <button
+                            class="text-btn"
+                            data-view-link="scans"
+                            type="button"
+                        >
+                            View all →
+                        </button>
+
                     </div>
 
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Scan</th>
+                                    <th>Provider</th>
+                                    <th>Status</th>
+                                    <th>Findings</th>
+                                    <th>Critical</th>
+                                    <th>High</th>
+                                    <th>Completed</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="recent-scans-body"></tbody>
+                        </table>
+                    </div>
+
+                </article>
+
+
+                <!-- QUICK ACTIONS -->
+                <div class="quick-actions">
+
                     <button
-                        id="history-scan-btn"
-                        class="primary-btn small"
+                        class="quick-action"
+                        data-view-link="findings"
+                        type="button"
                     >
-                        Start AWS Scan
+                        <span class="quick-icon danger">!</span>
+                        <span>
+                            <strong>Investigate findings</strong>
+                            <small>Review detected security issues</small>
+                        </span>
+                        <span>→</span>
                     </button>
+
+                    <button
+                        class="quick-action"
+                        data-view-link="reports"
+                        type="button"
+                    >
+                        <span class="quick-icon blue">▤</span>
+                        <span>
+                            <strong>Generate report</strong>
+                            <small>Open HTML or PDF security reports</small>
+                        </span>
+                        <span>→</span>
+                    </button>
+
+                    <button
+                        class="quick-action"
+                        data-view-link="accounts"
+                        type="button"
+                    >
+                        <span class="quick-icon green">☁</span>
+                        <span>
+                            <strong>Manage cloud accounts</strong>
+                            <small>Configure AWS scan targets</small>
+                        </span>
+                        <span>→</span>
+                    </button>
+
                 </div>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Provider</th>
-                            <th>Status</th>
-                            <th>Total</th>
-                            <th>Critical</th>
-                            <th>High</th>
-                            <th>Medium</th>
-                            <th>Low</th>
-                            <th>Completed</th>
-                            <th></th>
-                        </tr>
-                        </thead>
-
-                        <tbody id="history-body"></tbody>
-                    </table>
-                </div>
-            </div>
-
-        </section>
+            </section>
 
 
-        <!-- FINDINGS -->
-        <section id="view-findings" class="view hidden">
+            <!-- =================================================
+                 FINDINGS
+            ================================================== -->
+            <section id="view-findings" class="view hidden">
 
-            <div class="panel">
-                <div class="panel-header">
+                <div class="section-heading">
+
                     <div>
-                        <h3>
-                            Scan <span id="findings-scan-id">—</span>
-                            Findings
-                        </h3>
-                        <p id="findings-summary">
-                            Security findings detected during the scan.
+                        <span class="eyebrow">SECURITY FINDINGS</span>
+                        <h2>Investigate exposure</h2>
+                        <p>
+                            Review, filter and drill into findings
+                            discovered by CloudSentinel.
                         </p>
                     </div>
 
                     <div class="button-group">
                         <button
-                            id="lifecycle-btn"
+                            id="findings-refresh-btn"
                             class="secondary-btn"
+                            type="button"
                         >
-                            Lifecycle
+                            ↻ Refresh
                         </button>
 
                         <button
-                            id="report-btn"
-                            class="secondary-btn"
+                            id="findings-report-btn"
+                            class="primary-btn"
+                            type="button"
                         >
-                            HTML Report
-                        </button>
-
-                        <button
-                            id="pdf-report-btn"
-                            class="secondary-btn"
-                        >
-                            Download PDF
+                            View report
                         </button>
                     </div>
+
                 </div>
 
-                <div class="filter-row">
+
+                <div class="finding-toolbar">
+
+                    <div class="search-box">
+                        <span>⌕</span>
+                        <input
+                            id="finding-search"
+                            type="search"
+                            placeholder="Search rule, title, resource..."
+                            autocomplete="off"
+                        >
+                    </div>
+
                     <select id="severity-filter">
                         <option value="">All severities</option>
                         <option value="critical">Critical</option>
@@ -508,123 +842,729 @@
                     </select>
 
                     <button
-                        id="apply-filter-btn"
+                        id="clear-filters-btn"
                         class="secondary-btn"
+                        type="button"
                     >
-                        Apply
+                        Clear
                     </button>
+
                 </div>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>Rule</th>
-                            <th>Title</th>
-                            <th>Severity</th>
-                            <th>Risk</th>
-                            <th>Resource</th>
-                            <th>Provider</th>
-                            <th></th>
-                        </tr>
-                        </thead>
 
-                        <tbody id="findings-body"></tbody>
-                    </table>
+                <div class="panel">
+
+                    <div class="table-meta">
+                        <div>
+                            <strong id="findings-count-label">
+                                0 findings
+                            </strong>
+                            <span id="findings-scan-label">
+                                No scan selected
+                            </span>
+                        </div>
+
+                        <button
+                            id="findings-lifecycle-btn"
+                            class="text-btn"
+                            type="button"
+                        >
+                            View lifecycle →
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table findings-table">
+
+                            <thead>
+                                <tr>
+                                    <th>Severity</th>
+                                    <th>Finding</th>
+                                    <th>Rule</th>
+                                    <th>Resource</th>
+                                    <th>Provider</th>
+                                    <th>Risk</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="findings-body"></tbody>
+
+                        </table>
+                    </div>
+
                 </div>
-            </div>
 
-        </section>
+            </section>
 
 
-        <!-- FINDING DETAIL -->
-        <section id="view-finding-detail" class="view hidden">
+            <!-- =================================================
+                 FINDING DETAIL
+            ================================================== -->
+            <section id="view-finding-detail" class="view hidden">
 
-            <div class="panel">
-                <div class="panel-header">
+                <div class="section-heading">
+
                     <div>
-                        <h3 id="finding-detail-title">
-                            Finding
-                        </h3>
-                        <p id="finding-detail-rule"></p>
+                        <span class="eyebrow">FINDING DETAIL</span>
+                        <h2 id="finding-detail-title">Finding</h2>
+                        <p id="finding-detail-rule">—</p>
                     </div>
 
                     <button
                         id="back-findings-btn"
                         class="secondary-btn"
+                        type="button"
                     >
-                        Back to Findings
+                        ← Back to findings
                     </button>
+
                 </div>
 
+
                 <div id="finding-detail-content"></div>
-            </div>
 
-        </section>
+            </section>
 
 
-        <!-- LIFECYCLE -->
-        <section id="view-lifecycle" class="view hidden">
+            <!-- =================================================
+                 SCANS
+            ================================================== -->
+            <section id="view-scans" class="view hidden">
 
-            <div class="panel">
-                <div class="panel-header">
+                <div class="section-heading">
+
                     <div>
-                        <h3>Finding Lifecycle</h3>
+                        <span class="eyebrow">SCAN HISTORY</span>
+                        <h2>Security assessments</h2>
                         <p>
-                            Compare this scan with the previous completed scan.
+                            Track your cloud security posture over time.
+                        </p>
+                    </div>
+
+                    <button
+                        id="history-scan-btn"
+                        class="primary-btn"
+                        type="button"
+                    >
+                        + Start AWS Scan
+                    </button>
+
+                </div>
+
+
+                <div class="scan-summary-strip">
+
+                    <div>
+                        <span>Total scans</span>
+                        <strong id="history-total">0</strong>
+                    </div>
+
+                    <div>
+                        <span>Latest status</span>
+                        <strong id="history-latest-status">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Latest findings</span>
+                        <strong id="history-latest-findings">—</strong>
+                    </div>
+
+                    <div>
+                        <span>Last completed</span>
+                        <strong id="history-last-completed">—</strong>
+                    </div>
+
+                </div>
+
+
+                <div class="panel">
+
+                    <div class="table-container">
+                        <table class="data-table">
+
+                            <thead>
+                                <tr>
+                                    <th>Scan</th>
+                                    <th>Provider</th>
+                                    <th>Status</th>
+                                    <th>Total</th>
+                                    <th>Critical</th>
+                                    <th>High</th>
+                                    <th>Medium</th>
+                                    <th>Low</th>
+                                    <th>Completed</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="history-body"></tbody>
+
+                        </table>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 LIFECYCLE
+            ================================================== -->
+            <section id="view-lifecycle" class="view hidden">
+
+                <div class="section-heading">
+
+                    <div>
+                        <span class="eyebrow">CHANGE INTELLIGENCE</span>
+                        <h2>Finding lifecycle</h2>
+                        <p>
+                            Understand what appeared, persisted,
+                            reopened or disappeared between scans.
                         </p>
                     </div>
 
                     <button
                         id="back-lifecycle-btn"
                         class="secondary-btn"
+                        type="button"
                     >
-                        Back
+                        ← Back
                     </button>
+
                 </div>
 
-                <div class="lifecycle-cards">
+
+                <div class="lifecycle-grid">
+
                     <div class="lifecycle-card">
-                        <strong id="life-new">0</strong>
                         <span>New</span>
+                        <strong id="life-new">0</strong>
+                        <small>Newly detected</small>
                     </div>
+
                     <div class="lifecycle-card">
-                        <strong id="life-open">0</strong>
                         <span>Open</span>
+                        <strong id="life-open">0</strong>
+                        <small>Still present</small>
                     </div>
+
                     <div class="lifecycle-card">
-                        <strong id="life-reopened">0</strong>
                         <span>Reopened</span>
+                        <strong id="life-reopened">0</strong>
+                        <small>Returned findings</small>
                     </div>
+
                     <div class="lifecycle-card">
-                        <strong id="life-resolved">0</strong>
                         <span>Resolved</span>
+                        <strong id="life-resolved">0</strong>
+                        <small>No longer detected</small>
                     </div>
+
                 </div>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>Status</th>
-                            <th>Rule</th>
-                            <th>Resource Type</th>
-                            <th>Resource ID</th>
-                            <th>First Seen</th>
-                            <th>Last Seen</th>
-                        </tr>
-                        </thead>
 
-                        <tbody id="lifecycle-body"></tbody>
-                    </table>
+                <div class="panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-eyebrow">HISTORY</span>
+                            <h3>Finding changes</h3>
+                            <p id="lifecycle-description">
+                                Compare the selected scan with its history.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div class="table-container">
+
+                        <table class="data-table">
+
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Rule</th>
+                                    <th>Resource type</th>
+                                    <th>Resource</th>
+                                    <th>First seen</th>
+                                    <th>Last seen</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="lifecycle-body"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 ACCOUNTS
+            ================================================== -->
+            <section id="view-accounts" class="view hidden">
+
+                <div class="section-heading">
+
+                    <div>
+                        <span class="eyebrow">CLOUD CONNECTIONS</span>
+                        <h2>AWS accounts</h2>
+                        <p>
+                            Configure read-only AWS accounts for assessment.
+                        </p>
+                    </div>
+
+                    <button
+                        id="show-account-form-btn"
+                        class="primary-btn"
+                        type="button"
+                    >
+                        + Add AWS Account
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="account-form-container"
+                    class="panel account-form-panel hidden"
+                >
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-eyebrow">NEW CONNECTION</span>
+                            <h3>Add AWS account</h3>
+                            <p>
+                                Store the configuration required by
+                                the scanner.
+                            </p>
+                        </div>
+
+                        <button
+                            id="cancel-account-btn"
+                            class="icon-btn"
+                            type="button"
+                        >
+                            ×
+                        </button>
+
+                    </div>
+
+
+                    <form id="account-form" class="account-form">
+
+                        <label>
+                            <span>Account name</span>
+                            <input
+                                id="account-name"
+                                type="text"
+                                maxlength="100"
+                                placeholder="Production AWS"
+                                required
+                            >
+                        </label>
+
+                        <label>
+                            <span>AWS Account ID</span>
+                            <input
+                                id="account-id"
+                                type="text"
+                                inputmode="numeric"
+                                pattern="[0-9]{12}"
+                                maxlength="12"
+                                placeholder="123456789012"
+                                required
+                            >
+                        </label>
+
+                        <label class="span-2">
+                            <span>IAM Role ARN</span>
+                            <input
+                                id="role-arn"
+                                type="text"
+                                maxlength="2048"
+                                placeholder="arn:aws:iam::123456789012:role/CloudSentinelReadOnly"
+                                required
+                            >
+                        </label>
+
+                        <label>
+                            <span>External ID</span>
+                            <input
+                                id="external-id"
+                                type="text"
+                                maxlength="1024"
+                            >
+                        </label>
+
+                        <label>
+                            <span>Region</span>
+                            <input
+                                id="account-region"
+                                type="text"
+                                value="us-east-1"
+                                maxlength="100"
+                            >
+                        </label>
+
+                        <div class="form-actions span-2">
+
+                            <button
+                                type="button"
+                                id="cancel-account-form-btn"
+                                class="secondary-btn"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="submit"
+                                class="primary-btn"
+                            >
+                                Save AWS Account
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+
+                <div class="panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-eyebrow">CONNECTED ACCOUNTS</span>
+                            <h3>Cloud inventory</h3>
+                            <p>
+                                Accounts available to your workspace.
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div class="table-container">
+
+                        <table class="data-table">
+
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Provider</th>
+                                    <th>Account ID</th>
+                                    <th>Region</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="accounts-body"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 REPORTS
+            ================================================== -->
+            <section id="view-reports" class="view hidden">
+
+                <div class="section-heading">
+
+                    <div>
+                        <span class="eyebrow">SECURITY REPORTING</span>
+                        <h2>Reports</h2>
+                        <p>
+                            Turn scan results into shareable security
+                            evidence.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <div class="report-hero">
+
+                    <div>
+
+                        <span class="eyebrow">LATEST ASSESSMENT</span>
+
+                        <h2 id="report-scan-title">
+                            No scan selected
+                        </h2>
+
+                        <p id="report-scan-description">
+                            Run a scan to generate security reports.
+                        </p>
+
+                    </div>
+
+                    <div class="report-actions">
+
+                        <button
+                            id="report-html-btn"
+                            class="primary-btn"
+                            type="button"
+                        >
+                            Open HTML Report
+                        </button>
+
+                        <button
+                            id="report-pdf-btn"
+                            class="secondary-btn"
+                            type="button"
+                        >
+                            Download PDF
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="report-grid">
+
+                    <article class="report-card">
+
+                        <div class="report-card-icon blue">◈</div>
+
+                        <span>EXECUTIVE</span>
+
+                        <h3>Security posture</h3>
+
+                        <p>
+                            High-level view of risk, findings and
+                            assessment status for leadership.
+                        </p>
+
+                        <span class="report-status">
+                            Available from latest scan
+                        </span>
+
+                    </article>
+
+
+                    <article class="report-card">
+
+                        <div class="report-card-icon red">!</div>
+
+                        <span>TECHNICAL</span>
+
+                        <h3>Finding details</h3>
+
+                        <p>
+                            Detailed evidence, affected resources,
+                            rules and remediation context.
+                        </p>
+
+                        <span class="report-status">
+                            Available from latest scan
+                        </span>
+
+                    </article>
+
+
+                    <article class="report-card">
+
+                        <div class="report-card-icon green">✓</div>
+
+                        <span>COMPLIANCE</span>
+
+                        <h3>Control evidence</h3>
+
+                        <p>
+                            Security findings and compliance context
+                            grouped for assessment review.
+                        </p>
+
+                        <span class="report-status">
+                            Available from latest scan
+                        </span>
+
+                    </article>
+
+                </div>
+
+
+                <div class="panel report-help">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-eyebrow">REPORTING WORKFLOW</span>
+                            <h3>How to use reports</h3>
+                        </div>
+
+                    </div>
+
+                    <div class="workflow">
+
+                        <div class="workflow-step">
+                            <span>01</span>
+                            <strong>Run a scan</strong>
+                            <small>
+                                Assess your connected cloud account.
+                            </small>
+                        </div>
+
+                        <div class="workflow-line"></div>
+
+                        <div class="workflow-step">
+                            <span>02</span>
+                            <strong>Review findings</strong>
+                            <small>
+                                Investigate severity, risk and evidence.
+                            </small>
+                        </div>
+
+                        <div class="workflow-line"></div>
+
+                        <div class="workflow-step">
+                            <span>03</span>
+                            <strong>Generate report</strong>
+                            <small>
+                                Open HTML or download the PDF.
+                            </small>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+</section>
+
+
+<!-- =========================================================
+     FINDING DETAIL DRAWER
+========================================================= -->
+<div id="finding-drawer" class="drawer-backdrop hidden">
+
+    <aside class="finding-drawer">
+
+        <div class="drawer-header">
+
+            <div>
+                <span class="panel-eyebrow">FINDING</span>
+                <h2 id="drawer-title">Finding</h2>
+            </div>
+
+            <button
+                id="drawer-close"
+                class="icon-btn"
+                type="button"
+                aria-label="Close finding"
+            >
+                ×
+            </button>
+
+        </div>
+
+        <div id="drawer-content" class="drawer-content"></div>
+
+    </aside>
+
+</div>
+
+
+<!-- =========================================================
+     NEW SCAN MODAL
+========================================================= -->
+<div id="scan-modal" class="modal-backdrop hidden">
+
+    <div class="modal">
+
+        <div class="modal-header">
+
+            <div>
+                <span class="panel-eyebrow">SECURITY ASSESSMENT</span>
+                <h2>Start AWS scan</h2>
+                <p>
+                    Select an AWS account and start a new assessment.
+                </p>
+            </div>
+
+            <button
+                id="scan-modal-close"
+                class="icon-btn"
+                type="button"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <form id="scan-form">
+
+            <label>
+                <span>AWS account</span>
+
+                <select id="scan-account-select" required>
+                    <option value="">
+                        Select an AWS account
+                    </option>
+                </select>
+            </label>
+
+
+            <div class="scan-note">
+                <span>✓</span>
+                <div>
+                    <strong>Read-only assessment</strong>
+                    <small>
+                        CloudSentinel evaluates configuration and
+                        does not modify your cloud resources.
+                    </small>
                 </div>
             </div>
 
-        </section>
 
-    </main>
-</section>
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    id="scan-cancel-btn"
+                    class="secondary-btn"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="primary-btn"
+                >
+                    Start scan
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
 
 <script src="/app.js"></script>
+
 </body>
 </html>

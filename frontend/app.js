@@ -3,16 +3,33 @@ const API = "/api/v1";
 const state = {
     token: localStorage.getItem("cloudsentinel_token"),
     user: null,
+
     scans: [],
     accounts: [],
+
     currentScanId: null,
+    currentScan: null,
+    currentSummary: null,
+
+    findings: [],
+    filteredFindings: [],
+
+    currentFinding: null,
     currentView: "dashboard",
+
+    lifecycle: null,
+
     pollTimer: null,
+    loading: false,
+    reportScanId: null,
 };
 
 
-const $ = (id) => document.getElementById(id);
+/* ============================================================
+   HELPERS
+============================================================ */
 
+const $ = (id) => document.getElementById(id);
 
 function escapeHtml(value) {
     if (value === null || value === undefined) {
@@ -27,6 +44,10 @@ function escapeHtml(value) {
         .replaceAll("'", "&#039;");
 }
 
+function safeNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+}
 
 function formatDate(value) {
     if (!value) {
@@ -36,15 +57,100 @@ function formatDate(value) {
     const date = new Date(value);
 
     if (Number.isNaN(date.getTime())) {
-        return value;
+        return String(value);
     }
 
     return date.toLocaleString();
 }
 
+function formatRelativeDate(value) {
+    if (!value) {
+        return "—";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "—";
+    }
+
+    const seconds = Math.floor(
+        (Date.now() - date.getTime()) / 1000
+    );
+
+    if (seconds < 60) {
+        return "just now";
+    }
+
+    const minutes = Math.floor(seconds / 60);
+
+    if (minutes < 60) {
+        return `${minutes}m ago`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+
+    if (hours < 24) {
+        return `${hours}h ago`;
+    }
+
+    const days = Math.floor(hours / 24);
+
+    if (days < 30) {
+        return `${days}d ago`;
+    }
+
+    return date.toLocaleDateString();
+}
+
+function initials(value) {
+    if (!value) {
+        return "CS";
+    }
+
+    return String(value)
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0].toUpperCase())
+        .join("");
+}
+
+function normalizeStatus(value) {
+    return String(value || "unknown").toLowerCase();
+}
+
+function normalizeSeverity(value) {
+    return String(value || "info").toLowerCase();
+}
+
+function severityBadge(severity) {
+    const normalized = normalizeSeverity(severity);
+
+    return `
+        <span class="severity-badge ${escapeHtml(normalized)}">
+            <span>●</span>
+            ${escapeHtml(normalized)}
+        </span>
+    `;
+}
+
+function statusBadge(status) {
+    const normalized = normalizeStatus(status);
+
+    return `
+        <span class="status ${escapeHtml(normalized)}">
+            ${escapeHtml(status || "unknown")}
+        </span>
+    `;
+}
 
 function showToast(message, type = "info") {
     const container = $("toast-container");
+
+    if (!container) {
+        return;
+    }
 
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
@@ -52,24 +158,22 @@ function showToast(message, type = "info") {
 
     container.appendChild(toast);
 
-    setTimeout(() => {
+    window.setTimeout(() => {
         toast.remove();
-    }, 4000);
+    }, 4500);
 }
 
+function setLoading(value) {
+    state.loading = value;
 
-function showAuthError(message) {
-    const box = $("auth-error");
+    const bar = $("global-loading");
 
-    box.textContent = message;
-    box.classList.remove("hidden");
+    if (bar) {
+        bar.classList.toggle("hidden", !value);
+    }
+
+    document.body.classList.toggle("is-loading", value);
 }
-
-
-function clearAuthError() {
-    $("auth-error").classList.add("hidden");
-}
-
 
 function setToken(token) {
     state.token = token;
@@ -81,6 +185,100 @@ function setToken(token) {
     }
 }
 
+
+/* ============================================================
+   THEME
+============================================================ */
+
+function applyTheme(theme) {
+    const normalized =
+        theme === "light"
+            ? "light"
+            : "dark";
+
+    document.documentElement.dataset.theme =
+        normalized;
+
+    localStorage.setItem(
+        "cloudsentinel_theme",
+        normalized
+    );
+
+    const button = $("theme-toggle");
+
+    if (!button) {
+        return;
+    }
+
+    const icon =
+        button.querySelector(
+            ".theme-toggle-icon"
+        );
+
+    const label =
+        button.querySelector(
+            ".theme-toggle-label"
+        );
+
+    const isLight =
+        normalized === "light";
+
+    if (icon) {
+        icon.textContent =
+            isLight ? "☾" : "☀";
+    }
+
+    if (label) {
+        label.textContent =
+            isLight ? "Dark" : "Light";
+    }
+
+    button.setAttribute(
+        "aria-label",
+        isLight
+            ? "Switch to dark mode"
+            : "Switch to light mode"
+    );
+
+    button.setAttribute(
+        "title",
+        isLight
+            ? "Switch to dark mode"
+            : "Switch to light mode"
+    );
+}
+
+function toggleTheme() {
+    const current =
+        document.documentElement.dataset.theme ||
+        "dark";
+
+    applyTheme(
+        current === "dark"
+            ? "light"
+            : "dark"
+    );
+}
+
+function initializeTheme() {
+    const saved =
+        localStorage.getItem(
+            "cloudsentinel_theme"
+        );
+
+    applyTheme(
+        saved === "light"
+            ? "light"
+            : "dark"
+    );
+}
+
+initializeTheme();
+
+
+/* ============================================================
+   API
+============================================================ */
 
 async function apiFetch(path, options = {}) {
     const headers = {
@@ -98,14 +296,24 @@ async function apiFetch(path, options = {}) {
         headers["Content-Type"] = "application/json";
     }
 
-    const response = await fetch(`${API}${path}`, {
-        ...options,
-        headers,
-    });
+    let response;
+
+    try {
+        response = await fetch(`${API}${path}`, {
+            ...options,
+            headers,
+        });
+    } catch (error) {
+        throw new Error(
+            "Unable to reach CloudSentinel API. Check that the backend is running."
+        );
+    }
 
     if (response.status === 401) {
         logout(false);
-        throw new Error("Your session has expired.");
+        throw new Error(
+            "Your session has expired. Please sign in again."
+        );
     }
 
     const contentType =
@@ -120,15 +328,19 @@ async function apiFetch(path, options = {}) {
     }
 
     if (!response.ok) {
-        let message = `Request failed (${response.status})`;
+        let message =
+            `Request failed (${response.status})`;
 
-        if (payload && typeof payload === "object") {
+        if (
+            payload &&
+            typeof payload === "object"
+        ) {
             message =
                 payload.detail ||
                 payload.message ||
                 message;
         } else if (payload) {
-            message = payload;
+            message = String(payload);
         }
 
         throw new Error(message);
@@ -138,48 +350,51 @@ async function apiFetch(path, options = {}) {
 }
 
 
+/* ============================================================
+   AUTH
+============================================================ */
+
 function showAuth() {
     $("auth-screen").classList.remove("hidden");
     $("app-screen").classList.add("hidden");
 }
-
 
 function showApp() {
     $("auth-screen").classList.add("hidden");
     $("app-screen").classList.remove("hidden");
 
     if (state.user) {
-        $("current-user").innerHTML = `
-            <strong>${escapeHtml(
-                state.user.full_name || state.user.email
-            )}</strong>
-            <span>${escapeHtml(state.user.email)}</span>
-        `;
-    }
-}
+        const name =
+            state.user.full_name ||
+            state.user.email ||
+            "CloudSentinel User";
 
+        $("current-user-name").textContent = name;
 
-async function loadCurrentUser() {
-    try {
-        const response = await apiFetch("/auth/me");
-        state.user = response;
-        showApp();
-        await loadDashboard();
-    } catch {
-        /*
-         * The current backend does not expose /auth/me in every
-         * deployment. Dashboard APIs remain the source of truth.
-         */
-        showApp();
+        $("current-user-email").textContent =
+            state.user.email ||
+            "Authenticated";
 
-        try {
-            await loadDashboard();
-        } catch {
-            showAuth();
+        $("user-avatar").textContent =
+            initials(name);
+
+        if (state.user.tenant_name) {
+            $("workspace-name").textContent =
+                state.user.tenant_name;
         }
     }
 }
 
+function showAuthError(message) {
+    const box = $("auth-error");
+
+    box.textContent = message;
+    box.classList.remove("hidden");
+}
+
+function clearAuthError() {
+    $("auth-error").classList.add("hidden");
+}
 
 async function login(
     email,
@@ -188,29 +403,41 @@ async function login(
 ) {
     clearAuthError();
 
-    const result = await apiFetch("/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
+    try {
+        const result =
+            await apiFetch(
+                "/auth/login",
+                {
+                    method: "POST",
+
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        tenant_name:
+                            tenantName ||
+                            undefined,
+                    }),
+                }
+            );
+
+        setToken(
+            result.access_token
+        );
+
+        state.user = {
             email,
-            password,
-            tenant_name: tenantName || undefined,
-        }),
-    });
+        };
 
-    setToken(result.access_token);
+        showApp();
 
-    /*
-     * Login response intentionally contains token metadata only.
-     * The UI does not trust client-supplied identity information.
-     */
-    state.user = {
-        email,
-    };
+        await bootstrapApp();
 
-    showApp();
-    await loadDashboard();
+    } catch (error) {
+        showAuthError(
+            error.message
+        );
+    }
 }
-
 
 async function register(
     fullName,
@@ -220,38 +447,119 @@ async function register(
 ) {
     clearAuthError();
 
-    await apiFetch("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({
-            full_name: fullName,
-            tenant_name: tenantName,
+    try {
+        await apiFetch(
+            "/auth/register",
+            {
+                method: "POST",
+
+                body: JSON.stringify({
+                    full_name:
+                        fullName,
+
+                    tenant_name:
+                        tenantName,
+
+                    email,
+                    password,
+                }),
+            }
+        );
+
+        await login(
             email,
             password,
-        }),
-    });
+            tenantName
+        );
 
-    await login(
-        email,
-        password,
-        tenantName
-    );
+    } catch (error) {
+        showAuthError(
+            error.message
+        );
+    }
 }
 
+function logout(
+    showMessage = true
+) {
+    if (state.pollTimer) {
+        clearInterval(
+            state.pollTimer
+        );
 
-function logout(showMessage = true) {
-    clearInterval(state.pollTimer);
+        state.pollTimer = null;
+    }
 
     setToken(null);
+
     state.user = null;
+    state.scans = [];
+    state.accounts = [];
+    state.findings = [];
     state.currentScanId = null;
+    state.currentScan = null;
+    state.currentSummary = null;
+
+    closeSidebar();
 
     showAuth();
 
     if (showMessage) {
-        showToast("Signed out.", "info");
+        showToast(
+            "Signed out successfully.",
+            "info"
+        );
     }
 }
 
+
+/* ============================================================
+   NAVIGATION
+============================================================ */
+
+const VIEW_META = {
+    dashboard: [
+        "Security Overview",
+        "Monitor your cloud security posture and risk.",
+        "Overview",
+    ],
+
+    findings: [
+        "Security Findings",
+        "Investigate detected cloud security issues.",
+        "Findings",
+    ],
+
+    scans: [
+        "Scan History",
+        "Review previous security assessments.",
+        "Scan History",
+    ],
+
+    lifecycle: [
+        "Finding Lifecycle",
+        "Track changes across security scans.",
+        "Changes",
+    ],
+
+    accounts: [
+        "AWS Accounts",
+        "Manage cloud accounts used for assessments.",
+        "Cloud Accounts",
+    ],
+
+    reports: [
+        "Security Reports",
+        "Generate and review assessment reports.",
+        "Reports",
+    ],
+
+    "finding-detail": [
+        "Finding Detail",
+        "Evidence, remediation and compliance context.",
+        "Finding Detail",
+    ],
+};
 
 function setView(view) {
     state.currentView = view;
@@ -259,13 +567,18 @@ function setView(view) {
     document
         .querySelectorAll(".view")
         .forEach((element) => {
-            element.classList.add("hidden");
+            element.classList.add(
+                "hidden"
+            );
         });
 
-    const target = $(`view-${view}`);
+    const target =
+        $(`view-${view}`);
 
     if (target) {
-        target.classList.remove("hidden");
+        target.classList.remove(
+            "hidden"
+        );
     }
 
     document
@@ -277,107 +590,269 @@ function setView(view) {
             );
         });
 
-    const titles = {
-        dashboard: [
-            "Security Dashboard",
-            "Monitor cloud security posture and compliance.",
-        ],
-        accounts: [
-            "AWS Accounts",
-            "Manage cloud accounts used for security assessments.",
-        ],
-        scans: [
-            "Scan History",
-            "Review previous security assessments.",
-        ],
-        findings: [
-            "Security Findings",
-            "Investigate detected cloud security issues.",
-        ],
-        "finding-detail": [
-            "Finding Detail",
-            "Evidence, remediation and compliance context.",
-        ],
-        lifecycle: [
-            "Finding Lifecycle",
-            "Track findings across security scans.",
-        ],
-    };
+    const meta =
+        VIEW_META[view] ||
+        VIEW_META.dashboard;
 
-    const title = titles[view] || titles.dashboard;
+    $("page-title").textContent =
+        meta[0];
 
-    $("page-title").textContent = title[0];
-    $("page-subtitle").textContent = title[1];
+    $("page-subtitle").textContent =
+        meta[1];
+
+    $("breadcrumb-current").textContent =
+        meta[2];
+
+    closeSidebar();
+
+    if (view === "accounts") {
+        loadAccounts()
+            .catch(handleError);
+    }
+
+    if (view === "scans") {
+        renderHistory();
+    }
+
+    if (
+        view === "findings" &&
+        state.currentScanId
+    ) {
+        loadFindings(
+            state.currentScanId
+        ).catch(handleError);
+    }
+
+    if (
+        view === "lifecycle" &&
+        state.currentScanId
+    ) {
+        loadLifecycle(
+            state.currentScanId
+        ).catch(handleError);
+    }
+
+    if (view === "reports") {
+        updateReportsView();
+    }
 }
 
+
+/* ============================================================
+   MOBILE NAV
+============================================================ */
+
+function openSidebar() {
+    $("sidebar")
+        .classList
+        .add("mobile-open");
+
+    $("sidebar-overlay")
+        .classList
+        .add("visible");
+}
+
+function closeSidebar() {
+    $("sidebar")
+        .classList
+        .remove("mobile-open");
+
+    $("sidebar-overlay")
+        .classList
+        .remove("visible");
+}
+
+
+/* ============================================================
+   ACCOUNTS
+============================================================ */
 
 async function loadAccounts() {
-    state.accounts = await apiFetch("/cloud-accounts");
+    state.accounts =
+        await apiFetch(
+            "/cloud-accounts"
+        );
 
     renderAccounts();
+    populateScanAccounts();
+
+    return state.accounts;
 }
 
-
 function renderAccounts() {
-    const body = $("accounts-body");
+    const body =
+        $("accounts-body");
 
     if (!state.accounts.length) {
         body.innerHTML = `
             <tr>
-                <td colspan="6" class="empty-state">
-                    No AWS accounts configured.
+                <td colspan="6">
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            ☁
+                        </div>
+
+                        <strong>
+                            No AWS accounts configured
+                        </strong>
+
+                        <span>
+                            Add an AWS account before starting a scan.
+                        </span>
+                    </div>
                 </td>
             </tr>
         `;
+
         return;
     }
 
-    body.innerHTML = state.accounts
-        .map((account) => `
+    body.innerHTML =
+        state.accounts
+            .map(
+                (account) => `
             <tr>
+
                 <td>
-                    <strong>${escapeHtml(account.name)}</strong>
+                    <strong>
+                        ${escapeHtml(
+                            account.name
+                        )}
+                    </strong>
                 </td>
-                <td>${escapeHtml(account.provider)}</td>
+
+                <td>
+                    ${escapeHtml(
+                        account.provider ||
+                        "aws"
+                    )}
+                </td>
+
                 <td class="mono">
-                    ${escapeHtml(account.external_account_id || "—")}
+                    ${escapeHtml(
+                        account.external_account_id ||
+                        "—"
+                    )}
                 </td>
-                <td>${escapeHtml(account.region || "—")}</td>
+
                 <td>
-                    <span class="status ${escapeHtml(account.status)}">
-                        ${escapeHtml(account.status)}
-                    </span>
+                    ${escapeHtml(
+                        account.region ||
+                        "—"
+                    )}
                 </td>
-                <td>${formatDate(account.created_at)}</td>
+
+                <td>
+                    ${statusBadge(
+                        account.status
+                    )}
+                </td>
+
+                <td>
+                    ${formatDate(
+                        account.created_at
+                    )}
+                </td>
+
             </tr>
-        `)
-        .join("");
+        `
+            )
+            .join("");
+}
+
+async function deleteAccount(accountId, accountName) {
+    const confirmed = window.confirm(
+        `Delete AWS account "${accountName}"?\n\n` +
+        "The account configuration will be removed. " +
+        "Existing scan history will be preserved."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        await apiFetch(
+            `/cloud-accounts/${accountId}`,
+            {
+                method: "DELETE",
+            }
+        );
+
+        await loadAccounts();
+
+        showToast(
+            "AWS account deleted successfully.",
+            "success"
+        );
+    } catch (error) {
+        showToast(
+            error.message,
+            "error"
+        );
+    }
 }
 
 
 async function createAccount(event) {
     event.preventDefault();
 
+    const button =
+        event.submitter;
+
+    if (button) {
+        button.disabled = true;
+    }
+
     try {
-        await apiFetch("/cloud-accounts", {
-            method: "POST",
-            body: JSON.stringify({
-                name: $("account-name").value.trim(),
-                provider: "aws",
-                external_account_id:
-                    $("account-id").value.trim() || null,
-                role_arn:
-                    $("role-arn").value.trim() || null,
-                external_id:
-                    $("external-id").value.trim() || null,
-                region:
-                    $("account-region").value.trim() || null,
-            }),
-        });
+        await apiFetch(
+            "/cloud-accounts",
+            {
+                method: "POST",
+
+                body: JSON.stringify({
+                    name:
+                        $("account-name")
+                            .value
+                            .trim(),
+
+                    provider: "aws",
+
+                    external_account_id:
+                        $("account-id")
+                            .value
+                            .trim() ||
+                        null,
+
+                    role_arn:
+                        $("role-arn")
+                            .value
+                            .trim() ||
+                        null,
+
+                    external_id:
+                        $("external-id")
+                            .value
+                            .trim() ||
+                        null,
+
+                    region:
+                        $("account-region")
+                            .value
+                            .trim() ||
+                        null,
+                }),
+            }
+        );
 
         $("account-form").reset();
-        $("account-region").value = "us-east-1";
-        $("account-form-container").classList.add("hidden");
+
+        $("account-region")
+            .value = "us-east-1";
+
+        $("account-form-container")
+            .classList
+            .add("hidden");
 
         await loadAccounts();
 
@@ -385,1038 +860,2776 @@ async function createAccount(event) {
             "AWS account added successfully.",
             "success"
         );
+
     } catch (error) {
-        showToast(error.message, "error");
+        showToast(
+            error.message,
+            "error"
+        );
+
+    } finally {
+        if (button) {
+            button.disabled = false;
+        }
     }
 }
 
 
-async function loadScans() {
-    const result = await apiFetch(
-        "/scans?limit=50&offset=0"
-    );
+/* ============================================================
+   SCANS
+============================================================ */
 
-    state.scans = result.items || [];
+async function loadScans() {
+    const result =
+        await apiFetch(
+            "/scans?limit=100&offset=0"
+        );
+
+    state.scans =
+        result.items || [];
 
     renderRecentScans();
     renderHistory();
 
-    return result;
+    return state.scans;
 }
 
-
-function statusBadge(status) {
-    const normalized = String(status || "").toLowerCase();
-
-    return `
-        <span class="status ${escapeHtml(normalized)}">
-            ${escapeHtml(status)}
-        </span>
-    `;
-}
-
-
-function renderRecentScans() {
-    const body = $("recent-scans-body");
-
+function getLatestScan() {
     if (!state.scans.length) {
-        body.innerHTML = `
-            <tr>
-                <td colspan="8" class="empty-state">
-                    No scans have been run yet.
-                </td>
-            </tr>
-        `;
-        return;
+        return null;
     }
 
-    body.innerHTML = state.scans
-        .slice(0, 10)
-        .map((scan) => `
-            <tr>
-                <td>
-                    <button
-                        class="link-btn"
-                        onclick="openScan(${scan.id})"
-                    >
-                        #${scan.id}
-                    </button>
-                </td>
-                <td>${escapeHtml(scan.provider)}</td>
-                <td>${statusBadge(scan.status)}</td>
-                <td>${scan.total_findings}</td>
-                <td>${scan.critical_count}</td>
-                <td>${scan.high_count}</td>
-                <td>${formatDate(scan.completed_at)}</td>
-                <td>
-                    <button
-                        class="secondary-btn tiny"
-                        onclick="openScan(${scan.id})"
-                    >
-                        View
-                    </button>
-                </td>
-            </tr>
-        `)
-        .join("");
+    return state.scans[0];
 }
 
-
-function renderHistory() {
-    const body = $("history-body");
-
-    if (!state.scans.length) {
-        body.innerHTML = `
-            <tr>
-                <td colspan="10" class="empty-state">
-                    No scan history available.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    body.innerHTML = state.scans
-        .map((scan) => `
-            <tr>
-                <td>
-                    <button
-                        class="link-btn"
-                        onclick="openScan(${scan.id})"
-                    >
-                        #${scan.id}
-                    </button>
-                </td>
-                <td>${escapeHtml(scan.provider)}</td>
-                <td>${statusBadge(scan.status)}</td>
-                <td>${scan.total_findings}</td>
-                <td>${scan.critical_count}</td>
-                <td>${scan.high_count}</td>
-                <td>${scan.medium_count}</td>
-                <td>${scan.low_count}</td>
-                <td>${formatDate(scan.completed_at)}</td>
-                <td>
-                    <button
-                        class="secondary-btn tiny"
-                        onclick="openScan(${scan.id})"
-                    >
-                        View
-                    </button>
-                </td>
-            </tr>
-        `)
-        .join("");
-}
-
-
-function updateDashboardStats(summary) {
-    $("stat-total").textContent =
-        summary.total_findings ?? 0;
-
-    $("stat-critical").textContent =
-        summary.critical_count ?? 0;
-
-    $("stat-high").textContent =
-        summary.high_count ?? 0;
-
-    $("stat-medium").textContent =
-        summary.medium_count ?? 0;
-
-    $("stat-low").textContent =
-        summary.low_count ?? 0;
-
-    $("stat-info").textContent =
-        summary.info_count ?? 0;
-}
-
-
-async function loadDashboard() {
+async function openScan(scanId) {
     try {
-        await Promise.all([
-            loadAccounts(),
-            loadScans(),
-        ]);
+        setLoading(true);
 
-        if (state.scans.length) {
-            const latest = state.scans[0];
-
-            const summary = await apiFetch(
-                `/scans/${latest.id}/summary`
+        const scan =
+            await apiFetch(
+                `/scans/${encodeURIComponent(
+                    scanId
+                )}`
             );
 
-            updateDashboardStats(summary);
+        state.currentScanId =
+            scan.id;
 
-            $("latest-scan-description").textContent =
-                `Scan #${latest.id} · ${latest.provider.toUpperCase()}`;
+        state.currentScan =
+            scan;
 
-            $("latest-scan").innerHTML = `
-                <div class="latest-grid">
-                    <div>
-                        <span>Status</span>
-                        ${statusBadge(summary.status)}
-                    </div>
+        state.reportScanId =
+            scan.id;
 
-                    <div>
-                        <span>Total Findings</span>
-                        <strong>${summary.total_findings}</strong>
-                    </div>
-
-                    <div>
-                        <span>Execution Errors</span>
-                        <strong>${summary.execution_error_count}</strong>
-                    </div>
-
-                    <div>
-                        <span>Completed</span>
-                        <strong>
-                            ${formatDate(latest.completed_at)}
-                        </strong>
-                    </div>
-                </div>
-
-                <div class="button-group">
-                    <button
-                        class="primary-btn small"
-                        onclick="openScan(${latest.id})"
-                    >
-                        Open Findings
-                    </button>
-
-                    <button
-                        class="secondary-btn"
-                        onclick="openReport(${latest.id})"
-                    >
-                        HTML Report
-                    </button>
-                </div>
-            `;
-        } else {
-            updateDashboardStats({
-                total_findings: 0,
-                critical_count: 0,
-                high_count: 0,
-                medium_count: 0,
-                low_count: 0,
-                info_count: 0,
-            });
-
-            $("latest-scan").innerHTML = `
-                <div class="empty-state">
-                    Run your first AWS scan to populate the dashboard.
-                </div>
-            `;
-        }
-    } catch (error) {
-        showToast(error.message, "error");
-    }
-}
-
-
-async function startScan() {
-    try {
-        await loadAccounts();
-
-        const activeAwsAccounts = state.accounts.filter(
-            (account) =>
-                account.provider === "aws" &&
-                account.status === "active"
+        await loadScanSummary(
+            scan.id
         );
 
-        let cloudAccountId = null;
+        setView(
+            "findings"
+        );
 
-        if (activeAwsAccounts.length === 1) {
-            cloudAccountId = activeAwsAccounts[0].id;
-        } else if (activeAwsAccounts.length > 1) {
-            const selected = prompt(
-                "Enter the AWS account ID to scan:\n\n" +
-                activeAwsAccounts
-                    .map(
-                        (account) =>
-                            `${account.id}: ${account.name}`
-                    )
-                    .join("\n")
+        await loadFindings(
+            scan.id
+        );
+
+    } catch (error) {
+        handleError(error);
+
+    } finally {
+        setLoading(false);
+    }
+}
+
+async function loadScanSummary(
+    scanId
+) {
+    const summary =
+        await apiFetch(
+            `/scans/${encodeURIComponent(
+                scanId
+            )}/summary`
+        );
+
+    state.currentSummary =
+        summary;
+
+    return summary;
+}
+
+function renderRecentScans() {
+    const body =
+        $("recent-scans-body");
+
+    if (!state.scans.length) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="8">
+                    <div class="empty-state">
+                        <strong>
+                            No scans yet
+                        </strong>
+
+                        <span>
+                            Start an AWS scan to populate this table.
+                        </span>
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    body.innerHTML =
+        state.scans
+            .slice(0, 8)
+            .map(
+                (scan) => `
+            <tr>
+
+                <td>
+                    <button
+                        class="table-link"
+                        type="button"
+                        data-open-scan="${scan.id}"
+                    >
+                        #${escapeHtml(
+                            scan.id
+                        )}
+                    </button>
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        scan.provider ||
+                        "aws"
+                    )}
+                </td>
+
+                <td>
+                    ${statusBadge(
+                        scan.status
+                    )}
+                </td>
+
+                <td>
+                    ${safeNumber(
+                        scan.total_findings
+                    )}
+                </td>
+
+                <td>
+                    <span class="risk-label critical">
+                        ${safeNumber(
+                            scan.critical_count
+                        )}
+                    </span>
+                </td>
+
+                <td>
+                    <span class="risk-label high">
+                        ${safeNumber(
+                            scan.high_count
+                        )}
+                    </span>
+                </td>
+
+                <td>
+                    ${formatDate(
+                        scan.completed_at
+                    )}
+                </td>
+
+                <td>
+                    <button
+                        class="secondary-btn"
+                        type="button"
+                        data-open-scan="${scan.id}"
+                    >
+                        View
+                    </button>
+                </td>
+
+            </tr>
+        `
+            )
+            .join("");
+}
+
+function renderHistory() {
+    const body =
+        $("history-body");
+
+    $("history-total").textContent =
+        state.scans.length;
+
+    const latest =
+        getLatestScan();
+
+    $("history-latest-status")
+        .textContent =
+        latest?.status || "—";
+
+    $("history-latest-findings")
+        .textContent =
+        latest
+            ? safeNumber(
+                  latest.total_findings
+              )
+            : "—";
+
+    $("history-last-completed")
+        .textContent =
+        latest?.completed_at
+            ? formatRelativeDate(
+                  latest.completed_at
+              )
+            : "—";
+
+    if (!state.scans.length) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="10">
+                    <div class="empty-state">
+
+                        <strong>
+                            No scan history
+                        </strong>
+
+                        <span>
+                            Run your first AWS security assessment.
+                        </span>
+
+                    </div>
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    body.innerHTML =
+        state.scans
+            .map(
+                (scan) => `
+            <tr>
+
+                <td>
+                    <button
+                        class="table-link"
+                        type="button"
+                        data-open-scan="${scan.id}"
+                    >
+                        #${escapeHtml(
+                            scan.id
+                        )}
+                    </button>
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        scan.provider ||
+                        "aws"
+                    )}
+                </td>
+
+                <td>
+                    ${statusBadge(
+                        scan.status
+                    )}
+                </td>
+
+                <td>
+                    ${safeNumber(
+                        scan.total_findings
+                    )}
+                </td>
+
+                <td>
+                    ${safeNumber(
+                        scan.critical_count
+                    )}
+                </td>
+
+                <td>
+                    ${safeNumber(
+                        scan.high_count
+                    )}
+                </td>
+
+                <td>
+                    ${safeNumber(
+                        scan.medium_count
+                    )}
+                </td>
+
+                <td>
+                    ${safeNumber(
+                        scan.low_count
+                    )}
+                </td>
+
+                <td>
+                    ${formatDate(
+                        scan.completed_at
+                    )}
+                </td>
+
+                <td>
+                    <button
+                        class="secondary-btn"
+                        type="button"
+                        data-open-scan="${scan.id}"
+                    >
+                        Review
+                    </button>
+                </td>
+
+            </tr>
+        `
+            )
+            .join("");
+}
+
+async function startScan(
+    accountId
+) {
+    if (!accountId) {
+        showToast(
+            "Select an AWS account first.",
+            "error"
+        );
+
+        return;
+    }
+
+    try {
+        setLoading(true);
+
+        const scan =
+            await apiFetch(
+                "/scans",
+                {
+                    method: "POST",
+
+                    body: JSON.stringify({
+                        provider: "aws",
+
+                        cloud_account_id:
+                            Number(
+                                accountId
+                            ),
+                    }),
+                }
             );
 
-            if (selected === null) {
-                return;
-            }
+        state.currentScanId =
+            scan.id;
 
-            cloudAccountId = Number(selected);
+        state.currentScan =
+            scan;
 
-            if (
-                !activeAwsAccounts.some(
-                    (account) =>
-                        account.id === cloudAccountId
-                )
-            ) {
-                throw new Error(
-                    "Invalid AWS cloud account selection."
-                );
-            }
-        } else {
-            throw new Error(
-                "Add an active AWS account before starting a scan."
-            );
-        }
+        state.reportScanId =
+            scan.id;
 
-        const scan = await apiFetch("/scans", {
-            method: "POST",
-            body: JSON.stringify({
-                provider: "aws",
-                cloud_account_id: cloudAccountId,
-            }),
-        });
-
-        state.currentScanId = scan.id;
+        closeScanModal();
 
         showToast(
-            `Scan #${scan.id} queued successfully.`,
+            `AWS scan #${scan.id} started.`,
             "success"
         );
 
         await loadScans();
 
-        await openScan(scan.id);
+        setView(
+            "dashboard"
+        );
 
-        startPolling(scan.id);
+        await refreshDashboard();
+
+        startScanPolling(
+            scan.id
+        );
+
     } catch (error) {
-        showToast(error.message, "error");
+        handleError(error);
+
+    } finally {
+        setLoading(false);
     }
 }
 
+function startScanPolling(
+    scanId
+) {
+    if (state.pollTimer) {
+        clearInterval(
+            state.pollTimer
+        );
+    }
 
-function startPolling(scanId) {
-    clearInterval(state.pollTimer);
+    let attempts = 0;
 
-    state.pollTimer = setInterval(
-        async () => {
-            try {
-                const scan = await apiFetch(
-                    `/scans/${scanId}`
-                );
+    state.pollTimer =
+        setInterval(
+            async () => {
+                attempts += 1;
 
-                if (
-                    scan.status === "completed" ||
-                    scan.status === "failed"
-                ) {
-                    clearInterval(state.pollTimer);
+                try {
+                    const scan =
+                        await apiFetch(
+                            `/scans/${encodeURIComponent(
+                                scanId
+                            )}`
+                        );
 
-                    await loadScans();
+                    state.currentScan =
+                        scan;
 
-                    if (state.currentScanId === scanId) {
-                        await loadFindings(scanId);
+                    const index =
+                        state.scans.findIndex(
+                            (item) =>
+                                item.id ===
+                                scan.id
+                        );
+
+                    if (index >= 0) {
+                        state.scans[
+                            index
+                        ] = {
+                            ...state
+                                .scans[
+                                index
+                            ],
+
+                            ...scan,
+                        };
+                    } else {
+                        state.scans.unshift(
+                            scan
+                        );
                     }
 
-                    showToast(
-                        scan.status === "completed"
-                            ? `Scan #${scanId} completed.`
-                            : `Scan #${scanId} failed.`,
-                        scan.status === "completed"
-                            ? "success"
-                            : "error"
-                    );
+                    renderRecentScans();
+                    renderHistory();
+
+                    if (
+                        [
+                            "completed",
+                            "failed",
+                        ].includes(
+                            normalizeStatus(
+                                scan.status
+                            )
+                        )
+                    ) {
+                        clearInterval(
+                            state.pollTimer
+                        );
+
+                        state.pollTimer =
+                            null;
+
+                        await refreshDashboard();
+
+                        showToast(
+                            scan.status ===
+                                "completed"
+                                ? `Scan #${scan.id} completed.`
+                                : `Scan #${scan.id} failed.`,
+
+                            scan.status ===
+                                "completed"
+                                ? "success"
+                                : "error"
+                        );
+                    }
+
+                    if (attempts >= 60) {
+                        clearInterval(
+                            state.pollTimer
+                        );
+
+                        state.pollTimer =
+                            null;
+                    }
+
+                } catch {
+                    if (attempts >= 10) {
+                        clearInterval(
+                            state.pollTimer
+                        );
+
+                        state.pollTimer =
+                            null;
+                    }
                 }
-            } catch {
-                clearInterval(state.pollTimer);
-            }
-        },
-        3000
-    );
-}
 
-
-async function openScan(scanId) {
-    state.currentScanId = scanId;
-
-    setView("findings");
-
-    $("findings-scan-id").textContent = scanId;
-
-    await loadFindings(scanId);
-}
-
-
-async function loadFindings(scanId) {
-    try {
-        const severity =
-            $("severity-filter").value;
-
-        const risk =
-            $("risk-filter").value;
-
-        const params = new URLSearchParams({
-            limit: "100",
-            offset: "0",
-        });
-
-        if (severity) {
-            params.set("severity", severity);
-        }
-
-        if (risk) {
-            params.set("risk_level", risk);
-        }
-
-        const result = await apiFetch(
-            `/findings/scan/${scanId}?${params.toString()}`
+            },
+            5000
         );
+}
 
-        const findings = result.items || [];
 
-        $("findings-summary").textContent =
-            `${result.total} finding(s) returned.`;
+/* ============================================================
+   DASHBOARD
+============================================================ */
 
-        const body = $("findings-body");
+async function refreshDashboard() {
+    try {
+        setLoading(true);
 
-        if (!findings.length) {
-            body.innerHTML = `
-                <tr>
-                    <td colspan="7" class="empty-state">
-                        No findings match the current filters.
-                    </td>
-                </tr>
-            `;
+        await Promise.all([
+            loadScans(),
+            loadAccounts(),
+        ]);
+
+        const latest =
+            getLatestScan();
+
+        if (!latest) {
+            resetDashboard();
             return;
         }
 
-        body.innerHTML = findings
-            .map((finding) => `
-                <tr>
-                    <td>
-                        <strong>
-                            ${escapeHtml(finding.rule_id)}
-                        </strong>
-                    </td>
+        state.currentScanId =
+            latest.id;
 
-                    <td>
-                        ${escapeHtml(finding.title)}
-                    </td>
+        state.currentScan =
+            latest;
 
-                    <td>
-                        <span class="
-                            severity
+        state.reportScanId =
+            latest.id;
+
+        await loadScanSummary(
+            latest.id
+        );
+
+        renderDashboardSummary(
+            state.currentSummary,
+            latest
+        );
+
+        await loadFindings(
+            latest.id,
+            true
+        );
+
+        updateReportsView();
+
+        $("last-refresh")
+            .textContent =
+            `Updated ${new Date().toLocaleTimeString()}`;
+
+    } finally {
+        setLoading(false);
+    }
+}
+
+function renderDashboardSummary(
+    summary,
+    scan
+) {
+    const total =
+        safeNumber(
+            summary?.total_findings
+        );
+
+    const critical =
+        safeNumber(
+            summary?.critical_count
+        );
+
+    const high =
+        safeNumber(
+            summary?.high_count
+        );
+
+    const medium =
+        safeNumber(
+            summary?.medium_count
+        );
+
+    const low =
+        safeNumber(
+            summary?.low_count
+        );
+
+    const info =
+        safeNumber(
+            summary?.info_count
+        );
+
+    $("stat-total")
+        .textContent = total;
+
+    $("stat-critical")
+        .textContent =
+        critical;
+
+    $("stat-high")
+        .textContent =
+        high;
+
+    $("stat-medium")
+        .textContent =
+        medium;
+
+    $("stat-low-info")
+        .textContent =
+        low + info;
+
+    $("risk-total")
+        .textContent = total;
+
+    $("legend-critical")
+        .textContent =
+        critical;
+
+    $("legend-high")
+        .textContent =
+        high;
+
+    $("legend-medium")
+        .textContent =
+        medium;
+
+    $("legend-low")
+        .textContent =
+        low;
+
+    $("legend-info")
+        .textContent =
+        info;
+
+    $("nav-findings-count")
+        .textContent =
+        critical + high;
+
+    $("nav-findings-count")
+        .classList.toggle(
+            "hidden",
+            critical + high === 0
+        );
+
+    renderRiskRing({
+        critical,
+        high,
+        medium,
+        low,
+        info,
+        total,
+    });
+
+    const status =
+        normalizeStatus(
+            scan?.status ||
+            summary?.status
+        );
+
+    const statusElement =
+        $("latest-scan-status");
+
+    statusElement.textContent =
+        scan?.status ||
+        summary?.status ||
+        "Unknown";
+
+    statusElement.className =
+        `status-pill ${escapeHtml(
+            status
+        )}`;
+
+    $("latest-scan-description")
+        .textContent =
+        scan?.completed_at
+            ? `Completed ${formatRelativeDate(
+                  scan.completed_at
+              )}.`
+            : `Scan #${scan?.id || "—"} is ${status}.`;
+
+    $("latest-scan").innerHTML = `
+        <div class="latest-scan-detail">
+
+            <div class="latest-scan-top">
+
+                <div>
+
+                    <div class="latest-scan-id">
+                        Scan #${escapeHtml(
+                            scan?.id
+                        )}
+                    </div>
+
+                    <div class="latest-scan-meta">
+
+                        <span class="status ${escapeHtml(
+                            status
+                        )}">
                             ${escapeHtml(
-                                String(
-                                    finding.severity
-                                ).toLowerCase()
+                                scan?.status ||
+                                "unknown"
                             )}
-                        ">
-                            ${escapeHtml(finding.severity)}
                         </span>
-                    </td>
 
-                    <td>
-                        ${escapeHtml(finding.risk_level)}
-                        <small>
-                            (${escapeHtml(finding.risk_score)})
-                        </small>
-                    </td>
-
-                    <td>
-                        <div>
+                        <span class="status">
                             ${escapeHtml(
-                                finding.resource_type
+                                scan?.provider ||
+                                "aws"
                             )}
+                        </span>
+
+                        <span class="status">
+                            ${formatDate(
+                                scan?.completed_at
+                            )}
+                        </span>
+
+                    </div>
+
+                </div>
+
+                <button
+                    class="secondary-btn"
+                    type="button"
+                    data-open-scan="${scan?.id}"
+                >
+                    Investigate
+                </button>
+
+            </div>
+
+
+            <div class="latest-scan-stats">
+
+                <div class="latest-mini-stat">
+                    <span>Total</span>
+                    <strong>
+                        ${total}
+                    </strong>
+                </div>
+
+                <div class="latest-mini-stat">
+                    <span>Critical</span>
+                    <strong class="critical">
+                        ${critical}
+                    </strong>
+                </div>
+
+                <div class="latest-mini-stat">
+                    <span>High</span>
+                    <strong class="high">
+                        ${high}
+                    </strong>
+                </div>
+
+                <div class="latest-mini-stat">
+                    <span>Errors</span>
+                    <strong>
+                        ${safeNumber(
+                            summary?.execution_error_count
+                        )}
+                    </strong>
+                </div>
+
+            </div>
+
+        </div>
+    `;
+}
+
+function renderRiskRing({
+    critical,
+    high,
+    medium,
+    low,
+    info,
+    total,
+}) {
+    const ring =
+        $("risk-ring");
+
+    if (!total) {
+        ring.style.background =
+            "conic-gradient(#18283d 0deg 360deg)";
+
+        return;
+    }
+
+    const values = [
+        [critical, "var(--critical)"],
+        [high, "var(--high)"],
+        [medium, "var(--medium)"],
+        [low, "var(--low)"],
+        [info, "var(--info)"],
+    ];
+
+    let cursor = 0;
+
+    const segments =
+        values.map(
+            ([count, color]) => {
+
+                const degrees =
+                    (count / total) *
+                    360;
+
+                const start =
+                    cursor;
+
+                cursor += degrees;
+
+                return `${color} ${start}deg ${cursor}deg`;
+            }
+        );
+
+    ring.style.background =
+        `conic-gradient(${segments.join(
+            ", "
+        )})`;
+}
+
+function resetDashboard() {
+    $("stat-total")
+        .textContent = "0";
+
+    $("stat-critical")
+        .textContent = "0";
+
+    $("stat-high")
+        .textContent = "0";
+
+    $("stat-medium")
+        .textContent = "0";
+
+    $("stat-low-info")
+        .textContent = "0";
+
+    $("risk-total")
+        .textContent = "0";
+
+    $("legend-critical")
+        .textContent = "0";
+
+    $("legend-high")
+        .textContent = "0";
+
+    $("legend-medium")
+        .textContent = "0";
+
+    $("legend-low")
+        .textContent = "0";
+
+    $("legend-info")
+        .textContent = "0";
+
+    $("nav-findings-count")
+        .classList
+        .add("hidden");
+
+    $("latest-scan-status")
+        .textContent =
+        "No scan";
+
+    $("latest-scan-status")
+        .className =
+        "status-pill neutral";
+
+    $("latest-scan-description")
+        .textContent =
+        "No completed scan yet.";
+
+    $("latest-scan").innerHTML = `
+        <div class="empty-state compact">
+
+            <div class="empty-icon">
+                ⌁
+            </div>
+
+            <strong>
+                No security scan yet
+            </strong>
+
+            <span>
+                Run an AWS scan to populate your security posture.
+            </span>
+
+        </div>
+    `;
+
+    $("risk-ring").style.background =
+        "conic-gradient(#18283d 0deg 360deg)";
+}
+
+
+/* ============================================================
+   FINDINGS
+============================================================ */
+
+async function loadFindings(
+    scanId,
+    silent = false
+) {
+    if (!scanId) {
+        return [];
+    }
+
+    try {
+        if (!silent) {
+            setLoading(true);
+        }
+
+        const result =
+            await apiFetch(
+                `/findings/scan/${encodeURIComponent(
+                    scanId
+                )}?limit=100&offset=0`
+            );
+
+        state.findings =
+            result.items ||
+            result.findings ||
+            [];
+
+        state.currentScanId =
+            scanId;
+
+        applyFindingFilters();
+
+        $("findings-scan-label")
+            .textContent =
+            `Scan #${scanId}`;
+
+        return state.findings;
+
+    } finally {
+        if (!silent) {
+            setLoading(false);
+        }
+    }
+}
+
+function applyFindingFilters() {
+    const query =
+        $("finding-search")
+            .value
+            .trim()
+            .toLowerCase();
+
+    const severity =
+        $("severity-filter")
+            .value;
+
+    const risk =
+        $("risk-filter")
+            .value;
+
+    state.filteredFindings =
+        state.findings.filter(
+            (finding) => {
+
+                const haystack = [
+                    finding.rule_id,
+                    finding.title,
+                    finding.description,
+                    finding.provider,
+                    finding.resource_type,
+                    finding.resource_id,
+                ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+
+                if (
+                    query &&
+                    !haystack.includes(
+                        query
+                    )
+                ) {
+                    return false;
+                }
+
+                if (
+                    severity &&
+                    normalizeSeverity(
+                        finding.severity
+                    ) !== severity
+                ) {
+                    return false;
+                }
+
+                if (
+                    risk &&
+                    normalizeSeverity(
+                        finding.risk_level
+                    ) !== risk
+                ) {
+                    return false;
+                }
+
+                return true;
+            }
+        );
+
+    renderFindings();
+}
+
+function renderFindings() {
+    const body =
+        $("findings-body");
+
+    const items =
+        state.filteredFindings;
+
+    $("findings-count-label")
+        .textContent =
+        `${items.length} finding${
+            items.length === 1
+                ? ""
+                : "s"
+        }`;
+
+    if (!items.length) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="7">
+
+                    <div class="empty-state">
+
+                        <div class="empty-icon">
+                            ✓
                         </div>
-                        <code>
-                            ${escapeHtml(
-                                finding.resource_id
-                            )}
-                        </code>
-                    </td>
+
+                        <strong>
+                            No matching findings
+                        </strong>
+
+                        <span>
+                            Try changing your filters or run another scan.
+                        </span>
+
+                    </div>
+
+                </td>
+            </tr>
+        `;
+
+        return;
+    }
+
+    body.innerHTML =
+        items
+            .map(
+                (finding) => {
+
+                    const severity =
+                        normalizeSeverity(
+                            finding.severity
+                        );
+
+                    const risk =
+                        normalizeSeverity(
+                            finding.risk_level
+                        );
+
+                    return `
+                <tr>
 
                     <td>
-                        ${escapeHtml(finding.provider)}
+                        ${severityBadge(
+                            severity
+                        )}
                     </td>
 
                     <td>
                         <button
-                            class="secondary-btn tiny"
-                            onclick="openFinding(${finding.id})"
+                            class="table-link finding-title"
+                            type="button"
+                            data-open-finding="${
+                                finding.id
+                            }"
                         >
-                            Details
+                            ${escapeHtml(
+                                finding.title ||
+                                "Untitled finding"
+                            )}
                         </button>
                     </td>
-                </tr>
-            `)
-            .join("");
-    } catch (error) {
-        showToast(error.message, "error");
-    }
-}
 
-
-async function openFinding(findingId) {
-    try {
-        const finding = await apiFetch(
-            `/findings/${findingId}`
-        );
-
-        $("finding-detail-title").textContent =
-            finding.title;
-
-        $("finding-detail-rule").textContent =
-            `${finding.rule_id} · ${finding.resource_type}`;
-
-        $("finding-detail-content").innerHTML = `
-            <div class="detail-grid">
-
-                <div class="detail-card">
-                    <span>Severity</span>
-                    <strong>
-                        ${escapeHtml(finding.severity)}
-                    </strong>
-                </div>
-
-                <div class="detail-card">
-                    <span>Risk Level</span>
-                    <strong>
-                        ${escapeHtml(finding.risk_level)}
-                    </strong>
-                </div>
-
-                <div class="detail-card">
-                    <span>Risk Score</span>
-                    <strong>
-                        ${escapeHtml(finding.risk_score)}
-                    </strong>
-                </div>
-
-                <div class="detail-card">
-                    <span>Provider</span>
-                    <strong>
-                        ${escapeHtml(finding.provider)}
-                    </strong>
-                </div>
-            </div>
-
-            <div class="detail-section">
-                <h4>Resource</h4>
-                <code>
-                    ${escapeHtml(finding.resource_id)}
-                </code>
-            </div>
-
-            <div class="detail-section">
-                <h4>Description</h4>
-                <p>
-                    ${escapeHtml(finding.description)}
-                </p>
-            </div>
-
-            <div class="detail-section">
-                <h4>Evidence</h4>
-                <pre>${escapeHtml(
-                    JSON.stringify(
-                        finding.evidence || {},
-                        null,
-                        2
-                    )
-                )}</pre>
-            </div>
-
-            <div class="detail-section">
-                <h4>Remediation</h4>
-                <p>
-                    ${escapeHtml(
-                        finding.remediation || "No remediation provided."
-                    )}
-                </p>
-            </div>
-
-            <div class="detail-section">
-                <h4>Compliance</h4>
-                <div class="tag-list">
-                    ${(finding.compliance || [])
-                        .map(
-                            (item) =>
-                                `<span class="tag">
-                                    ${escapeHtml(item)}
-                                </span>`
-                        )
-                        .join("")}
-                </div>
-            </div>
-        `;
-
-        setView("finding-detail");
-    } catch (error) {
-        showToast(error.message, "error");
-    }
-}
-
-
-async function openLifecycle() {
-    if (!state.currentScanId) {
-        return;
-    }
-
-    try {
-        const lifecycle = await apiFetch(
-            `/findings/scan/${state.currentScanId}/lifecycle`
-        );
-
-        $("life-new").textContent = lifecycle.new;
-        $("life-open").textContent = lifecycle.open;
-        $("life-reopened").textContent =
-            lifecycle.reopened;
-        $("life-resolved").textContent =
-            lifecycle.resolved;
-
-        const body = $("lifecycle-body");
-
-        if (!lifecycle.items.length) {
-            body.innerHTML = `
-                <tr>
-                    <td colspan="6" class="empty-state">
-                        No lifecycle records available.
+                    <td class="mono">
+                        ${escapeHtml(
+                            finding.rule_id ||
+                            "—"
+                        )}
                     </td>
+
+                    <td
+                        class="resource-cell"
+                        title="${escapeHtml(
+                            finding.resource_id
+                        )}"
+                    >
+                        ${escapeHtml(
+                            finding.resource_id ||
+                            "—"
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHtml(
+                            finding.provider ||
+                            "—"
+                        )}
+                    </td>
+
+                    <td>
+                        <span class="risk-label ${escapeHtml(
+                            risk
+                        )}">
+                            ${escapeHtml(
+                                finding.risk_level ||
+                                "—"
+                            )}
+                        </span>
+                    </td>
+
+                    <td>
+                        <button
+                            class="secondary-btn"
+                            type="button"
+                            data-open-finding="${
+                                finding.id
+                            }"
+                        >
+                            View
+                        </button>
+                    </td>
+
                 </tr>
             `;
-        } else {
-            body.innerHTML = lifecycle.items
-                .map((item) => `
-                    <tr>
-                        <td>
-                            <span class="
-                                status
-                                ${escapeHtml(
-                                    item.status
-                                )}
-                            ">
-                                ${escapeHtml(item.status)}
-                            </span>
-                        </td>
-                        <td>${escapeHtml(item.rule_id)}</td>
-                        <td>
-                            ${escapeHtml(
-                                item.resource_type
-                            )}
-                        </td>
-                        <td class="mono">
-                            ${escapeHtml(
-                                item.resource_id
-                            )}
-                        </td>
-                        <td>${item.first_seen_scan_id}</td>
-                        <td>${item.last_seen_scan_id}</td>
-                    </tr>
-                `)
-                .join("");
-        }
+                }
+            )
+            .join("");
+}
 
-        setView("lifecycle");
+async function openFinding(
+    findingId
+) {
+    try {
+        setLoading(true);
+
+        const finding =
+            await apiFetch(
+                `/findings/${encodeURIComponent(
+                    findingId
+                )}`
+            );
+
+        state.currentFinding =
+            finding;
+
+        renderFindingDetail(
+            finding
+        );
+
+        openFindingDrawer(
+            finding
+        );
+
     } catch (error) {
-        showToast(error.message, "error");
+        handleError(error);
+
+    } finally {
+        setLoading(false);
+    }
+}
+
+function renderFindingDetail(
+    finding
+) {
+    const title =
+        finding.title ||
+        "Security finding";
+
+    $("finding-detail-title")
+        .textContent =
+        title;
+
+    $("finding-detail-rule")
+        .textContent =
+        finding.rule_id
+            ? `Rule ${finding.rule_id}`
+            : "Cloud security finding";
+
+    const compliance =
+        finding.compliance;
+
+    let complianceHtml =
+        "—";
+
+    if (Array.isArray(
+        compliance
+    )) {
+        complianceHtml =
+            compliance
+                .map(
+                    (item) =>
+                        escapeHtml(
+                            typeof item ===
+                                "string"
+                                ? item
+                                : JSON.stringify(
+                                      item
+                                  )
+                        )
+                )
+                .join(", ");
+
+    } else if (
+        compliance &&
+        typeof compliance ===
+            "object"
+    ) {
+        complianceHtml =
+            escapeHtml(
+                JSON.stringify(
+                    compliance,
+                    null,
+                    2
+                )
+            );
+
+    } else if (compliance) {
+        complianceHtml =
+            escapeHtml(
+                compliance
+            );
+    }
+
+    $("finding-detail-content")
+        .innerHTML = `
+        <div class="detail-grid">
+
+            <div class="detail-card">
+
+                <h3>
+                    Description
+                </h3>
+
+                <p>
+                    ${escapeHtml(
+                        finding.description ||
+                        "No description available."
+                    )}
+                </p>
+
+
+                <div class="detail-field">
+
+                    <span>
+                        Evidence
+                    </span>
+
+                    <div class="evidence-box">
+                        ${escapeHtml(
+                            formatObject(
+                                finding.evidence
+                            )
+                        )}
+                    </div>
+
+                </div>
+
+
+                <div class="detail-field">
+
+                    <span>
+                        Remediation
+                    </span>
+
+                    <div class="remediation-box">
+                        ${escapeHtml(
+                            formatObject(
+                                finding.remediation
+                            )
+                        )}
+                    </div>
+
+                </div>
+
+
+                <div class="detail-field">
+
+                    <span>
+                        Compliance
+                    </span>
+
+                    <div class="remediation-box">
+                        ${complianceHtml}
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="detail-card">
+
+                <h3>
+                    Risk context
+                </h3>
+
+                <div class="detail-field">
+
+                    <span>
+                        Severity
+                    </span>
+
+                    ${severityBadge(
+                        finding.severity
+                    )}
+
+                </div>
+
+                <div class="detail-field">
+
+                    <span>
+                        Risk level
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            finding.risk_level ||
+                            "—"
+                        )}
+                    </strong>
+
+                </div>
+
+                <div class="detail-field">
+
+                    <span>
+                        Risk score
+                    </span>
+
+                    <strong>
+                        ${
+                            finding.risk_score ??
+                            "—"
+                        }
+                    </strong>
+
+                </div>
+
+                <div class="detail-field">
+
+                    <span>
+                        Provider
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            finding.provider ||
+                            "—"
+                        )}
+                    </strong>
+
+                </div>
+
+                <div class="detail-field">
+
+                    <span>
+                        Resource type
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            finding.resource_type ||
+                            "—"
+                        )}
+                    </strong>
+
+                </div>
+
+                <div class="detail-field">
+
+                    <span>
+                        Resource ID
+                    </span>
+
+                    <code>
+                        ${escapeHtml(
+                            finding.resource_id ||
+                            "—"
+                        )}
+                    </code>
+
+                </div>
+
+                <div class="detail-field">
+
+                    <span>
+                        Scan
+                    </span>
+
+                    <strong>
+                        #${escapeHtml(
+                            finding.scan_id ??
+                            state.currentScanId ??
+                            "—"
+                        )}
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+    `;
+
+    $("drawer-title")
+        .textContent =
+        title;
+
+    $("drawer-content")
+        .innerHTML = `
+            <div class="drawer-meta">
+
+                <div>
+                    <span>
+                        Severity
+                    </span>
+
+                    ${severityBadge(
+                        finding.severity
+                    )}
+                </div>
+
+                <div>
+                    <span>
+                        Risk
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            finding.risk_level ||
+                            "—"
+                        )}
+                    </strong>
+                </div>
+
+                <div>
+                    <span>
+                        Rule
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            finding.rule_id ||
+                            "—"
+                        )}
+                    </strong>
+                </div>
+
+                <div>
+                    <span>
+                        Provider
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            finding.provider ||
+                            "—"
+                        )}
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div class="drawer-section">
+
+                <h3>
+                    What was detected
+                </h3>
+
+                <p>
+                    ${escapeHtml(
+                        finding.description ||
+                        "No description available."
+                    )}
+                </p>
+
+            </div>
+
+
+            <div class="drawer-section">
+
+                <h3>
+                    Affected resource
+                </h3>
+
+                <div class="evidence-box">
+                    ${escapeHtml(
+                        finding.resource_id ||
+                        "Unknown resource"
+                    )}
+                </div>
+
+            </div>
+
+
+            <div class="drawer-section">
+
+                <h3>
+                    Evidence
+                </h3>
+
+                <div class="evidence-box">
+                    ${escapeHtml(
+                        formatObject(
+                            finding.evidence
+                        )
+                    )}
+                </div>
+
+            </div>
+
+
+            <div class="drawer-section">
+
+                <h3>
+                    Remediation
+                </h3>
+
+                <div class="remediation-box">
+                    ${escapeHtml(
+                        formatObject(
+                            finding.remediation
+                        )
+                    )}
+                </div>
+
+            </div>
+
+
+            <div class="drawer-section">
+
+                <h3>
+                    Compliance
+                </h3>
+
+                <div class="remediation-box">
+                    ${complianceHtml}
+                </div>
+
+            </div>
+        `;
+}
+
+function formatObject(value) {
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return "No data available.";
+    }
+
+    if (
+        typeof value ===
+        "string"
+    ) {
+        return value;
+    }
+
+    try {
+        return JSON.stringify(
+            value,
+            null,
+            2
+        );
+    } catch {
+        return String(value);
     }
 }
 
 
-async function openReport(scanId = state.currentScanId) {
+/* ============================================================
+   LIFECYCLE
+============================================================ */
+
+async function loadLifecycle(
+    scanId
+) {
     if (!scanId) {
+        return null;
+    }
+
+    try {
+        setLoading(true);
+
+        const result =
+            await apiFetch(
+                `/findings/scan/${encodeURIComponent(
+                    scanId
+                )}/lifecycle`
+            );
+
+        state.lifecycle =
+            result;
+
+        renderLifecycle(
+            result
+        );
+
+        return result;
+
+    } finally {
+        setLoading(false);
+    }
+}
+
+function renderLifecycle(
+    result
+) {
+    const items =
+        result?.items ||
+        result?.findings ||
+        result?.lifecycle ||
+        [];
+
+    const counts =
+        result?.counts ||
+        {};
+
+    $("life-new")
+        .textContent =
+        safeNumber(
+            counts.new ??
+            result?.new_count
+        );
+
+    $("life-open")
+        .textContent =
+        safeNumber(
+            counts.open ??
+            result?.open_count
+        );
+
+    $("life-reopened")
+        .textContent =
+        safeNumber(
+            counts.reopened ??
+            result?.reopened_count
+        );
+
+    $("life-resolved")
+        .textContent =
+        safeNumber(
+            counts.resolved ??
+            result?.resolved_count
+        );
+
+    $("lifecycle-description")
+        .textContent =
+        state.currentScanId
+            ? `Lifecycle comparison for scan #${state.currentScanId}.`
+            : "No scan selected.";
+
+    const body =
+        $("lifecycle-body");
+
+    if (
+        !Array.isArray(items) ||
+        !items.length
+    ) {
+        body.innerHTML = `
+            <tr>
+
+                <td colspan="6">
+
+                    <div class="empty-state">
+
+                        <strong>
+                            No lifecycle changes
+                        </strong>
+
+                        <span>
+                            There is no historical comparison
+                            available for this scan.
+                        </span>
+
+                    </div>
+
+                </td>
+
+            </tr>
+        `;
+
         return;
     }
 
-    if (!state.token) {
-        showToast("Your session has expired.", "error");
-        showAuth();
+    body.innerHTML =
+        items
+            .map(
+                (item) => `
+            <tr>
+
+                <td>
+                    ${statusBadge(
+                        item.status ||
+                        item.lifecycle_status ||
+                        "unknown"
+                    )}
+                </td>
+
+                <td class="mono">
+                    ${escapeHtml(
+                        item.rule_id ||
+                        item.rule ||
+                        "—"
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        item.resource_type ||
+                        "—"
+                    )}
+                </td>
+
+                <td class="resource-cell">
+                    ${escapeHtml(
+                        item.resource_id ||
+                        "—"
+                    )}
+                </td>
+
+                <td>
+                    ${formatDate(
+                        item.first_seen_at ||
+                        item.first_seen
+                    )}
+                </td>
+
+                <td>
+                    ${formatDate(
+                        item.last_seen_at ||
+                        item.last_seen
+                    )}
+                </td>
+
+            </tr>
+        `
+            )
+            .join("");
+}
+
+
+/* ============================================================
+   REPORTS
+============================================================ */
+
+function updateReportsView() {
+    const scan =
+        state.currentScan ||
+        getLatestScan();
+
+    const scanId =
+        state.reportScanId ||
+        scan?.id;
+
+    if (!scanId) {
+        $("report-scan-title")
+            .textContent =
+            "No scan selected";
+
+        $("report-scan-description")
+            .textContent =
+            "Run a scan to generate security reports.";
+
         return;
     }
 
-    /*
-     * Open the tab synchronously from the user gesture so browsers do not
-     * treat the authenticated report as an unwanted popup.
-     *
-     * The access token is sent only in the Authorization header. It is
-     * never placed in the report URL, query string, fragment, filename,
-     * or window location.
-     */
-    const reportWindow = window.open(
-        "about:blank",
+    $("report-scan-title")
+        .textContent =
+        `Security assessment #${scanId}`;
+
+    $("report-scan-description")
+        .textContent =
+        scan?.completed_at
+            ? `Completed ${formatDate(
+                  scan.completed_at
+              )}.`
+            : "Report is available for this scan.";
+}
+
+function getReportUrl(
+    scanId,
+    format
+) {
+    if (format === "html") {
+        return (
+            `${API}` +
+            `/reports/scans/${encodeURIComponent(scanId)}/html`
+        );
+    }
+
+    if (format === "pdf") {
+        return (
+            `${API}` +
+            `/reports/scans/${encodeURIComponent(scanId)}/pdf`
+        );
+    }
+
+    throw new Error(
+        `Unsupported report format: ${format}`
+    );
+}
+
+function openHtmlReport() {
+    const scanId =
+        state.reportScanId ||
+        state.currentScanId ||
+        getLatestScan()?.id;
+
+    if (!scanId) {
+        showToast(
+            "Run a scan before opening a report.",
+            "error"
+        );
+
+        return;
+    }
+
+    window.open(
+        getReportUrl(
+            scanId,
+            "html"
+        ),
         "_blank",
         "noopener,noreferrer"
     );
-
-    if (!reportWindow) {
-        showToast(
-            "The report window was blocked. Please allow popups for CloudSentinel.",
-            "error"
-        );
-        return;
-    }
-
-    try {
-        const response = await fetch(
-            `${API}/reports/scans/${encodeURIComponent(scanId)}/html`,
-            {
-                method: "GET",
-                headers: {
-                    Authorization: `Bearer ${state.token}`,
-                    Accept: "text/html",
-                },
-                cache: "no-store",
-                credentials: "same-origin",
-            }
-        );
-
-        if (response.status === 401) {
-            reportWindow.close();
-            logout(false);
-            throw new Error("Your session has expired.");
-        }
-
-        if (!response.ok) {
-            reportWindow.close();
-
-            let message =
-                `Report request failed (${response.status})`;
-
-            const contentType =
-                response.headers.get("content-type") || "";
-
-            if (contentType.includes("application/json")) {
-                const payload = await response.json();
-                message = payload.detail || message;
-            }
-
-            throw new Error(message);
-        }
-
-        const contentType =
-            response.headers.get("content-type") || "";
-
-        if (!contentType.toLowerCase().includes("text/html")) {
-            reportWindow.close();
-            throw new Error("The report response was not valid HTML.");
-        }
-
-        const reportBlob = await response.blob();
-        const reportUrl = URL.createObjectURL(reportBlob);
-
-        /*
-         * The Blob URL contains no authentication material.
-         * The object URL is revoked after the new tab has loaded it.
-         */
-        reportWindow.location.href = reportUrl;
-
-        setTimeout(() => {
-            URL.revokeObjectURL(reportUrl);
-        }, 60_000);
-    } catch (error) {
-        if (!reportWindow.closed) {
-            reportWindow.close();
-        }
-
-        showToast(error.message, "error");
-    }
 }
 
+async function downloadPdfReport() {
+    const scanId =
+        state.reportScanId ||
+        state.currentScanId ||
+        getLatestScan()?.id;
 
-
-async function downloadPdfReport(scanId = state.currentScanId) {
     if (!scanId) {
-        return;
-    }
+        showToast(
+            "Run a scan before downloading a report.",
+            "error"
+        );
 
-    if (!state.token) {
-        showToast("Your session has expired.", "error");
-        showAuth();
         return;
     }
 
     try {
-        const response = await fetch(
-            `${API}/reports/scans/${encodeURIComponent(scanId)}/pdf`,
-            {
-                method: "GET",
-                headers: {
-                    Authorization: `Bearer ${state.token}`,
-                    Accept: "application/pdf",
-                },
-                cache: "no-store",
-                credentials: "same-origin",
-            }
-        );
+        setLoading(true);
 
-        if (response.status === 401) {
+        const response =
+            await fetch(
+                getReportUrl(
+                    scanId,
+                    "pdf"
+                ),
+                {
+                    headers: state.token
+                        ? {
+                              Authorization: `Bearer ${state.token}`,
+                          }
+                        : {},
+                }
+            );
+
+        if (
+            response.status ===
+            401
+        ) {
             logout(false);
-            throw new Error("Your session has expired.");
-        }
 
-        if (!response.ok) {
-            let message =
-                `PDF report request failed (${response.status})`;
-
-            const contentType =
-                response.headers.get("content-type") || "";
-
-            if (contentType.includes("application/json")) {
-                const payload = await response.json();
-                message = payload.detail || message;
-            }
-
-            throw new Error(message);
-        }
-
-        const contentType =
-            response.headers.get("content-type") || "";
-
-        if (!contentType.toLowerCase().includes("application/pdf")) {
             throw new Error(
-                "The report response was not a valid PDF."
+                "Your session has expired."
             );
         }
 
-        const blob = await response.blob();
+        if (!response.ok) {
+            const text =
+                await response.text();
 
-        if (blob.size === 0) {
-            throw new Error("The generated PDF was empty.");
+            throw new Error(
+                text ||
+                `PDF request failed (${response.status})`
+            );
         }
 
-        const url = URL.createObjectURL(blob);
-        const anchor = document.createElement("a");
+        const blob =
+            await response.blob();
 
-        anchor.href = url;
-        anchor.download =
-            `cloudsentinel-scan-${encodeURIComponent(scanId)}.pdf`;
+        const url =
+            URL.createObjectURL(
+                blob
+            );
 
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
+        const link =
+            document.createElement(
+                "a"
+            );
 
-        setTimeout(() => {
-            URL.revokeObjectURL(url);
-        }, 60_000);
+        link.href = url;
+
+        link.download =
+            `cloudsentinel-scan-${scanId}.pdf`;
+
+        document.body.appendChild(
+            link
+        );
+
+        link.click();
+
+        link.remove();
+
+        URL.revokeObjectURL(
+            url
+        );
+
+        showToast(
+            "PDF report downloaded.",
+            "success"
+        );
+
     } catch (error) {
-        showToast(error.message, "error");
+        handleError(error);
+
+    } finally {
+        setLoading(false);
     }
 }
 
 
-async function refreshCurrentView() {
-    if (state.currentView === "dashboard") {
-        await loadDashboard();
-    } else if (state.currentView === "accounts") {
-        await loadAccounts();
-    } else if (state.currentView === "scans") {
-        await loadScans();
-    } else if (state.currentView === "findings") {
-        await loadFindings(state.currentScanId);
+/* ============================================================
+   SCAN MODAL
+============================================================ */
+
+function openScanModal() {
+    populateScanAccounts();
+
+    $("scan-modal")
+        .classList
+        .remove("hidden");
+}
+
+function closeScanModal() {
+    $("scan-modal")
+        .classList
+        .add("hidden");
+}
+
+function populateScanAccounts() {
+    const select =
+        $("scan-account-select");
+
+    if (!select) {
+        return;
+    }
+
+    if (!state.accounts.length) {
+        select.innerHTML = `
+            <option value="">
+                No AWS accounts configured
+            </option>
+        `;
+
+        return;
+    }
+
+    select.innerHTML = `
+        <option value="">
+            Select an AWS account
+        </option>
+
+        ${state.accounts
+            .map(
+                (account) => `
+                    <option
+                        value="${escapeHtml(
+                            account.id
+                        )}"
+                    >
+                        ${escapeHtml(
+                            account.name
+                        )}
+                        ${
+                            account.external_account_id
+                                ? ` — ${escapeHtml(
+                                      account.external_account_id
+                                  )}`
+                                : ""
+                        }
+                    </option>
+                `
+            )
+            .join("")}
+    `;
+}
+
+
+/* ============================================================
+   BOOTSTRAP
+============================================================ */
+
+async function loadCurrentUser() {
+    try {
+        const response =
+            await apiFetch(
+                "/auth/me"
+            );
+
+        state.user =
+            response;
+
+        showApp();
+
+        await bootstrapApp();
+
+    } catch {
+        /*
+         * Some deployments may not expose /auth/me.
+         * The authenticated API calls remain authoritative.
+         */
+
+        if (state.token) {
+            showApp();
+
+            try {
+                await bootstrapApp();
+            } catch {
+                showAuth();
+            }
+        } else {
+            showAuth();
+        }
+    }
+}
+
+async function bootstrapApp() {
+    showApp();
+
+    setView(
+        "dashboard"
+    );
+
+    try {
+        await refreshDashboard();
+
+    } catch (error) {
+        handleError(error);
+
+        resetDashboard();
     }
 }
 
 
-document.addEventListener(
-    "DOMContentLoaded",
-    async () => {
-        document
-            .querySelectorAll(".auth-tab")
-            .forEach((tab) => {
-                tab.addEventListener(
+/* ============================================================
+   ERROR HANDLING
+============================================================ */
+
+function handleError(error) {
+    console.error(error);
+
+    if (
+        error &&
+        error.message
+    ) {
+        showToast(
+            error.message,
+            "error"
+        );
+    } else {
+        showToast(
+            "Something went wrong.",
+            "error"
+        );
+    }
+}
+
+
+/* ============================================================
+   DRAWER
+============================================================ */
+
+function openFindingDrawer(
+    finding
+) {
+    renderFindingDetail(
+        finding
+    );
+
+    $("finding-drawer")
+        .classList
+        .remove("hidden");
+}
+
+function closeFindingDrawer() {
+    $("finding-drawer")
+        .classList
+        .add("hidden");
+}
+
+
+/* ============================================================
+   EVENT HANDLERS
+============================================================ */
+
+function bindEvents() {
+
+    /* AUTH TABS */
+
+    document
+        .querySelectorAll(
+            "[data-auth-tab]"
+        )
+        .forEach(
+            (button) => {
+
+                button.addEventListener(
                     "click",
                     () => {
+
+                        const tab =
+                            button.dataset
+                                .authTab;
+
                         document
-                            .querySelectorAll(".auth-tab")
-                            .forEach((item) =>
-                                item.classList.remove(
-                                    "active"
-                                )
+                            .querySelectorAll(
+                                ".auth-tab"
+                            )
+                            .forEach(
+                                (item) => {
+
+                                    item.classList.toggle(
+                                        "active",
+                                        item ===
+                                            button
+                                    );
+                                }
                             );
 
-                        tab.classList.add("active");
-
-                        const isLogin =
-                            tab.dataset.authTab ===
-                            "login";
-
                         $("login-form")
-                            .classList.toggle(
+                            .classList
+                            .toggle(
                                 "hidden",
-                                !isLogin
+                                tab !==
+                                    "login"
                             );
 
                         $("register-form")
-                            .classList.toggle(
+                            .classList
+                            .toggle(
                                 "hidden",
-                                isLogin
+                                tab !==
+                                    "register"
                             );
 
                         clearAuthError();
                     }
                 );
-            });
-
-
-        $("login-form").addEventListener(
-            "submit",
-            async (event) => {
-                event.preventDefault();
-
-                try {
-                    await login(
-                        $("login-email").value.trim(),
-                        $("login-password").value,
-                        $("login-tenant").value.trim()
-                    );
-                } catch (error) {
-                    showAuthError(error.message);
-                }
             }
         );
 
 
-        $("register-form").addEventListener(
+    /* LOGIN */
+
+    $("login-form")
+        .addEventListener(
             "submit",
             async (event) => {
+
                 event.preventDefault();
 
-                try {
-                    await register(
-                        $("register-name").value.trim(),
-                        $("register-tenant").value.trim(),
-                        $("register-email").value.trim(),
-                        $("register-password").value
-                    );
-                } catch (error) {
-                    showAuthError(error.message);
-                }
+                await login(
+                    $("login-email")
+                        .value
+                        .trim(),
+
+                    $("login-password")
+                        .value,
+
+                    $("login-tenant")
+                        .value
+                        .trim()
+                );
             }
         );
 
 
-        document
-            .querySelectorAll(".nav-item")
-            .forEach((button) => {
+    /* REGISTER */
+
+    $("register-form")
+        .addEventListener(
+            "submit",
+            async (event) => {
+
+                event.preventDefault();
+
+                await register(
+                    $("register-name")
+                        .value
+                        .trim(),
+
+                    $("register-tenant")
+                        .value
+                        .trim(),
+
+                    $("register-email")
+                        .value
+                        .trim(),
+
+                    $("register-password")
+                        .value
+                );
+            }
+        );
+
+
+    /* NAVIGATION */
+
+    document
+        .querySelectorAll(
+            ".nav-item"
+        )
+        .forEach(
+            (button) => {
+
                 button.addEventListener(
                     "click",
-                    async () => {
-                        const view =
-                            button.dataset.view;
+                    () => {
 
-                        setView(view);
-
-                        try {
-                            if (view === "dashboard") {
-                                await loadDashboard();
-                            } else if (
-                                view === "accounts"
-                            ) {
-                                await loadAccounts();
-                            } else if (
-                                view === "scans"
-                            ) {
-                                await loadScans();
-                            }
-                        } catch (error) {
-                            showToast(
-                                error.message,
-                                "error"
-                            );
-                        }
+                        setView(
+                            button.dataset
+                                .view
+                        );
                     }
                 );
-            });
+            }
+        );
 
 
-        $("logout-btn").addEventListener(
+    /* THEME */
+
+    $("theme-toggle")
+        .addEventListener(
+            "click",
+            toggleTheme
+        );
+
+
+    /* REFRESH */
+
+    $("refresh-btn")
+        .addEventListener(
+            "click",
+            async () => {
+
+                try {
+                    await refreshDashboard();
+
+                    showToast(
+                        "Dashboard refreshed.",
+                        "success"
+                    );
+
+                } catch (error) {
+                    handleError(error);
+                }
+            }
+        );
+
+
+    /* LOGOUT */
+
+    $("logout-btn")
+        .addEventListener(
             "click",
             () => logout(true)
         );
 
 
-        $("refresh-btn").addEventListener(
+    /* MOBILE */
+
+    $("mobile-sidebar-open")
+        .addEventListener(
             "click",
-            refreshCurrentView
+            openSidebar
+        );
+
+    $("mobile-sidebar-close")
+        .addEventListener(
+            "click",
+            closeSidebar
+        );
+
+    $("sidebar-overlay")
+        .addEventListener(
+            "click",
+            closeSidebar
         );
 
 
-        $("dashboard-scan-btn").addEventListener(
-            "click",
-            startScan
-        );
+    /* SCAN BUTTONS */
 
+    [
+        "header-scan-btn",
+        "hero-scan-btn",
+        "dashboard-scan-btn",
+        "history-scan-btn",
+    ]
+        .map(
+            (id) => $(id)
+        )
+        .filter(Boolean)
+        .forEach(
+            (button) => {
 
-        $("history-scan-btn").addEventListener(
-            "click",
-            startScan
-        );
+                button.addEventListener(
+                    "click",
+                    async () => {
 
+                        try {
 
-        $("show-account-form-btn").addEventListener(
-            "click",
-            () => {
-                $("account-form-container")
-                    .classList.remove("hidden");
+                            if (
+                                !state.accounts
+                                    .length
+                            ) {
+                                await loadAccounts();
+                            }
+
+                            openScanModal();
+
+                        } catch (error) {
+                            handleError(
+                                error
+                            );
+                        }
+                    }
+                );
             }
         );
 
 
-        $("cancel-account-btn").addEventListener(
+    /* SCAN MODAL */
+
+    $("scan-modal-close")
+        .addEventListener(
             "click",
-            () => {
-                $("account-form-container")
-                    .classList.add("hidden");
+            closeScanModal
+        );
+
+    $("scan-cancel-btn")
+        .addEventListener(
+            "click",
+            closeScanModal
+        );
+
+    $("scan-form")
+        .addEventListener(
+            "submit",
+            async (event) => {
+
+                event.preventDefault();
+
+                await startScan(
+                    $("scan-account-select")
+                        .value
+                );
             }
         );
 
 
-        $("account-form").addEventListener(
+    /* ACCOUNT FORM */
+
+    $("show-account-form-btn")
+        .addEventListener(
+            "click",
+            () => {
+
+                $("account-form-container")
+                    .classList
+                    .remove("hidden");
+
+                setView(
+                    "accounts"
+                );
+
+                window.scrollTo({
+                    top: 0,
+                    behavior: "smooth",
+                });
+            }
+        );
+
+    $("cancel-account-btn")
+        .addEventListener(
+            "click",
+            () => {
+
+                $("account-form-container")
+                    .classList
+                    .add("hidden");
+            }
+        );
+
+    $("cancel-account-form-btn")
+        .addEventListener(
+            "click",
+            () => {
+
+                $("account-form-container")
+                    .classList
+                    .add("hidden");
+            }
+        );
+
+    $("account-form")
+        .addEventListener(
             "submit",
             createAccount
         );
 
 
-        $("apply-filter-btn").addEventListener(
+    /* FINDING FILTERS */
+
+    $("finding-search")
+        .addEventListener(
+            "input",
+            applyFindingFilters
+        );
+
+    $("severity-filter")
+        .addEventListener(
+            "change",
+            applyFindingFilters
+        );
+
+    $("risk-filter")
+        .addEventListener(
+            "change",
+            applyFindingFilters
+        );
+
+    $("clear-filters-btn")
+        .addEventListener(
             "click",
             () => {
-                if (state.currentScanId) {
-                    loadFindings(
+
+                $("finding-search")
+                    .value = "";
+
+                $("severity-filter")
+                    .value = "";
+
+                $("risk-filter")
+                    .value = "";
+
+                applyFindingFilters();
+            }
+        );
+
+
+    /* FINDINGS REFRESH */
+
+    $("findings-refresh-btn")
+        .addEventListener(
+            "click",
+            async () => {
+
+                if (
+                    !state.currentScanId
+                ) {
+                    showToast(
+                        "No scan selected.",
+                        "error"
+                    );
+
+                    return;
+                }
+
+                try {
+
+                    await loadFindings(
                         state.currentScanId
+                    );
+
+                    showToast(
+                        "Findings refreshed.",
+                        "success"
+                    );
+
+                } catch (error) {
+                    handleError(
+                        error
                     );
                 }
             }
         );
 
 
-        $("lifecycle-btn").addEventListener(
+    /* FINDINGS REPORT */
+
+    $("findings-report-btn")
+        .addEventListener(
             "click",
-            openLifecycle
+            openHtmlReport
         );
 
 
-        $("report-btn").addEventListener(
+    /* FINDINGS LIFECYCLE */
+
+    $("findings-lifecycle-btn")
+        .addEventListener(
             "click",
-            () => openReport()
+            async () => {
+
+                if (
+                    !state.currentScanId
+                ) {
+                    showToast(
+                        "No scan selected.",
+                        "error"
+                    );
+
+                    return;
+                }
+
+                try {
+
+                    await loadLifecycle(
+                        state.currentScanId
+                    );
+
+                    setView(
+                        "lifecycle"
+                    );
+
+                } catch (error) {
+                    handleError(
+                        error
+                    );
+                }
+            }
         );
 
-        $("pdf-report-btn").addEventListener(
+
+    /* LIFECYCLE BACK */
+
+    $("back-lifecycle-btn")
+        .addEventListener(
             "click",
-            () => downloadPdfReport()
+            () => {
+
+                setView(
+                    "findings"
+                );
+            }
         );
 
 
-        $("back-findings-btn").addEventListener(
+    /* FINDING DETAIL BACK */
+
+    $("back-findings-btn")
+        .addEventListener(
             "click",
-            () => setView("findings")
+            () => {
+
+                setView(
+                    "findings"
+                );
+            }
         );
 
 
-        $("back-lifecycle-btn").addEventListener(
+    /* DRAWER */
+
+    $("drawer-close")
+        .addEventListener(
             "click",
-            () => setView("findings")
+            closeFindingDrawer
+        );
+
+    $("finding-drawer")
+        .addEventListener(
+            "click",
+            (event) => {
+
+                if (
+                    event.target ===
+                    $("finding-drawer")
+                ) {
+                    closeFindingDrawer();
+                }
+            }
         );
 
 
-        if (state.token) {
-            await loadCurrentUser();
-        } else {
-            showAuth();
+    /* REPORTS */
+
+    $("report-html-btn")
+        .addEventListener(
+            "click",
+            openHtmlReport
+        );
+
+    $("report-pdf-btn")
+        .addEventListener(
+            "click",
+            downloadPdfReport
+        );
+
+    $("hero-report-btn")
+        .addEventListener(
+            "click",
+            () => {
+
+                setView(
+                    "reports"
+                );
+            }
+        );
+
+
+    /* QUICK LINKS */
+
+    document
+        .querySelectorAll(
+            "[data-view-link]"
+        )
+        .forEach(
+            (button) => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        setView(
+                            button.dataset
+                                .viewLink
+                        );
+                    }
+                );
+            }
+        );
+
+
+    /* KPI SEVERITY LINKS */
+
+    document
+        .querySelectorAll(
+            "[data-severity-link]"
+        )
+        .forEach(
+            (button) => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        $("severity-filter")
+                            .value =
+                            button.dataset
+                                .severityLink;
+
+                        setView(
+                            "findings"
+                        );
+
+                        applyFindingFilters();
+                    }
+                );
+            }
+        );
+
+
+    $("distribution-findings-btn")
+        .addEventListener(
+            "click",
+            () => {
+
+                setView(
+                    "findings"
+                );
+            }
+        );
+
+
+    /* DELEGATED TABLE ACTIONS */
+
+    document.addEventListener(
+        "click",
+        async (event) => {
+
+            const scanButton =
+                event.target.closest(
+                    "[data-open-scan]"
+                );
+
+            if (scanButton) {
+
+                const scanId =
+                    scanButton
+                        .dataset
+                        .openScan;
+
+                await openScan(
+                    Number(scanId)
+                );
+
+                return;
+            }
+
+
+            const findingButton =
+                event.target.closest(
+                    "[data-open-finding]"
+                );
+
+            if (findingButton) {
+
+                const findingId =
+                    findingButton
+                        .dataset
+                        .openFinding;
+
+                await openFinding(
+                    Number(findingId)
+                );
+            }
         }
+    );
+}
+
+
+/* ============================================================
+   INITIALIZATION
+============================================================ */
+
+async function init() {
+    bindEvents();
+
+    if (state.token) {
+        await loadCurrentUser();
+    } else {
+        showAuth();
     }
+}
+
+document.addEventListener(
+    "DOMContentLoaded",
+    init
 );
 
-
-window.openScan = openScan;
-window.openFinding = openFinding;
-window.openReport = openReport;
-window.downloadPdfReport = downloadPdfReport;
+window.deleteAccount = deleteAccount;

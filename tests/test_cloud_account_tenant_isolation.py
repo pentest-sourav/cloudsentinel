@@ -83,6 +83,7 @@ def create_account(client, token, name, provider="aws"):
             "name": name,
             "provider": provider,
             "external_account_id": "123456789012",
+            "role_arn": "arn:aws:iam::123456789012:role/CloudSentinelAuditRole",
         },
     )
 
@@ -187,6 +188,7 @@ def test_cloud_account_creation_uses_authenticated_tenant(client):
             "name": "Authenticated AWS Account",
             "provider": "aws",
             "external_account_id": "999999999999",
+            "role_arn": "arn:aws:iam::999999999999:role/CloudSentinelAuditRole",
         },
     )
 
@@ -307,3 +309,204 @@ def test_cloud_account_connection_configuration_is_available_in_detail(client):
     )
     assert account["region"] == "ap-south-1"
     assert "external_id" not in account
+
+
+
+def test_cloud_account_delete_removes_configuration_and_preserves_scans(client):
+    register_user(
+        client,
+        "delete-owner@example.com",
+        "Delete Owner Tenant",
+    )
+
+    token = login_user(
+        client,
+        "delete-owner@example.com",
+    )
+
+    account = create_account(
+        client,
+        token,
+        "Delete Test AWS Account",
+    )
+
+    # Create a scan record through the existing scan API so that
+    # deletion must preserve the historical scan while detaching
+    # the removed cloud-account configuration.
+    scan_response = client.post(
+        "/api/v1/scans",
+        headers=auth_headers(token),
+        json={
+            "provider": "aws",
+            "cloud_account_id": account["id"],
+        },
+    )
+
+    assert scan_response.status_code in {201, 202}
+    scan_id = scan_response.json()["id"]
+
+    delete_response = client.delete(
+        f"/api/v1/cloud-accounts/{account['id']}",
+        headers=auth_headers(token),
+    )
+
+    assert delete_response.status_code == 204
+    assert delete_response.content == b""
+
+    detail_response = client.get(
+        f"/api/v1/cloud-accounts/{account['id']}",
+        headers=auth_headers(token),
+    )
+
+    assert detail_response.status_code == 404
+
+    scan_detail = client.get(
+        f"/api/v1/scans/{scan_id}",
+        headers=auth_headers(token),
+    )
+
+    assert scan_detail.status_code == 200
+    assert scan_detail.json()["id"] == scan_id
+    assert scan_detail.json().get("cloud_account_id") is None
+
+
+def test_cloud_account_delete_is_tenant_isolated(client):
+    register_user(
+        client,
+        "delete-tenant-a@example.com",
+        "Delete Tenant A",
+    )
+
+    register_user(
+        client,
+        "delete-tenant-b@example.com",
+        "Delete Tenant B",
+    )
+
+    token_a = login_user(
+        client,
+        "delete-tenant-a@example.com",
+    )
+
+    token_b = login_user(
+        client,
+        "delete-tenant-b@example.com",
+    )
+
+    account_a = create_account(
+        client,
+        token_a,
+        "Tenant A Delete Account",
+    )
+
+    delete_response = client.delete(
+        f"/api/v1/cloud-accounts/{account_a['id']}",
+        headers=auth_headers(token_b),
+    )
+
+    assert delete_response.status_code == 404
+
+    still_exists = client.get(
+        f"/api/v1/cloud-accounts/{account_a['id']}",
+        headers=auth_headers(token_a),
+    )
+
+    assert still_exists.status_code == 200
+    assert still_exists.json()["id"] == account_a["id"]
+
+
+def test_cloud_account_delete_unknown_account_returns_404(client):
+    register_user(
+        client,
+        "delete-missing@example.com",
+        "Delete Missing Tenant",
+    )
+
+    token = login_user(
+        client,
+        "delete-missing@example.com",
+    )
+
+    response = client.delete(
+        "/api/v1/cloud-accounts/999999",
+        headers=auth_headers(token),
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Cloud account not found"
+
+
+def test_cloud_account_requires_aws_account_id(client):
+    register_user(
+        client,
+        "required-account-id@example.com",
+        "Required Account ID Tenant",
+    )
+
+    token = login_user(
+        client,
+        "required-account-id@example.com",
+    )
+
+    response = client.post(
+        "/api/v1/cloud-accounts",
+        headers=auth_headers(token),
+        json={
+            "name": "Missing AWS Account ID",
+            "provider": "aws",
+            "role_arn": "arn:aws:iam::123456789012:role/CloudSentinelAuditRole",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_cloud_account_requires_role_arn(client):
+    register_user(
+        client,
+        "required-role@example.com",
+        "Required Role Tenant",
+    )
+
+    token = login_user(
+        client,
+        "required-role@example.com",
+    )
+
+    response = client.post(
+        "/api/v1/cloud-accounts",
+        headers=auth_headers(token),
+        json={
+            "name": "Missing IAM Role ARN",
+            "provider": "aws",
+            "external_account_id": "123456789012",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_cloud_account_rejects_invalid_aws_account_id(client):
+    register_user(
+        client,
+        "invalid-account-id@example.com",
+        "Invalid Account ID Tenant",
+    )
+
+    token = login_user(
+        client,
+        "invalid-account-id@example.com",
+    )
+
+    response = client.post(
+        "/api/v1/cloud-accounts",
+        headers=auth_headers(token),
+        json={
+            "name": "Invalid AWS Account ID",
+            "provider": "aws",
+            "external_account_id": "12345",
+            "role_arn": "arn:aws:iam::123456789012:role/CloudSentinelAuditRole",
+        },
+    )
+
+    assert response.status_code == 422
