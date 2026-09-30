@@ -41,14 +41,46 @@ class ECSService:
     # ------------------------------------------------------------------
 
     def list_capacity_providers(self) -> list[str]:
-        providers: list[str] = []
-        paginator = self.client.get_paginator("describe_capacity_providers")
+        """
+        Discover all ECS capacity providers.
 
-        for page in paginator.paginate():
-            for provider in page.get("capacityProviders", []):
+        DescribeCapacityProviders supports explicit NextToken
+        pagination, but the installed Botocore model does not expose
+        a paginator for this operation.
+        """
+        providers: list[str] = []
+        next_token: str | None = None
+
+        while True:
+            request: dict[str, Any] = {
+                "maxResults": 10,
+            }
+
+            if next_token:
+                request["nextToken"] = next_token
+
+            response = self.client.describe_capacity_providers(
+                **request
+            )
+
+            for provider in response.get(
+                "capacityProviders",
+                [],
+            ):
+                if not isinstance(provider, dict):
+                    continue
+
                 name = provider.get("name")
-                if name:
+
+                if isinstance(name, str) and name:
                     providers.append(name)
+
+            token = response.get("nextToken")
+
+            if not isinstance(token, str) or not token:
+                break
+
+            next_token = token
 
         return providers
 

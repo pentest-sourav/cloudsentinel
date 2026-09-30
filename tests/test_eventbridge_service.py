@@ -22,17 +22,15 @@ def test_list_event_buses_collects_all_pages():
 
     session.client.return_value = client
 
-    paginator = Mock()
-    client.get_paginator.return_value = paginator
-
-    paginator.paginate.return_value = [
+    client.list_event_buses.side_effect = [
         {
             "EventBuses": [
                 {
                     "Arn": EVENT_BUS_ARN,
                     "Name": "test-bus",
                 }
-            ]
+            ],
+            "NextToken": "token-2",
         },
         {
             "EventBuses": [
@@ -43,7 +41,7 @@ def test_list_event_buses_collects_all_pages():
                     ),
                     "Name": "second",
                 }
-            ]
+            ],
         },
     ]
 
@@ -52,7 +50,19 @@ def test_list_event_buses_collects_all_pages():
     result = service.list_event_buses()
 
     assert len(result) == 2
-    assert result[0]["Arn"] == EVENT_BUS_ARN
+    assert result[0]["Name"] == "test-bus"
+    assert result[1]["Name"] == "second"
+
+    assert client.list_event_buses.call_args_list[0].kwargs == {
+        "Limit": 100,
+    }
+
+    assert client.list_event_buses.call_args_list[1].kwargs == {
+        "Limit": 100,
+        "NextToken": "token-2",
+    }
+
+    client.get_paginator.assert_not_called()
 
 
 def test_describe_event_bus_returns_policy():
@@ -124,10 +134,7 @@ def test_list_endpoints_collects_all_pages():
 
     session.client.return_value = client
 
-    paginator = Mock()
-    client.get_paginator.return_value = paginator
-
-    paginator.paginate.return_value = [
+    client.list_endpoints.side_effect = [
         {
             "Endpoints": [
                 {
@@ -138,8 +145,24 @@ def test_list_endpoints_collects_all_pages():
                         "State": "ENABLED",
                     },
                 }
-            ]
-        }
+            ],
+            "NextToken": "token-2",
+        },
+        {
+            "Endpoints": [
+                {
+                    "Arn": (
+                        "arn:aws:events:region:account:"
+                        "endpoint:second"
+                    ),
+                    "Name": "second-endpoint",
+                    "State": "ACTIVE",
+                    "ReplicationConfig": {
+                        "State": "ENABLED",
+                    },
+                }
+            ],
+        },
     ]
 
     service = EventBridgeService(session)
@@ -154,5 +177,27 @@ def test_list_endpoints_collects_all_pages():
             "ReplicationConfig": {
                 "State": "ENABLED",
             },
-        }
+        },
+        {
+            "Arn": (
+                "arn:aws:events:region:account:"
+                "endpoint:second"
+            ),
+            "Name": "second-endpoint",
+            "State": "ACTIVE",
+            "ReplicationConfig": {
+                "State": "ENABLED",
+            },
+        },
     ]
+
+    assert client.list_endpoints.call_args_list[0].kwargs == {
+        "MaxResults": 100,
+    }
+
+    assert client.list_endpoints.call_args_list[1].kwargs == {
+        "MaxResults": 100,
+        "NextToken": "token-2",
+    }
+
+    client.get_paginator.assert_not_called()

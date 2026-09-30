@@ -75,17 +75,47 @@ class AthenaService:
             raise AssertionError("unreachable")
 
     def list_workgroups(self) -> list[dict[str, Any]]:
+        """
+        Discover all Athena workgroups.
+
+        Uses explicit NextToken pagination because the installed
+        Botocore model does not expose a paginator for
+        ListWorkGroups.
+        """
         try:
-            paginator = self.athena_client.get_paginator(
-                "list_work_groups"
-            )
-
             workgroups: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                workgroups.extend(
-                    page.get("WorkGroups", [])
+            while True:
+                request: dict[str, Any] = {
+                    "MaxResults": 50,
+                }
+
+                if next_token:
+                    request["NextToken"] = next_token
+
+                response = self.athena_client.list_work_groups(
+                    **request
                 )
+
+                items = response.get(
+                    "WorkGroups",
+                    [],
+                )
+
+                if isinstance(items, list):
+                    workgroups.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if not isinstance(token, str) or not token:
+                    break
+
+                next_token = token
 
             return workgroups
 

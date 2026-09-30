@@ -66,14 +66,44 @@ class WAFService:
         client = self._client_for_scope(scope)
 
         try:
-            paginator = client.get_paginator("list_web_acls")
-
             web_acls: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate(Scope=scope):
-                web_acls.extend(
-                    page.get("WebACLs", [])
+            while True:
+                kwargs: dict[str, Any] = {
+                    "Scope": scope,
+                    "Limit": 100,
+                }
+
+                if next_token:
+                    kwargs["NextLockToken"] = next_token
+
+                response = client.list_web_acls(
+                    **kwargs
                 )
+
+                page_acls = response.get(
+                    "WebACLs",
+                    [],
+                )
+
+                if isinstance(page_acls, list):
+                    web_acls.extend(
+                        acl
+                        for acl in page_acls
+                        if isinstance(acl, dict)
+                    )
+
+                token = response.get("NextLockToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return web_acls
 
@@ -154,22 +184,50 @@ class WAFService:
         client = self._client_for_scope(scope)
 
         try:
-            paginator = client.get_paginator(
-                "list_rule_groups"
-            )
-
             rule_groups: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate(Scope=scope):
-                rule_groups.extend(
-                    page.get("RuleGroups", [])
+            while True:
+                kwargs: dict[str, Any] = {
+                    "Scope": scope,
+                    "Limit": 100,
+                }
+
+                if next_token:
+                    kwargs["NextLockToken"] = next_token
+
+                response = client.list_rule_groups(
+                    **kwargs
                 )
+
+                page_groups = response.get(
+                    "RuleGroups",
+                    [],
+                )
+
+                if isinstance(page_groups, list):
+                    rule_groups.extend(
+                        group
+                        for group in page_groups
+                        if isinstance(group, dict)
+                    )
+
+                token = response.get("NextLockToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return rule_groups
 
         except (ClientError, BotoCoreError) as exc:
             self._raise_api_error(
-                "rule group discovery",
+                "rule-group discovery",
                 exc,
             )
             raise AssertionError("unreachable")

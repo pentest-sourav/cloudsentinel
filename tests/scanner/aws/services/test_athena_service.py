@@ -57,13 +57,12 @@ def test_list_data_catalogs_collects_paginated_results():
 def test_list_workgroups_collects_paginated_results():
     service, client = make_service()
 
-    paginator = Mock()
-
-    paginator.paginate.return_value = [
+    client.list_work_groups.side_effect = [
         {
             "WorkGroups": [
                 {"Name": "one"},
             ],
+            "NextToken": "token-1",
         },
         {
             "WorkGroups": [
@@ -72,11 +71,14 @@ def test_list_workgroups_collects_paginated_results():
         },
     ]
 
-    client.get_paginator.return_value = paginator
-
     assert service.list_workgroups() == [
         {"Name": "one"},
         {"Name": "two"},
+    ]
+
+    assert client.list_work_groups.call_args_list == [
+        ((), {"MaxResults": 50}),
+        ((), {"MaxResults": 50, "NextToken": "token-1"}),
     ]
 
 
@@ -173,7 +175,7 @@ def test_aws_client_error_is_normalized():
         "ListWorkGroups",
     )
 
-    client.get_paginator.side_effect = error
+    client.list_work_groups.side_effect = error
 
     with pytest.raises(
         RuntimeError,

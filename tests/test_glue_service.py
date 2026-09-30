@@ -79,14 +79,20 @@ def test_get_tags_empty_arn_is_safe():
 def test_list_ml_transforms_uses_paginator():
     session = Mock()
     client = Mock()
-    paginator = Mock()
 
-    paginator.paginate.return_value = [
-        {"Transforms": [{"TransformId": "t-1"}]},
-        {"Transforms": [{"TransformId": "t-2"}]},
+    client.get_ml_transforms.side_effect = [
+        {
+            "Transforms": [
+                {"TransformId": "t-1"},
+            ],
+            "NextToken": "token-2",
+        },
+        {
+            "Transforms": [
+                {"TransformId": "t-2"},
+            ],
+        },
     ]
-
-    client.get_paginator.return_value = paginator
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
@@ -102,6 +108,13 @@ def test_list_ml_transforms_uses_paginator():
         {"TransformId": "t-2"},
     ]
 
-    client.get_paginator.assert_called_once_with(
-        "get_ml_transforms"
-    )
+    assert client.get_ml_transforms.call_args_list[0].kwargs == {
+        "MaxResults": 1000,
+    }
+
+    assert client.get_ml_transforms.call_args_list[1].kwargs == {
+        "MaxResults": 1000,
+        "NextToken": "token-2",
+    }
+
+    client.get_paginator.assert_not_called()

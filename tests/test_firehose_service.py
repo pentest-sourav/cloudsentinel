@@ -6,22 +6,23 @@ from scanner.aws.services.firehose import FirehoseService
 def test_list_delivery_streams_uses_pagination():
     session = Mock()
     client = Mock()
-    paginator = Mock()
 
-    client.get_paginator.return_value = paginator
-    paginator.paginate.return_value = [
+    client.list_delivery_streams.side_effect = [
         {
             "DeliveryStreamNames": [
                 "stream-a",
                 "stream-b",
-            ]
+            ],
+            "HasMoreDeliveryStreams": True,
         },
         {
             "DeliveryStreamNames": [
                 "stream-c",
-            ]
+            ],
+            "HasMoreDeliveryStreams": False,
         },
     ]
+
     session.client.return_value = client
 
     service = FirehoseService(session)
@@ -32,9 +33,16 @@ def test_list_delivery_streams_uses_pagination():
         "stream-c",
     ]
 
-    client.get_paginator.assert_called_once_with(
-        "list_delivery_streams"
-    )
+    assert client.list_delivery_streams.call_args_list[0].kwargs == {
+        "Limit": 100,
+    }
+
+    assert client.list_delivery_streams.call_args_list[1].kwargs == {
+        "Limit": 100,
+        "ExclusiveStartDeliveryStreamName": "stream-b",
+    }
+
+    client.get_paginator.assert_not_called()
 
 
 def test_describe_delivery_stream_returns_description():

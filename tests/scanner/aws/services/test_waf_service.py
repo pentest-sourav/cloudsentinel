@@ -44,8 +44,7 @@ def test_init_creates_regional_and_cloudfront_clients():
 def test_list_web_acls_uses_requested_scope():
     service = make_service()
 
-    paginator = Mock()
-    paginator.paginate.return_value = [
+    service.regional_client.list_web_acls.side_effect = [
         {
             "WebACLs": [
                 {
@@ -53,18 +52,47 @@ def test_list_web_acls_uses_requested_scope():
                     "Id": "acl-1",
                     "ARN": "arn:aws:wafv2:test",
                 }
+            ],
+            "NextLockToken": "token-2",
+        },
+        {
+            "WebACLs": [
+                {
+                    "Name": "payments",
+                    "Id": "acl-2",
+                    "ARN": "arn:aws:wafv2:test-2",
+                }
             ]
-        }
+        },
     ]
-
-    service.regional_client.get_paginator.return_value = paginator
 
     result = service.list_web_acls("REGIONAL")
 
-    assert result[0]["Name"] == "orders"
-    paginator.paginate.assert_called_once_with(
-        Scope="REGIONAL"
-    )
+    assert result == [
+        {
+            "Name": "orders",
+            "Id": "acl-1",
+            "ARN": "arn:aws:wafv2:test",
+        },
+        {
+            "Name": "payments",
+            "Id": "acl-2",
+            "ARN": "arn:aws:wafv2:test-2",
+        },
+    ]
+
+    assert service.regional_client.list_web_acls.call_args_list[0].kwargs == {
+        "Scope": "REGIONAL",
+        "Limit": 100,
+    }
+
+    assert service.regional_client.list_web_acls.call_args_list[1].kwargs == {
+        "Scope": "REGIONAL",
+        "Limit": 100,
+        "NextLockToken": "token-2",
+    }
+
+    service.regional_client.get_paginator.assert_not_called()
 
 
 def test_get_logging_configuration_returns_empty_when_missing():
@@ -94,8 +122,7 @@ def test_get_logging_configuration_returns_empty_when_missing():
 def test_list_rule_groups_uses_requested_scope():
     service = make_service()
 
-    paginator = Mock()
-    paginator.paginate.return_value = [
+    service.cloudfront_client.list_rule_groups.side_effect = [
         {
             "RuleGroups": [
                 {
@@ -103,21 +130,47 @@ def test_list_rule_groups_uses_requested_scope():
                     "Id": "group-1",
                     "ARN": "arn:aws:wafv2:group",
                 }
+            ],
+            "NextLockToken": "token-2",
+        },
+        {
+            "RuleGroups": [
+                {
+                    "Name": "custom-rules",
+                    "Id": "group-2",
+                    "ARN": "arn:aws:wafv2:group-2",
+                }
             ]
-        }
+        },
     ]
-
-    service.cloudfront_client.get_paginator.return_value = (
-        paginator
-    )
 
     result = service.list_rule_groups("CLOUDFRONT")
 
-    assert result[0]["Id"] == "group-1"
+    assert result == [
+        {
+            "Name": "managed-rules",
+            "Id": "group-1",
+            "ARN": "arn:aws:wafv2:group",
+        },
+        {
+            "Name": "custom-rules",
+            "Id": "group-2",
+            "ARN": "arn:aws:wafv2:group-2",
+        },
+    ]
 
-    paginator.paginate.assert_called_once_with(
-        Scope="CLOUDFRONT"
-    )
+    assert service.cloudfront_client.list_rule_groups.call_args_list[0].kwargs == {
+        "Scope": "CLOUDFRONT",
+        "Limit": 100,
+    }
+
+    assert service.cloudfront_client.list_rule_groups.call_args_list[1].kwargs == {
+        "Scope": "CLOUDFRONT",
+        "Limit": 100,
+        "NextLockToken": "token-2",
+    }
+
+    service.cloudfront_client.get_paginator.assert_not_called()
 
 
 def test_get_web_acl_returns_web_acl():

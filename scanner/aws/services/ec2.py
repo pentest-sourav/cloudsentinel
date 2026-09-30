@@ -311,22 +311,29 @@ class EC2Service:
     def describe_addresses(
         self,
     ) -> list[dict[str, Any]]:
+        """
+        Discover Elastic IP addresses.
+
+        DescribeAddresses is not exposed as a Botocore paginator and
+        does not expose NextToken pagination in its API contract, so
+        this uses one direct API request.
+        """
         try:
-            paginator = self.ec2_client.get_paginator(
-                "describe_addresses"
+            response = self.ec2_client.describe_addresses()
+
+            addresses = response.get(
+                "Addresses",
+                [],
             )
 
-            addresses: list[dict[str, Any]] = []
+            if not isinstance(addresses, list):
+                return []
 
-            for page in paginator.paginate():
-                addresses.extend(
-                    page.get(
-                        "Addresses",
-                        [],
-                    )
-                )
-
-            return addresses
+            return [
+                address
+                for address in addresses
+                if isinstance(address, dict)
+            ]
 
         except ClientError as exc:
             error = exc.response.get("Error", {})

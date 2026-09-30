@@ -65,20 +65,35 @@ def test_vpc_new_service_methods_paginate(
         {response_key: [{"Id": "2"}]},
     ]
 
-    service.ec2_client.get_paginator.return_value = paginator
+    if method_name == "describe_vpn_connections":
+        service.ec2_client.describe_vpn_connections.return_value = {
+            response_key: [{"Id": "1"}],
+        }
 
-    result = getattr(service, method_name)()
+        result = getattr(service, method_name)()
 
-    assert result == [
-        {"Id": "1"},
-        {"Id": "2"},
-    ]
+        assert result == [
+            {"Id": "1"},
+        ]
 
-    service.ec2_client.get_paginator.assert_called_once_with(
-        api_name
-    )
+        service.ec2_client.describe_vpn_connections.assert_called_once_with()
+        service.ec2_client.get_paginator.assert_not_called()
 
-    paginator.paginate.assert_called_once_with()
+    else:
+        service.ec2_client.get_paginator.return_value = paginator
+
+        result = getattr(service, method_name)()
+
+        assert result == [
+            {"Id": "1"},
+            {"Id": "2"},
+        ]
+
+        service.ec2_client.get_paginator.assert_called_once_with(
+            api_name
+        )
+
+        paginator.paginate.assert_called_once_with()
 
 
 @pytest.mark.parametrize(
@@ -108,7 +123,11 @@ def test_vpc_new_service_methods_wrap_client_errors(
         method_name,
     )
 
-    service.ec2_client.get_paginator.side_effect = error
+    if method_name == "describe_vpn_connections":
+        service.ec2_client.describe_vpn_connections.side_effect = error
+
+    else:
+        service.ec2_client.get_paginator.side_effect = error
 
     with pytest.raises(
         RuntimeError,

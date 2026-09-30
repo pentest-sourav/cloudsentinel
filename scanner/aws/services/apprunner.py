@@ -53,16 +53,27 @@ class AppRunnerService:
         """
         Discover all App Runner services visible to the
         current credentials in the current region.
+
+        Uses explicit NextToken pagination because the installed
+        Botocore model does not expose a paginator for ListServices.
         """
         try:
-            paginator = self.apprunner_client.get_paginator(
-                "list_services"
-            )
-
             services: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                page_services = page.get(
+            while True:
+                request: dict[str, Any] = {
+                    "MaxResults": 100,
+                }
+
+                if next_token:
+                    request["NextToken"] = next_token
+
+                response = self.apprunner_client.list_services(
+                    **request
+                )
+
+                page_services = response.get(
                     "ServiceSummaryList",
                     [],
                 )
@@ -73,6 +84,13 @@ class AppRunnerService:
                         for service in page_services
                         if isinstance(service, dict)
                     )
+
+                token = response.get("NextToken")
+
+                if not isinstance(token, str) or not token:
+                    break
+
+                next_token = token
 
             return services
 
@@ -87,16 +105,28 @@ class AppRunnerService:
         """
         Discover all App Runner VPC connectors visible to
         the current credentials in the current region.
+
+        Uses explicit NextToken pagination because the installed
+        Botocore model does not expose a paginator for
+        ListVpcConnectors.
         """
         try:
-            paginator = self.apprunner_client.get_paginator(
-                "list_vpc_connectors"
-            )
-
             connectors: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                page_connectors = page.get(
+            while True:
+                request: dict[str, Any] = {
+                    "MaxResults": 100,
+                }
+
+                if next_token:
+                    request["NextToken"] = next_token
+
+                response = self.apprunner_client.list_vpc_connectors(
+                    **request
+                )
+
+                page_connectors = response.get(
                     "VpcConnectors",
                     [],
                 )
@@ -107,6 +137,13 @@ class AppRunnerService:
                         for connector in page_connectors
                         if isinstance(connector, dict)
                     )
+
+                token = response.get("NextToken")
+
+                if not isinstance(token, str) or not token:
+                    break
+
+                next_token = token
 
             return connectors
 

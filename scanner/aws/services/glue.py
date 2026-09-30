@@ -96,16 +96,43 @@ class GlueService:
 
     def list_ml_transforms(self) -> list[dict[str, Any]]:
         try:
-            paginator = self.glue_client.get_paginator(
-                "get_ml_transforms"
-            )
-
             transforms: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                transforms.extend(
-                    page.get("Transforms", [])
+            while True:
+                kwargs: dict[str, Any] = {
+                    "MaxResults": 1000,
+                }
+
+                if next_token:
+                    kwargs["NextToken"] = next_token
+
+                response = self.glue_client.get_ml_transforms(
+                    **kwargs
                 )
+
+                page_transforms = response.get(
+                    "Transforms",
+                    [],
+                )
+
+                if isinstance(page_transforms, list):
+                    transforms.extend(
+                        transform
+                        for transform in page_transforms
+                        if isinstance(transform, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return transforms
 

@@ -21,8 +21,7 @@ def make_service():
 def test_list_flows_collects_paginated_results():
     service, client = make_service()
 
-    paginator = Mock()
-    paginator.paginate.return_value = [
+    client.list_flows.side_effect = [
         {
             "flows": [
                 {
@@ -32,7 +31,8 @@ def test_list_flows_collects_paginated_results():
                         "123456789012:flow/flow_one"
                     ),
                 }
-            ]
+            ],
+            "nextToken": "token-1",
         },
         {
             "flows": [
@@ -43,17 +43,31 @@ def test_list_flows_collects_paginated_results():
                         "123456789012:flow/flow_two"
                     ),
                 }
-            ]
+            ],
         },
     ]
 
-    client.get_paginator.return_value = paginator
+    assert service.list_flows() == [
+        {
+            "flowName": "flow_one",
+            "flowArn": (
+                "arn:aws:appflow:ap-south-1:"
+                "123456789012:flow/flow_one"
+            ),
+        },
+        {
+            "flowName": "flow_two",
+            "flowArn": (
+                "arn:aws:appflow:ap-south-1:"
+                "123456789012:flow/flow_two"
+            ),
+        },
+    ]
 
-    assert len(service.list_flows()) == 2
-
-    client.get_paginator.assert_called_once_with(
-        "list_flows"
-    )
+    assert client.list_flows.call_args_list == [
+        (( ), {"maxResults": 100}),
+        (( ), {"maxResults": 100, "nextToken": "token-1"}),
+    ]
 
 
 def test_list_tags_for_resource_returns_tags():
@@ -99,7 +113,7 @@ def test_list_flows_normalizes_client_error():
         "ListFlows",
     )
 
-    client.get_paginator.side_effect = error
+    client.list_flows.side_effect = error
 
     with pytest.raises(
         RuntimeError,

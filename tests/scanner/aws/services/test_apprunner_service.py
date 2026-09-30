@@ -23,8 +23,7 @@ def make_service():
 def test_list_services_collects_paginated_results():
     service, client = make_service()
 
-    paginator = Mock()
-    paginator.paginate.return_value = [
+    client.list_services.side_effect = [
         {
             "ServiceSummaryList": [
                 {
@@ -33,7 +32,8 @@ def test_list_services_collects_paginated_results():
                     "ServiceName": "frontend",
                     "Status": "RUNNING",
                 }
-            ]
+            ],
+            "NextToken": "token-1",
         },
         {
             "ServiceSummaryList": [
@@ -43,11 +43,9 @@ def test_list_services_collects_paginated_results():
                     "ServiceName": "backend",
                     "Status": "RUNNING",
                 }
-            ]
+            ],
         },
     ]
-
-    client.get_paginator.return_value = paginator
 
     assert service.list_services() == [
         {
@@ -64,9 +62,10 @@ def test_list_services_collects_paginated_results():
         },
     ]
 
-    client.get_paginator.assert_called_once_with(
-        "list_services"
-    )
+    assert client.list_services.call_args_list == [
+        ((), {"MaxResults": 100}),
+        ((), {"MaxResults": 100, "NextToken": "token-1"}),
+    ]
 
 
 def test_list_services_ignores_non_dict_entries():
@@ -83,7 +82,13 @@ def test_list_services_ignores_non_dict_entries():
         }
     ]
 
-    client.get_paginator.return_value = paginator
+    client.list_services.return_value = {
+        "ServiceSummaryList": [
+            {"ServiceId": "1111"},
+            None,
+            "invalid",
+        ]
+    }
 
     assert service.list_services() == [
         {"ServiceId": "1111"},
@@ -93,8 +98,7 @@ def test_list_services_ignores_non_dict_entries():
 def test_list_vpc_connectors_collects_paginated_results():
     service, client = make_service()
 
-    paginator = Mock()
-    paginator.paginate.return_value = [
+    client.list_vpc_connectors.side_effect = [
         {
             "VpcConnectors": [
                 {
@@ -103,7 +107,8 @@ def test_list_vpc_connectors_collects_paginated_results():
                     "VpcConnectorRevision": 1,
                     "Status": "ACTIVE",
                 }
-            ]
+            ],
+            "NextToken": "token-1",
         },
         {
             "VpcConnectors": [
@@ -113,11 +118,9 @@ def test_list_vpc_connectors_collects_paginated_results():
                     "VpcConnectorRevision": 1,
                     "Status": "ACTIVE",
                 }
-            ]
+            ],
         },
     ]
-
-    client.get_paginator.return_value = paginator
 
     assert service.list_vpc_connectors() == [
         {
@@ -134,9 +137,10 @@ def test_list_vpc_connectors_collects_paginated_results():
         },
     ]
 
-    client.get_paginator.assert_called_once_with(
-        "list_vpc_connectors"
-    )
+    assert client.list_vpc_connectors.call_args_list == [
+        ((), {"MaxResults": 100}),
+        ((), {"MaxResults": 100, "NextToken": "token-1"}),
+    ]
 
 
 def test_list_vpc_connectors_ignores_non_dict_entries():
@@ -153,7 +157,13 @@ def test_list_vpc_connectors_ignores_non_dict_entries():
         }
     ]
 
-    client.get_paginator.return_value = paginator
+    client.list_vpc_connectors.return_value = {
+        "VpcConnectors": [
+            {"VpcConnectorName": "frontend"},
+            None,
+            "invalid",
+        ]
+    }
 
     assert service.list_vpc_connectors() == [
         {"VpcConnectorName": "frontend"},
@@ -215,7 +225,7 @@ def test_list_services_normalizes_client_error():
         "ListServices",
     )
 
-    client.get_paginator.side_effect = error
+    client.list_services.side_effect = error
 
     with pytest.raises(
         RuntimeError,
@@ -237,7 +247,7 @@ def test_list_vpc_connectors_normalizes_client_error():
         "ListVpcConnectors",
     )
 
-    client.get_paginator.side_effect = error
+    client.list_vpc_connectors.side_effect = error
 
     with pytest.raises(
         RuntimeError,

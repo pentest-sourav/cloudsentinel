@@ -24,14 +24,22 @@ class EventBridgeService:
 
     def list_event_buses(self) -> list[dict[str, Any]]:
         try:
-            paginator = self.eventbridge_client.get_paginator(
-                "list_event_buses"
-            )
-
             event_buses: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                buses = page.get("EventBuses", [])
+            while True:
+                kwargs: dict[str, Any] = {
+                    "Limit": 100,
+                }
+
+                if next_token:
+                    kwargs["NextToken"] = next_token
+
+                response = self.eventbridge_client.list_event_buses(
+                    **kwargs
+                )
+
+                buses = response.get("EventBuses", [])
 
                 if isinstance(buses, list):
                     event_buses.extend(
@@ -39,6 +47,17 @@ class EventBridgeService:
                         for bus in buses
                         if isinstance(bus, dict)
                     )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return event_buses
 
@@ -142,14 +161,22 @@ class EventBridgeService:
 
     def list_endpoints(self) -> list[dict[str, Any]]:
         try:
-            paginator = self.eventbridge_client.get_paginator(
-                "list_endpoints"
-            )
-
             endpoints: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                page_endpoints = page.get("Endpoints", [])
+            while True:
+                kwargs: dict[str, Any] = {
+                    "MaxResults": 100,
+                }
+
+                if next_token:
+                    kwargs["NextToken"] = next_token
+
+                response = self.eventbridge_client.list_endpoints(
+                    **kwargs
+                )
+
+                page_endpoints = response.get("Endpoints", [])
 
                 if isinstance(page_endpoints, list):
                     endpoints.extend(
@@ -157,6 +184,17 @@ class EventBridgeService:
                         for endpoint in page_endpoints
                         if isinstance(endpoint, dict)
                     )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return endpoints
 

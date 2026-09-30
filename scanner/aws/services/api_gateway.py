@@ -49,14 +49,40 @@ class APIGatewayService:
 
     def list_rest_apis(self) -> list[dict[str, Any]]:
         try:
-            paginator = self.apigateway_client.get_paginator(
-                "get_rest_apis"
-            )
-
             apis: list[dict[str, Any]] = []
+            position: str | None = None
 
-            for page in paginator.paginate():
-                apis.extend(page.get("items", []))
+            while True:
+                kwargs: dict[str, Any] = {
+                    "limit": 500,
+                }
+
+                if position:
+                    kwargs["position"] = position
+
+                response = self.apigateway_client.get_rest_apis(
+                    **kwargs
+                )
+
+                items = response.get("items", [])
+
+                if isinstance(items, list):
+                    apis.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                next_position = response.get("position")
+
+                if (
+                    not isinstance(next_position, str)
+                    or not next_position
+                    or next_position == position
+                ):
+                    break
+
+                position = next_position
 
             return apis
 
@@ -71,18 +97,20 @@ class APIGatewayService:
         rest_api_id: str,
     ) -> list[dict[str, Any]]:
         try:
-            paginator = self.apigateway_client.get_paginator(
-                "get_stages"
+            response = self.apigateway_client.get_stages(
+                restApiId=rest_api_id,
             )
 
-            stages: list[dict[str, Any]] = []
+            stages = response.get("item", [])
 
-            for page in paginator.paginate(
-                restApiId=rest_api_id,
-            ):
-                stages.extend(page.get("item", []))
+            if not isinstance(stages, list):
+                return []
 
-            return stages
+            return [
+                stage
+                for stage in stages
+                if isinstance(stage, dict)
+            ]
 
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(
@@ -95,16 +123,41 @@ class APIGatewayService:
         rest_api_id: str,
     ) -> list[dict[str, Any]]:
         try:
-            paginator = self.apigateway_client.get_paginator(
-                "get_resources"
-            )
-
             resources: list[dict[str, Any]] = []
+            position: str | None = None
 
-            for page in paginator.paginate(
-                restApiId=rest_api_id,
-            ):
-                resources.extend(page.get("items", []))
+            while True:
+                kwargs: dict[str, Any] = {
+                    "restApiId": rest_api_id,
+                    "limit": 500,
+                }
+
+                if position:
+                    kwargs["position"] = position
+
+                response = self.apigateway_client.get_resources(
+                    **kwargs
+                )
+
+                items = response.get("items", [])
+
+                if isinstance(items, list):
+                    resources.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                next_position = response.get("position")
+
+                if (
+                    not isinstance(next_position, str)
+                    or not next_position
+                    or next_position == position
+                ):
+                    break
+
+                position = next_position
 
             return resources
 
@@ -205,14 +258,40 @@ class APIGatewayService:
 
     def list_v2_apis(self) -> list[dict[str, Any]]:
         try:
-            paginator = self.apigatewayv2_client.get_paginator(
-                "get_apis"
-            )
-
             apis: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                apis.extend(page.get("Items", []))
+            while True:
+                kwargs: dict[str, Any] = {
+                    "MaxResults": "100",
+                }
+
+                if next_token:
+                    kwargs["NextToken"] = next_token
+
+                response = self.apigatewayv2_client.get_apis(
+                    **kwargs
+                )
+
+                items = response.get("Items", [])
+
+                if isinstance(items, list):
+                    apis.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return apis
 
@@ -227,18 +306,20 @@ class APIGatewayService:
         api_id: str,
     ) -> list[dict[str, Any]]:
         try:
-            paginator = self.apigatewayv2_client.get_paginator(
-                "get_stages"
+            response = self.apigatewayv2_client.get_stages(
+                ApiId=api_id,
             )
 
-            stages: list[dict[str, Any]] = []
+            stages = response.get("Items", [])
 
-            for page in paginator.paginate(
-                ApiId=api_id,
-            ):
-                stages.extend(page.get("Items", []))
+            if not isinstance(stages, list):
+                return []
 
-            return stages
+            return [
+                stage
+                for stage in stages
+                if isinstance(stage, dict)
+            ]
 
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(
@@ -251,16 +332,41 @@ class APIGatewayService:
         api_id: str,
     ) -> list[dict[str, Any]]:
         try:
-            paginator = self.apigatewayv2_client.get_paginator(
-                "get_routes"
-            )
-
             routes: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate(
-                ApiId=api_id,
-            ):
-                routes.extend(page.get("Items", []))
+            while True:
+                kwargs: dict[str, Any] = {
+                    "ApiId": api_id,
+                    "MaxResults": "100",
+                }
+
+                if next_token:
+                    kwargs["NextToken"] = next_token
+
+                response = self.apigatewayv2_client.get_routes(
+                    **kwargs
+                )
+
+                items = response.get("Items", [])
+
+                if isinstance(items, list):
+                    routes.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return routes
 
@@ -275,16 +381,41 @@ class APIGatewayService:
         api_id: str,
     ) -> list[dict[str, Any]]:
         try:
-            paginator = self.apigatewayv2_client.get_paginator(
-                "get_integrations"
-            )
-
             integrations: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate(
-                ApiId=api_id,
-            ):
-                integrations.extend(page.get("Items", []))
+            while True:
+                kwargs: dict[str, Any] = {
+                    "ApiId": api_id,
+                    "MaxResults": "100",
+                }
+
+                if next_token:
+                    kwargs["NextToken"] = next_token
+
+                response = self.apigatewayv2_client.get_integrations(
+                    **kwargs
+                )
+
+                items = response.get("Items", [])
+
+                if isinstance(items, list):
+                    integrations.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
 
             return integrations
 

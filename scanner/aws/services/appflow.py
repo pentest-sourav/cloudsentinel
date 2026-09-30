@@ -45,16 +45,27 @@ class AppFlowService:
     def list_flows(self) -> list[dict[str, Any]]:
         """
         Discover all AppFlow flows in the current account/region.
+
+        Uses explicit NextToken pagination because the installed
+        Botocore model does not expose a paginator for ListFlows.
         """
         try:
-            paginator = self.appflow_client.get_paginator(
-                "list_flows"
-            )
-
             flows: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            for page in paginator.paginate():
-                items = page.get("flows", [])
+            while True:
+                request: dict[str, Any] = {
+                    "maxResults": 100,
+                }
+
+                if next_token:
+                    request["nextToken"] = next_token
+
+                response = self.appflow_client.list_flows(
+                    **request
+                )
+
+                items = response.get("flows", [])
 
                 if isinstance(items, list):
                     flows.extend(
@@ -62,6 +73,13 @@ class AppFlowService:
                         for item in items
                         if isinstance(item, dict)
                     )
+
+                token = response.get("nextToken")
+
+                if not isinstance(token, str) or not token:
+                    break
+
+                next_token = token
 
             return flows
 

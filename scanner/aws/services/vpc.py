@@ -286,33 +286,61 @@ class VPCService:
 
     def describe_vpn_connections(self) -> list[dict[str, Any]]:
         try:
-            paginator = self.ec2_client.get_paginator(
-                "describe_vpn_connections"
-            )
+            vpn_connections: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            connections: list[dict[str, Any]] = []
+            while True:
+                kwargs: dict[str, Any] = {}
 
-            for page in paginator.paginate():
-                connections.extend(
-                    page.get("VpnConnections", [])
+                if next_token:
+                    kwargs["NextToken"] = next_token
+
+                response = self.ec2_client.describe_vpn_connections(
+                    **kwargs
                 )
 
-            return connections
+                entries = response.get(
+                    "VpnConnections",
+                    [],
+                )
+
+                if isinstance(entries, list):
+                    vpn_connections.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
+
+            return vpn_connections
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
             code = error.get("Code", "UnknownError")
-            message = error.get("Message", "AWS request failed")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
 
             raise RuntimeError(
-                f"VPN connection discovery failed: "
+                "VPC VPN connection discovery failed: "
                 f"{code}: {message}"
             ) from exc
 
         except BotoCoreError as exc:
             raise RuntimeError(
-                f"AWS SDK error during VPN connection discovery: "
-                f"{exc}"
+                "AWS SDK error during VPC VPN connection "
+                f"discovery: {exc}"
             ) from exc
 
     def describe_spot_fleet_requests(self) -> list[dict[str, Any]]:

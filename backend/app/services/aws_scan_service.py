@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from scanner.aws.provider import AWSProvider
+from scanner.aws.client_factory import create_aws_client
 
 from scanner.aws.scanners.ssm import SSMScanner
 from scanner.aws.services.ssm import SSMService
@@ -334,7 +335,12 @@ def run_aws_scan(
         (
             "ecs",
             lambda: ECSScanner(
-                ECSService(session)
+                ECSService(
+                    create_aws_client(
+                        session,
+                        "ecs",
+                    )
+                )
             ),
         ),
         (

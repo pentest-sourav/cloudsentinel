@@ -21,16 +21,54 @@ class FirehoseService:
 
     def list_delivery_streams(self) -> list[str]:
         try:
-            paginator = self.firehose_client.get_paginator(
-                "list_delivery_streams"
-            )
-
             streams: list[str] = []
+            start_name: str | None = None
 
-            for page in paginator.paginate():
-                streams.extend(
-                    page.get("DeliveryStreamNames", [])
+            while True:
+                kwargs: dict[str, Any] = {
+                    "Limit": 100,
+                }
+
+                if start_name:
+                    kwargs["ExclusiveStartDeliveryStreamName"] = start_name
+
+                response = self.firehose_client.list_delivery_streams(
+                    **kwargs
                 )
+
+                names = response.get(
+                    "DeliveryStreamNames",
+                    [],
+                )
+
+                if isinstance(names, list):
+                    streams.extend(
+                        name
+                        for name in names
+                        if isinstance(name, str)
+                    )
+
+                has_more = response.get(
+                    "HasMoreDeliveryStreams",
+                    False,
+                )
+
+                if not has_more:
+                    break
+
+                if not names:
+                    break
+
+                last_name = names[-1]
+
+                if (
+                    not isinstance(last_name, str)
+                    or not last_name
+                    or last_name == start_name
+                ):
+                    break
+
+                start_name = last_name
 
             return streams
 
@@ -42,6 +80,7 @@ class FirehoseService:
                     "Message",
                     "AWS request failed",
                 )
+
                 raise RuntimeError(
                     "Firehose delivery-stream discovery failed: "
                     f"{code}: {message}"
