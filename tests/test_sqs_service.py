@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 from scanner.aws.services.sqs import SQSService
 
@@ -16,6 +16,39 @@ def test_list_queues_collects_all_pages():
         },
         {
             "QueueUrls": ["https://sqs.example/queue-b"],
+        },
+    ]
+
+    service = SQSService(session)
+
+    assert service.list_queues() == [
+        "https://sqs.example/queue-a",
+        "https://sqs.example/queue-b",
+    ]
+
+    assert client.list_queues.call_args_list == [
+        call(MaxResults=1000),
+        call(
+            MaxResults=1000,
+            NextToken="next",
+        ),
+    ]
+
+
+def test_list_queues_stops_on_repeated_next_token():
+    session = Mock()
+    client = Mock()
+
+    session.client.return_value = client
+
+    client.list_queues.side_effect = [
+        {
+            "QueueUrls": ["https://sqs.example/queue-a"],
+            "NextToken": "same-token",
+        },
+        {
+            "QueueUrls": ["https://sqs.example/queue-b"],
+            "NextToken": "same-token",
         },
     ]
 

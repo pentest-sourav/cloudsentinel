@@ -24,7 +24,9 @@ class SQSService:
             next_token: str | None = None
 
             while True:
-                request: dict[str, Any] = {}
+                request: dict[str, Any] = {
+                    "MaxResults": 1000,
+                }
 
                 if next_token:
                     request["NextToken"] = next_token
@@ -40,10 +42,16 @@ class SQSService:
                         if isinstance(url, str) and url
                     )
 
-                next_token = response.get("NextToken")
+                token = response.get("NextToken")
 
-                if not isinstance(next_token, str) or not next_token:
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
                     break
+
+                next_token = token
 
             return queue_urls
 
