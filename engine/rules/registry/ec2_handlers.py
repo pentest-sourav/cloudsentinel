@@ -52,6 +52,18 @@ def collect_ec2_elastic_ips(
     return collector.collect_elastic_ips()
 
 
+def collect_ec2_launch_template_ebs_encryption(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_launch_template_ebs_encryption()
+
+
+def collect_ec2_snapshot_block_public_access(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_snapshot_block_public_access()
+
+
 EC2_DATA_SOURCE_HANDLERS = {
     "ec2_security_group_rules": (
         collect_ec2_security_group_rules
@@ -66,4 +78,10 @@ EC2_DATA_SOURCE_HANDLERS = {
         collect_ec2_ebs_default_encryption
     ),
     "ec2_elastic_ips": collect_ec2_elastic_ips,
+    "ec2_launch_template_ebs_encryption": (
+        collect_ec2_launch_template_ebs_encryption
+    ),
+    "ec2_snapshot_block_public_access": (
+        collect_ec2_snapshot_block_public_access
+    ),
 }

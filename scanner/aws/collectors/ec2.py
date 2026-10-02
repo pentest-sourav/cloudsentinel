@@ -18,6 +18,12 @@ class EC2DataCollector:
         self._security_groups_cache: list[dict[str, Any]] | None = None
         self._ebs_default_encryption_cache: bool | None = None
         self._addresses_cache: list[dict[str, Any]] | None = None
+        self._launch_templates_cache: (
+            list[dict[str, Any]] | None
+        ) = None
+        self._snapshot_block_public_access_cache: (
+            dict[str, Any] | None
+        ) = None
 
     def _get_instances(self) -> list[dict[str, Any]]:
         if self._instances_cache is None:
@@ -34,14 +40,6 @@ class EC2DataCollector:
         return self._security_groups_cache
 
     def collect_instances(self) -> list[dict[str, Any]]:
-        """
-        Collect the stable EC2 instance data contract used by the
-        existing EC2 rules.
-
-        Extended instance attributes used by newer rules are exposed
-        through collect_extended_instances() so existing consumers
-        are not forced to handle additional fields.
-        """
         instances = self._get_instances()
 
         collected_instances: list[dict[str, Any]] = []
@@ -86,13 +84,6 @@ class EC2DataCollector:
         return collected_instances
 
     def collect_extended_instances(self) -> list[dict[str, Any]]:
-        """
-        Collect additional EC2 instance attributes required by
-        extended security controls.
-
-        This intentionally remains separate from collect_instances()
-        so the original collector contract remains stable.
-        """
         instances = self._get_instances()
 
         collected_instances: list[dict[str, Any]] = []
@@ -132,10 +123,6 @@ class EC2DataCollector:
     def collect_ebs_volumes(
         self,
     ) -> list[dict[str, Any]]:
-        """
-        Collect EBS volumes attached to discovered EC2
-        instances and normalize encryption status.
-        """
         instances = self._get_instances()
 
         instance_volume_map: list[dict[str, str]] = []
@@ -231,12 +218,6 @@ class EC2DataCollector:
     def collect_ebs_default_encryption(
         self,
     ) -> list[dict[str, Any]]:
-        """
-        Collect regional EBS encryption-by-default status.
-
-        Returned as a single record so it can use the generic
-        RuleExecutor collection model.
-        """
         if self._ebs_default_encryption_cache is None:
             self._ebs_default_encryption_cache = (
                 self.service.get_ebs_encryption_by_default()
@@ -253,15 +234,6 @@ class EC2DataCollector:
     def collect_elastic_ips(
         self,
     ) -> list[dict[str, Any]]:
-        """
-        Collect Elastic IP allocation and association state.
-
-        The collector treats a non-list service result as an empty
-        collection. This preserves the collector contract when a
-        mocked or alternate service implementation does not provide
-        Elastic IP data, while the real EC2 service always returns
-        a list.
-        """
         if self._addresses_cache is None:
             addresses = self.service.describe_addresses()
 
@@ -299,3 +271,145 @@ class EC2DataCollector:
             )
 
         return collected_addresses
+
+    def collect_launch_template_ebs_encryption(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect explicitly configured EBS encryption settings from
+        the default version of every EC2 launch template.
+
+        A missing Encrypted property is not treated as False.
+        """
+
+        if self._launch_templates_cache is None:
+            launch_templates = (
+                self.service.describe_launch_templates()
+            )
+
+            if not isinstance(launch_templates, list):
+                self._launch_templates_cache = []
+            else:
+                self._launch_templates_cache = launch_templates
+
+        collected: list[dict[str, Any]] = []
+
+        for launch_template in self._launch_templates_cache:
+            if not isinstance(launch_template, dict):
+                continue
+
+            launch_template_id = launch_template.get(
+                "LaunchTemplateId"
+            )
+
+            if not launch_template_id:
+                continue
+
+            versions = (
+                self.service
+                .describe_default_launch_template_versions(
+                    launch_template_id
+                )
+            )
+
+            if not isinstance(versions, list):
+                continue
+
+            for version in versions:
+                if not isinstance(version, dict):
+                    continue
+
+                launch_template_data = version.get(
+                    "LaunchTemplateData",
+                    {},
+                )
+
+                if not isinstance(
+                    launch_template_data,
+                    dict,
+                ):
+                    continue
+
+                block_device_mappings = (
+                    launch_template_data.get(
+                        "BlockDeviceMappings",
+                        [],
+                    )
+                )
+
+                if not isinstance(
+                    block_device_mappings,
+                    list,
+                ):
+                    continue
+
+                for mapping in block_device_mappings:
+                    if not isinstance(mapping, dict):
+                        continue
+
+                    ebs = mapping.get("Ebs")
+
+                    if not isinstance(ebs, dict):
+                        continue
+
+                    if "Encrypted" not in ebs:
+                        continue
+
+                    encrypted = ebs.get("Encrypted")
+
+                    if not isinstance(encrypted, bool):
+                        continue
+
+                    collected.append(
+                        {
+                            "launch_template_id": (
+                                launch_template_id
+                            ),
+                            "launch_template_name": (
+                                launch_template.get(
+                                    "LaunchTemplateName"
+                                )
+                            ),
+                            "version_number": (
+                                version.get("VersionNumber")
+                            ),
+                            "device_name": (
+                                mapping.get("DeviceName")
+                            ),
+                            "encrypted": encrypted,
+                        }
+                    )
+
+        return collected
+
+    def collect_snapshot_block_public_access(
+        self,
+    ) -> list[dict[str, Any]]:
+        if self._snapshot_block_public_access_cache is None:
+            state = (
+                self.service
+                .get_snapshot_block_public_access_state()
+            )
+
+            # A non-dict response means the service response was not
+            # usable. Do not manufacture a non-compliant finding from
+            # an unconfigured/mock/invalid response.
+            if not isinstance(state, dict):
+                return []
+
+            self._snapshot_block_public_access_cache = state
+
+        return [
+            {
+                "state": (
+                    self._snapshot_block_public_access_cache.get(
+                        "state"
+                    )
+                ),
+                "managed_by": (
+                    self._snapshot_block_public_access_cache.get(
+                        "managed_by"
+                    )
+                ),
+            }
+        ]

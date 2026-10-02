@@ -335,3 +335,199 @@ def test_collect_security_groups_does_not_depend_on_instances():
     service.describe_all_security_groups.assert_called_once_with()
     service.describe_instances.assert_not_called()
     service.describe_security_groups.assert_not_called()
+
+
+def test_collect_launch_template_ebs_encryption_uses_default_versions():
+    service = MagicMock()
+
+    service.describe_launch_templates.return_value = [
+        {
+            "LaunchTemplateId": "lt-001",
+            "LaunchTemplateName": "production",
+            "DefaultVersionNumber": 4,
+        }
+    ]
+
+    service.describe_default_launch_template_versions.return_value = [
+        {
+            "LaunchTemplateId": "lt-001",
+            "VersionNumber": 4,
+            "DefaultVersion": True,
+            "LaunchTemplateData": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "Encrypted": False,
+                        },
+                    },
+                    {
+                        "DeviceName": "/dev/sdb",
+                        "Ebs": {
+                            "Encrypted": True,
+                        },
+                    },
+                ]
+            },
+        }
+    ]
+
+    collector = EC2DataCollector(service)
+
+    result = collector.collect_launch_template_ebs_encryption()
+
+    assert result == [
+        {
+            "launch_template_id": "lt-001",
+            "launch_template_name": "production",
+            "version_number": 4,
+            "device_name": "/dev/xvda",
+            "encrypted": False,
+        },
+        {
+            "launch_template_id": "lt-001",
+            "launch_template_name": "production",
+            "version_number": 4,
+            "device_name": "/dev/sdb",
+            "encrypted": True,
+        },
+    ]
+
+    service.describe_launch_templates.assert_called_once_with()
+    service.describe_default_launch_template_versions.assert_called_once_with(
+        "lt-001"
+    )
+
+
+def test_collect_launch_template_ignores_missing_encrypted_property():
+    service = MagicMock()
+
+    service.describe_launch_templates.return_value = [
+        {
+            "LaunchTemplateId": "lt-002",
+            "LaunchTemplateName": "database",
+        }
+    ]
+
+    service.describe_default_launch_template_versions.return_value = [
+        {
+            "LaunchTemplateId": "lt-002",
+            "VersionNumber": 2,
+            "LaunchTemplateData": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                        "Ebs": {
+                            "VolumeSize": 100,
+                        },
+                    }
+                ]
+            },
+        }
+    ]
+
+    collector = EC2DataCollector(service)
+
+    result = collector.collect_launch_template_ebs_encryption()
+
+    assert result == []
+
+
+def test_collect_launch_template_skips_non_ebs_mappings():
+    service = MagicMock()
+
+    service.describe_launch_templates.return_value = [
+        {
+            "LaunchTemplateId": "lt-003",
+            "LaunchTemplateName": "network",
+        }
+    ]
+
+    service.describe_default_launch_template_versions.return_value = [
+        {
+            "LaunchTemplateId": "lt-003",
+            "VersionNumber": 1,
+            "LaunchTemplateData": {
+                "BlockDeviceMappings": [
+                    {
+                        "DeviceName": "/dev/xvda",
+                    },
+                    {
+                        "DeviceName": "/dev/sdb",
+                        "Ebs": None,
+                    },
+                ]
+            },
+        }
+    ]
+
+    collector = EC2DataCollector(service)
+
+    assert (
+        collector.collect_launch_template_ebs_encryption()
+        == []
+    )
+
+
+def test_collect_launch_template_ebs_encryption_caches_templates():
+    service = MagicMock()
+
+    service.describe_launch_templates.return_value = [
+        {
+            "LaunchTemplateId": "lt-cache-001",
+            "LaunchTemplateName": "cached",
+        }
+    ]
+
+    service.describe_default_launch_template_versions.return_value = []
+
+    collector = EC2DataCollector(service)
+
+    collector.collect_launch_template_ebs_encryption()
+    collector.collect_launch_template_ebs_encryption()
+
+    service.describe_launch_templates.assert_called_once_with()
+    assert (
+        service.describe_default_launch_template_versions.call_count
+        == 2
+    )
+
+
+def test_collect_snapshot_block_public_access():
+    service = MagicMock()
+
+    service.get_snapshot_block_public_access_state.return_value = {
+        "state": "block-all-sharing",
+        "managed_by": "account",
+    }
+
+    collector = EC2DataCollector(service)
+
+    result = collector.collect_snapshot_block_public_access()
+
+    assert result == [
+        {
+            "state": "block-all-sharing",
+            "managed_by": "account",
+        }
+    ]
+
+    service.get_snapshot_block_public_access_state.assert_called_once_with()
+
+
+def test_collect_snapshot_block_public_access_caches_result():
+    service = MagicMock()
+
+    service.get_snapshot_block_public_access_state.return_value = {
+        "state": "block-new-sharing",
+        "managed_by": "declarative-policy",
+    }
+
+    collector = EC2DataCollector(service)
+
+    first = collector.collect_snapshot_block_public_access()
+    second = collector.collect_snapshot_block_public_access()
+
+    assert first == second
+
+    service.get_snapshot_block_public_access_state.assert_called_once_with()

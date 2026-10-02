@@ -10,9 +10,10 @@ class EC2Service:
     Read-only AWS EC2 service layer.
 
     Responsible only for retrieving EC2, security-group,
-    EBS, Elastic IP, and related configuration from AWS.
+    EBS, Elastic IP, Launch Template, and related configuration
+    from AWS.
 
-    Security analysis belongs to collectors/rules, not here.
+    Security analysis belongs in collectors/rules, not here.
     """
 
     ID_BATCH_SIZE = 100
@@ -56,12 +57,7 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -107,12 +103,7 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -151,12 +142,7 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -202,12 +188,7 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -248,12 +229,7 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -286,12 +262,7 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -311,13 +282,6 @@ class EC2Service:
     def describe_addresses(
         self,
     ) -> list[dict[str, Any]]:
-        """
-        Discover Elastic IP addresses.
-
-        DescribeAddresses is not exposed as a Botocore paginator and
-        does not expose NextToken pagination in its API contract, so
-        this uses one direct API request.
-        """
         try:
             response = self.ec2_client.describe_addresses()
 
@@ -337,12 +301,7 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-
-            code = error.get(
-                "Code",
-                "UnknownError",
-            )
-
+            code = error.get("Code", "UnknownError")
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -357,4 +316,122 @@ class EC2Service:
             raise RuntimeError(
                 f"AWS SDK error during Elastic IP discovery: "
                 f"{exc}"
+            ) from exc
+
+    def describe_launch_templates(
+        self,
+    ) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_launch_templates"
+            )
+
+            launch_templates: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                launch_templates.extend(
+                    page.get(
+                        "LaunchTemplates",
+                        [],
+                    )
+                )
+
+            return launch_templates
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"EC2 launch-template discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during EC2 launch-template "
+                f"discovery: {exc}"
+            ) from exc
+
+    def describe_default_launch_template_versions(
+        self,
+        launch_template_id: str,
+    ) -> list[dict[str, Any]]:
+        if not launch_template_id:
+            return []
+
+        try:
+            paginator = self.ec2_client.get_paginator(
+                "describe_launch_template_versions"
+            )
+
+            versions: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                LaunchTemplateId=launch_template_id,
+                Versions=["$Default"],
+            ):
+                versions.extend(
+                    page.get(
+                        "LaunchTemplateVersions",
+                        [],
+                    )
+                )
+
+            return versions
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                "EC2 launch-template version discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during EC2 launch-template version "
+                f"discovery: {exc}"
+            ) from exc
+
+    def get_snapshot_block_public_access_state(
+        self,
+    ) -> dict[str, Any]:
+        try:
+            response = (
+                self.ec2_client
+                .get_snapshot_block_public_access_state()
+            )
+
+            return {
+                "state": response.get("State"),
+                "managed_by": response.get("ManagedBy"),
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                "EBS snapshot Block Public Access discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during EBS snapshot Block Public "
+                f"Access discovery: {exc}"
             ) from exc

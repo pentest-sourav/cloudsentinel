@@ -636,3 +636,389 @@ def test_describe_all_security_groups_translates_botocore_error():
         match="AWS SDK error during EC2 security-group discovery",
     ):
         service.describe_all_security_groups()
+
+
+def test_describe_launch_templates_collects_all_pages():
+    session = MagicMock()
+    ec2_client = MagicMock()
+    paginator = MagicMock()
+
+    session.client.return_value = ec2_client
+    ec2_client.get_paginator.return_value = paginator
+
+    paginator.paginate.return_value = [
+        {
+            "LaunchTemplates": [
+                {
+                    "LaunchTemplateId": "lt-001",
+                    "LaunchTemplateName": "web",
+                    "DefaultVersionNumber": 3,
+                }
+            ]
+        },
+        {
+            "LaunchTemplates": [
+                {
+                    "LaunchTemplateId": "lt-002",
+                    "LaunchTemplateName": "worker",
+                    "DefaultVersionNumber": 5,
+                }
+            ]
+        },
+    ]
+
+    service = EC2Service(session)
+
+    templates = service.describe_launch_templates()
+
+    assert templates == [
+        {
+            "LaunchTemplateId": "lt-001",
+            "LaunchTemplateName": "web",
+            "DefaultVersionNumber": 3,
+        },
+        {
+            "LaunchTemplateId": "lt-002",
+            "LaunchTemplateName": "worker",
+            "DefaultVersionNumber": 5,
+        },
+    ]
+
+    ec2_client.get_paginator.assert_called_once_with(
+        "describe_launch_templates"
+    )
+
+
+def test_describe_default_launch_template_versions_uses_default_selector():
+    session = MagicMock()
+    ec2_client = MagicMock()
+    paginator = MagicMock()
+
+    session.client.return_value = ec2_client
+    ec2_client.get_paginator.return_value = paginator
+
+    paginator.paginate.return_value = [
+        {
+            "LaunchTemplateVersions": [
+                {
+                    "LaunchTemplateId": "lt-001",
+                    "VersionNumber": 3,
+                    "DefaultVersion": True,
+                    "LaunchTemplateData": {
+                        "BlockDeviceMappings": [
+                            {
+                                "DeviceName": "/dev/xvda",
+                                "Ebs": {
+                                    "Encrypted": False,
+                                },
+                            }
+                        ]
+                    },
+                }
+            ]
+        }
+    ]
+
+    service = EC2Service(session)
+
+    versions = service.describe_default_launch_template_versions(
+        "lt-001"
+    )
+
+    assert len(versions) == 1
+    assert versions[0]["VersionNumber"] == 3
+
+    ec2_client.get_paginator.assert_called_once_with(
+        "describe_launch_template_versions"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        LaunchTemplateId="lt-001",
+        Versions=["$Default"],
+    )
+
+
+def test_describe_default_launch_template_versions_empty_id():
+    service = EC2Service.__new__(EC2Service)
+    service.ec2_client = MagicMock()
+
+    assert (
+        service.describe_default_launch_template_versions("")
+        == []
+    )
+
+    service.ec2_client.get_paginator.assert_not_called()
+
+
+def test_get_snapshot_block_public_access_state():
+    session = MagicMock()
+    ec2_client = MagicMock()
+
+    session.client.return_value = ec2_client
+
+    ec2_client.get_snapshot_block_public_access_state.return_value = {
+        "State": "block-all-sharing",
+        "ManagedBy": "account",
+    }
+
+    service = EC2Service(session)
+
+    result = service.get_snapshot_block_public_access_state()
+
+    assert result == {
+        "state": "block-all-sharing",
+        "managed_by": "account",
+    }
+
+    ec2_client.get_snapshot_block_public_access_state.assert_called_once_with()
+
+
+def test_get_snapshot_block_public_access_state_handles_missing_values():
+    session = MagicMock()
+    ec2_client = MagicMock()
+
+    session.client.return_value = ec2_client
+
+    ec2_client.get_snapshot_block_public_access_state.return_value = {}
+
+    service = EC2Service(session)
+
+    assert service.get_snapshot_block_public_access_state() == {
+        "state": None,
+        "managed_by": None,
+    }
+
+
+def test_get_snapshot_block_public_access_state_translates_client_error():
+    service = EC2Service.__new__(EC2Service)
+    service.ec2_client = MagicMock()
+
+    error = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDeniedException",
+                "Message": "denied",
+            }
+        },
+        "GetSnapshotBlockPublicAccessState",
+    )
+
+    service.ec2_client.get_snapshot_block_public_access_state.side_effect = (
+        error
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="AccessDeniedException: denied",
+    ):
+        service.get_snapshot_block_public_access_state()
+
+
+def test_get_snapshot_block_public_access_state_translates_botocore_error():
+    service = EC2Service.__new__(EC2Service)
+    service.ec2_client = MagicMock()
+
+    service.ec2_client.get_snapshot_block_public_access_state.side_effect = (
+        BotoCoreError(
+            error_message="SDK failure"
+        )
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="AWS SDK error during EBS snapshot Block Public Access discovery",
+    ):
+        service.get_snapshot_block_public_access_state()
+
+
+def test_describe_launch_templates_collects_all_pages():
+    session = MagicMock()
+    ec2_client = MagicMock()
+    paginator = MagicMock()
+
+    session.client.return_value = ec2_client
+    ec2_client.get_paginator.return_value = paginator
+
+    paginator.paginate.return_value = [
+        {
+            "LaunchTemplates": [
+                {
+                    "LaunchTemplateId": "lt-001",
+                    "LaunchTemplateName": "web",
+                    "DefaultVersionNumber": 3,
+                }
+            ]
+        },
+        {
+            "LaunchTemplates": [
+                {
+                    "LaunchTemplateId": "lt-002",
+                    "LaunchTemplateName": "worker",
+                    "DefaultVersionNumber": 5,
+                }
+            ]
+        },
+    ]
+
+    service = EC2Service(session)
+
+    templates = service.describe_launch_templates()
+
+    assert templates == [
+        {
+            "LaunchTemplateId": "lt-001",
+            "LaunchTemplateName": "web",
+            "DefaultVersionNumber": 3,
+        },
+        {
+            "LaunchTemplateId": "lt-002",
+            "LaunchTemplateName": "worker",
+            "DefaultVersionNumber": 5,
+        },
+    ]
+
+    ec2_client.get_paginator.assert_called_once_with(
+        "describe_launch_templates"
+    )
+
+
+def test_describe_default_launch_template_versions_uses_default_selector():
+    session = MagicMock()
+    ec2_client = MagicMock()
+    paginator = MagicMock()
+
+    session.client.return_value = ec2_client
+    ec2_client.get_paginator.return_value = paginator
+
+    paginator.paginate.return_value = [
+        {
+            "LaunchTemplateVersions": [
+                {
+                    "LaunchTemplateId": "lt-001",
+                    "VersionNumber": 3,
+                    "DefaultVersion": True,
+                    "LaunchTemplateData": {
+                        "BlockDeviceMappings": [
+                            {
+                                "DeviceName": "/dev/xvda",
+                                "Ebs": {
+                                    "Encrypted": False,
+                                },
+                            }
+                        ]
+                    },
+                }
+            ]
+        }
+    ]
+
+    service = EC2Service(session)
+
+    versions = service.describe_default_launch_template_versions(
+        "lt-001"
+    )
+
+    assert len(versions) == 1
+    assert versions[0]["VersionNumber"] == 3
+
+    ec2_client.get_paginator.assert_called_once_with(
+        "describe_launch_template_versions"
+    )
+
+    paginator.paginate.assert_called_once_with(
+        LaunchTemplateId="lt-001",
+        Versions=["$Default"],
+    )
+
+
+def test_describe_default_launch_template_versions_empty_id():
+    service = EC2Service.__new__(EC2Service)
+    service.ec2_client = MagicMock()
+
+    assert (
+        service.describe_default_launch_template_versions("")
+        == []
+    )
+
+    service.ec2_client.get_paginator.assert_not_called()
+
+
+def test_get_snapshot_block_public_access_state():
+    session = MagicMock()
+    ec2_client = MagicMock()
+
+    session.client.return_value = ec2_client
+
+    ec2_client.get_snapshot_block_public_access_state.return_value = {
+        "State": "block-all-sharing",
+        "ManagedBy": "account",
+    }
+
+    service = EC2Service(session)
+
+    result = service.get_snapshot_block_public_access_state()
+
+    assert result == {
+        "state": "block-all-sharing",
+        "managed_by": "account",
+    }
+
+    ec2_client.get_snapshot_block_public_access_state.assert_called_once_with()
+
+
+def test_get_snapshot_block_public_access_state_handles_missing_values():
+    session = MagicMock()
+    ec2_client = MagicMock()
+
+    session.client.return_value = ec2_client
+
+    ec2_client.get_snapshot_block_public_access_state.return_value = {}
+
+    service = EC2Service(session)
+
+    assert service.get_snapshot_block_public_access_state() == {
+        "state": None,
+        "managed_by": None,
+    }
+
+
+def test_get_snapshot_block_public_access_state_translates_client_error():
+    service = EC2Service.__new__(EC2Service)
+    service.ec2_client = MagicMock()
+
+    error = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDeniedException",
+                "Message": "denied",
+            }
+        },
+        "GetSnapshotBlockPublicAccessState",
+    )
+
+    service.ec2_client.get_snapshot_block_public_access_state.side_effect = (
+        error
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="AccessDeniedException: denied",
+    ):
+        service.get_snapshot_block_public_access_state()
+
+
+def test_get_snapshot_block_public_access_state_translates_botocore_error():
+    service = EC2Service.__new__(EC2Service)
+    service.ec2_client = MagicMock()
+
+    service.ec2_client.get_snapshot_block_public_access_state.side_effect = (
+        BotoCoreError(
+            error_message="SDK failure"
+        )
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="AWS SDK error during EBS snapshot Block Public Access discovery",
+    ):
+        service.get_snapshot_block_public_access_state()

@@ -10,6 +10,10 @@ from engine.rules.aws.ec2.imdsv1 import (
     build_imdsv1_finding,
     check_imdsv1,
 )
+from engine.rules.aws.ec2.launch_template_ebs_encryption import (
+    build_launch_template_ebs_encryption_finding,
+    check_launch_template_ebs_encryption,
+)
 from engine.rules.aws.ec2.multiple_enis import (
     build_multiple_enis_finding,
     check_multiple_enis,
@@ -29,6 +33,10 @@ from engine.rules.aws.ec2.public_snapshot import (
 from engine.rules.aws.ec2.security_group_exposure import (
     build_security_group_exposure_finding,
     check_security_group_exposure,
+)
+from engine.rules.aws.ec2.snapshot_block_public_access import (
+    build_snapshot_block_public_access_finding,
+    check_snapshot_block_public_access,
 )
 from engine.rules.aws.ec2.stopped_instance import (
     build_stopped_instance_finding,
@@ -162,6 +170,33 @@ EC2_RULES = RuleRegistry(
             ],
             check_stopped_instance,
             build_stopped_instance_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-181",
+            "launch_template_ebs_encryption",
+            "ec2_launch_template_ebs_encryption",
+            "multiple",
+            [
+                "launch_template_id",
+                "launch_template_name",
+                "version_number",
+                "device_name",
+                "encrypted",
+            ],
+            check_launch_template_ebs_encryption,
+            build_launch_template_ebs_encryption_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-182",
+            "snapshot_block_public_access",
+            "ec2_snapshot_block_public_access",
+            "multiple",
+            [
+                "state",
+                "managed_by",
+            ],
+            check_snapshot_block_public_access,
+            build_snapshot_block_public_access_finding,
         ),
     ]
 )
