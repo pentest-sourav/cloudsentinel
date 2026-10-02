@@ -21,6 +21,11 @@ def test_cloudfront_registry_contains_expected_rules():
         "CS-AWS-CLOUDFRONT-006",
         "CS-AWS-CLOUDFRONT-007",
         "CS-AWS-CLOUDFRONT-008",
+        "CS-AWS-CLOUDFRONT-009",
+        "CS-AWS-CLOUDFRONT-010",
+        "CS-AWS-CLOUDFRONT-011",
+        "CS-AWS-CLOUDFRONT-012",
+        "CS-AWS-CLOUDFRONT-013",
     ]
 
 

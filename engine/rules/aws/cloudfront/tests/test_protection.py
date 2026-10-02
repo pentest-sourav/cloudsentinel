@@ -1,23 +1,32 @@
 from engine.findings.model import Severity
 from engine.rules.aws.cloudfront.protection import (
+    build_cloudfront_custom_certificate_finding,
     build_cloudfront_custom_origin_https_finding,
     build_cloudfront_default_root_object_finding,
     build_cloudfront_deprecated_ssl_protocols_finding,
+    build_cloudfront_lambda_function_url_oac_finding,
     build_cloudfront_logging_finding,
-    build_cloudfront_tls_security_policy_finding,
+    build_cloudfront_origin_failover_finding,
     build_cloudfront_s3_oac_finding,
+    build_cloudfront_sni_finding,
+    build_cloudfront_tls_security_policy_finding,
+    build_cloudfront_trusted_key_groups_finding,
     build_cloudfront_viewer_https_finding,
     build_cloudfront_waf_finding,
+    check_cloudfront_custom_certificate,
     check_cloudfront_custom_origin_https,
     check_cloudfront_default_root_object,
     check_cloudfront_deprecated_ssl_protocols,
+    check_cloudfront_lambda_function_url_oac,
     check_cloudfront_logging,
-    check_cloudfront_tls_security_policy,
+    check_cloudfront_origin_failover,
     check_cloudfront_s3_oac,
+    check_cloudfront_sni,
+    check_cloudfront_tls_security_policy,
+    check_cloudfront_trusted_key_groups,
     check_cloudfront_viewer_https,
     check_cloudfront_waf,
 )
-
 
 
 S3_ORIGIN = {
@@ -25,6 +34,14 @@ S3_ORIGIN = {
     "domain_name": "bucket.s3.amazonaws.com",
     "is_s3_origin": True,
     "origin_access_control_id": None,
+}
+
+
+CUSTOM_ORIGIN = {
+    "origin_id": "custom-origin",
+    "domain_name": "origin.example.com",
+    "is_s3_origin": False,
+    "origin_protocol_policy": "https-only",
 }
 
 
@@ -36,10 +53,8 @@ def test_s3_distribution_without_default_root_fails():
         None,
     )
 
-    finding = (
-        build_cloudfront_default_root_object_finding(
-            result
-        )
+    finding = build_cloudfront_default_root_object_finding(
+        result
     )
 
     assert finding.rule_id == "CS-AWS-CLOUDFRONT-001"
@@ -167,14 +182,6 @@ def test_s3_oac_missing_fails():
     )
 
     assert finding.rule_id == "CS-AWS-CLOUDFRONT-005"
-
-
-CUSTOM_ORIGIN = {
-    "origin_id": "custom-origin",
-    "domain_name": "origin.example.com",
-    "is_s3_origin": False,
-    "origin_protocol_policy": "https-only",
-}
 
 
 def test_custom_origin_http_only_fails_cloudfront_006():
@@ -531,4 +538,275 @@ def test_cloudfront_missing_tls_policy_fails_cloudfront_008():
     )
 
     assert result is not None
-    assert result.details["viewer_security_policy"] is None
+    assert result.details[
+        "viewer_security_policy"
+    ] is None
+
+
+# ============================================================
+# 009 ORIGIN FAILOVER
+# ============================================================
+
+def test_origin_failover_with_two_origins_passes():
+    assert (
+        check_cloudfront_origin_failover(
+            "E1",
+            "cloudfront_distribution",
+            {
+                "group-1": [
+                    "origin-a",
+                    "origin-b",
+                ]
+            },
+        )
+        is None
+    )
+
+
+def test_origin_failover_without_origin_group_fails():
+    result = check_cloudfront_origin_failover(
+        "E1",
+        "cloudfront_distribution",
+        {},
+    )
+
+    finding = build_cloudfront_origin_failover_finding(
+        result
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-009"
+    assert finding.severity == Severity.LOW
+
+
+def test_origin_failover_single_origin_group_fails():
+    result = check_cloudfront_origin_failover(
+        "E1",
+        "cloudfront_distribution",
+        {
+            "group-1": ["origin-a"],
+        },
+    )
+
+    assert result is not None
+
+
+# ============================================================
+# 010 CUSTOM CERTIFICATE
+# ============================================================
+
+def test_custom_certificate_passes_with_acm_certificate():
+    assert (
+        check_cloudfront_custom_certificate(
+            "E1",
+            "cloudfront_distribution",
+            False,
+            "arn:aws:acm:us-east-1:123:certificate/abc",
+            None,
+        )
+        is None
+    )
+
+
+def test_custom_certificate_passes_with_iam_certificate():
+    assert (
+        check_cloudfront_custom_certificate(
+            "E1",
+            "cloudfront_distribution",
+            False,
+            None,
+            "certificate-id",
+        )
+        is None
+    )
+
+
+def test_default_cloudfront_certificate_fails():
+    result = check_cloudfront_custom_certificate(
+        "E1",
+        "cloudfront_distribution",
+        True,
+        None,
+        None,
+    )
+
+    finding = build_cloudfront_custom_certificate_finding(
+        result
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-010"
+    assert finding.severity == Severity.LOW
+
+
+# ============================================================
+# 011 SNI
+# ============================================================
+
+def test_sni_only_passes():
+    assert (
+        check_cloudfront_sni(
+            "E1",
+            "cloudfront_distribution",
+            False,
+            "sni-only",
+        )
+        is None
+    )
+
+
+def test_dedicated_ip_fails_sni():
+    result = check_cloudfront_sni(
+        "E1",
+        "cloudfront_distribution",
+        False,
+        "vip",
+    )
+
+    finding = build_cloudfront_sni_finding(result)
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-011"
+    assert finding.severity == Severity.LOW
+
+
+def test_default_certificate_fails_sni():
+    result = check_cloudfront_sni(
+        "E1",
+        "cloudfront_distribution",
+        True,
+        None,
+    )
+
+    assert result is not None
+
+
+# ============================================================
+# 012 LAMBDA FUNCTION URL OAC
+# ============================================================
+
+def test_lambda_function_url_with_oac_passes():
+    assert (
+        check_cloudfront_lambda_function_url_oac(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    "origin_id": "lambda-origin",
+                    "domain_name": (
+                        "abc.lambda-url."
+                        "us-east-1.on.aws"
+                    ),
+                    "is_s3_origin": False,
+                    "origin_access_control_id": "oac-123",
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_lambda_function_url_without_oac_fails():
+    result = check_cloudfront_lambda_function_url_oac(
+        "E1",
+        "cloudfront_distribution",
+        [
+            {
+                "origin_id": "lambda-origin",
+                "domain_name": (
+                    "abc.lambda-url."
+                    "us-east-1.on.aws"
+                ),
+                "is_s3_origin": False,
+                "origin_access_control_id": None,
+            }
+        ],
+    )
+
+    finding = (
+        build_cloudfront_lambda_function_url_oac_finding(
+            result
+        )
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-012"
+    assert finding.severity == Severity.MEDIUM
+
+
+def test_non_lambda_origin_is_ignored_by_012():
+    assert (
+        check_cloudfront_lambda_function_url_oac(
+            "E1",
+            "cloudfront_distribution",
+            [CUSTOM_ORIGIN],
+        )
+        is None
+    )
+
+
+# ============================================================
+# 013 TRUSTED KEY GROUPS
+# ============================================================
+
+def test_trusted_key_groups_pass():
+    assert (
+        check_cloudfront_trusted_key_groups(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    "behavior_type": "default",
+                    "target_origin_id": "origin-a",
+                    "trusted_key_groups_enabled": True,
+                    "trusted_key_group_ids": [
+                        "kg-123"
+                    ],
+                    "trusted_signers_enabled": False,
+                    "trusted_signer_ids": [],
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_no_trusted_authentication_fails():
+    result = check_cloudfront_trusted_key_groups(
+        "E1",
+        "cloudfront_distribution",
+        [
+            {
+                "behavior_type": "default",
+                "target_origin_id": "origin-a",
+                "trusted_key_groups_enabled": False,
+                "trusted_key_group_ids": [],
+                "trusted_signers_enabled": False,
+                "trusted_signer_ids": [],
+            }
+        ],
+    )
+
+    finding = (
+        build_cloudfront_trusted_key_groups_finding(
+            result
+        )
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-013"
+    assert finding.severity == Severity.MEDIUM
+
+
+def test_legacy_trusted_signers_fail():
+    result = check_cloudfront_trusted_key_groups(
+        "E1",
+        "cloudfront_distribution",
+        [
+            {
+                "behavior_type": "default",
+                "target_origin_id": "origin-a",
+                "trusted_key_groups_enabled": False,
+                "trusted_key_group_ids": [],
+                "trusted_signers_enabled": True,
+                "trusted_signer_ids": ["123456789012"],
+            }
+        ],
+    )
+
+    assert result is not None

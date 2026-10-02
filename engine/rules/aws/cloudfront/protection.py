@@ -33,9 +33,7 @@ def check_cloudfront_default_root_object(
         resource_type=resource_type,
         details={
             "s3_origin_count": len(s3_origins),
-            "default_root_object": (
-                default_root_object
-            ),
+            "default_root_object": default_root_object,
         },
     )
 
@@ -262,13 +260,21 @@ def check_cloudfront_s3_oac(
 
     origins_without_oac = [
         {
-            "origin_id": origin.get("origin_id"),
-            "domain_name": origin.get("domain_name"),
+            "origin_id": origin.get(
+                "origin_id"
+            ),
+            "domain_name": origin.get(
+                "domain_name"
+            ),
             "origin_access_control_id": (
-                origin.get("origin_access_control_id")
+                origin.get(
+                    "origin_access_control_id"
+                )
             ),
             "origin_access_identity": (
-                origin.get("origin_access_identity")
+                origin.get(
+                    "origin_access_identity"
+                )
             ),
         }
         for origin in s3_origins
@@ -350,6 +356,7 @@ def check_cloudfront_custom_origin_https(
             target_origin_id = behavior.get(
                 "target_origin_id"
             )
+
             target_origin_ids = (
                 [target_origin_id]
                 if target_origin_id
@@ -368,12 +375,18 @@ def check_cloudfront_custom_origin_https(
         if origin.get("is_s3_origin"):
             continue
 
-        origin_id = origin.get("origin_id")
+        origin_id = origin.get(
+            "origin_id"
+        )
+
         origin_protocol_policy = origin.get(
             "origin_protocol_policy"
         )
 
-        if not origin_id or not origin_protocol_policy:
+        if (
+            not origin_id
+            or not origin_protocol_policy
+        ):
             continue
 
         viewer_policies = behaviors_by_origin.get(
@@ -381,10 +394,6 @@ def check_cloudfront_custom_origin_https(
             [],
         )
 
-        # AWS Security Hub CloudFront.9:
-        # - http-only always fails.
-        # - match-viewer fails when the relevant viewer
-        #   protocol policy allows HTTP.
         if origin_protocol_policy == "http-only":
             insecure_origins.append(
                 {
@@ -400,10 +409,12 @@ def check_cloudfront_custom_origin_https(
                     ),
                 }
             )
+
             continue
 
         if (
-            origin_protocol_policy == "match-viewer"
+            origin_protocol_policy
+            == "match-viewer"
             and "allow-all" in viewer_policies
         ):
             insecure_origins.append(
@@ -485,7 +496,10 @@ def check_cloudfront_deprecated_ssl_protocols(
         if origin.get("is_s3_origin"):
             continue
 
-        origin_id = origin.get("origin_id")
+        origin_id = origin.get(
+            "origin_id"
+        )
+
         origin_protocol_policy = origin.get(
             "origin_protocol_policy"
         )
@@ -513,7 +527,9 @@ def check_cloudfront_deprecated_ssl_protocols(
                 "origin_protocol_policy": (
                     origin_protocol_policy
                 ),
-                "origin_ssl_protocols": ssl_protocols,
+                "origin_ssl_protocols": (
+                    ssl_protocols
+                ),
             }
         )
 
@@ -587,7 +603,9 @@ def check_cloudfront_tls_security_policy(
         resource_id=resource_id,
         resource_type=resource_type,
         details={
-            "viewer_security_policy": viewer_security_policy,
+            "viewer_security_policy": (
+                viewer_security_policy
+            ),
             "recommended_policies": sorted(
                 recommended_policies
             ),
@@ -624,5 +642,437 @@ def build_cloudfront_tls_security_policy_finding(
         ),
         compliance=[
             "AWS Security Hub CloudFront.15",
+        ],
+    )
+
+
+# ============================================================
+# CLOUDFRONT.4
+# ============================================================
+
+def check_cloudfront_origin_failover(
+    resource_id: str,
+    resource_type: str,
+    origin_groups: dict[str, list[str]],
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    valid_groups = {
+        group_id: origin_ids
+        for group_id, origin_ids in origin_groups.items()
+        if len(origin_ids) >= 2
+    }
+
+    if valid_groups:
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "origin_groups": origin_groups,
+        },
+    )
+
+
+def build_cloudfront_origin_failover_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-009",
+        title=(
+            "CloudFront distribution has no origin failover"
+        ),
+        severity=Severity.LOW,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} does not have an "
+            "origin group containing at least two origins."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Configure a CloudFront origin group with a "
+            "primary and secondary origin and configure "
+            "appropriate failover criteria."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.4",
+            "NIST SP 800-53 Rev. 5 CP-10",
+            "NIST SP 800-53 Rev. 5 SC-36",
+            "NIST SP 800-53 Rev. 5 SC-5(2)",
+            "NIST SP 800-53 Rev. 5 SI-13(5)",
+        ],
+    )
+
+
+# ============================================================
+# CLOUDFRONT.7
+# ============================================================
+
+def check_cloudfront_custom_certificate(
+    resource_id: str,
+    resource_type: str,
+    cloudfront_default_certificate: bool,
+    acm_certificate_arn: str | None,
+    iam_certificate_id: str | None,
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    if (
+        not cloudfront_default_certificate
+        and (
+            acm_certificate_arn
+            or iam_certificate_id
+        )
+    ):
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "cloudfront_default_certificate": (
+                cloudfront_default_certificate
+            ),
+            "acm_certificate_arn": (
+                acm_certificate_arn
+            ),
+            "iam_certificate_id": (
+                iam_certificate_id
+            ),
+        },
+    )
+
+
+def build_cloudfront_custom_certificate_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-010",
+        title=(
+            "CloudFront distribution does not use "
+            "a custom SSL/TLS certificate"
+        ),
+        severity=Severity.LOW,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} is using the default "
+            "CloudFront SSL/TLS certificate instead of "
+            "a custom certificate."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Associate an appropriate ACM or IAM SSL/TLS "
+            "certificate with the CloudFront distribution."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.7",
+            "NIST SP 800-53 Rev. 5 CA-9(1)",
+            "NIST SP 800-53 Rev. 5 SC-13",
+        ],
+    )
+
+
+# ============================================================
+# CLOUDFRONT.8
+# ============================================================
+
+def check_cloudfront_sni(
+    resource_id: str,
+    resource_type: str,
+    cloudfront_default_certificate: bool,
+    ssl_support_method: str | None,
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    if cloudfront_default_certificate:
+        return CloudFrontResult(
+            resource_id=resource_id,
+            resource_type=resource_type,
+            details={
+                "cloudfront_default_certificate": True,
+                "ssl_support_method": ssl_support_method,
+            },
+        )
+
+    if ssl_support_method == "sni-only":
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "cloudfront_default_certificate": (
+                cloudfront_default_certificate
+            ),
+            "ssl_support_method": ssl_support_method,
+        },
+    )
+
+
+def build_cloudfront_sni_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-011",
+        title=(
+            "CloudFront distribution does not use SNI"
+        ),
+        severity=Severity.LOW,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} does not use a custom "
+            "certificate with SNI-only HTTPS support."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Associate a custom SSL/TLS certificate and "
+            "configure SSLSupportMethod=sni-only."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.8",
+            "NIST SP 800-53 Rev. 5 CA-9(1)",
+            "NIST SP 800-53 Rev. 5 CM-2",
+        ],
+    )
+
+
+# ============================================================
+# CLOUDFRONT.16
+# ============================================================
+
+def check_cloudfront_lambda_function_url_oac(
+    resource_id: str,
+    resource_type: str,
+    origins: list[dict],
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    insecure_origins = []
+
+    for origin in origins:
+        if origin.get("is_s3_origin"):
+            continue
+
+        domain_name = origin.get(
+            "domain_name"
+        )
+
+        if not isinstance(
+            domain_name,
+            str,
+        ):
+            continue
+
+        normalized_domain = domain_name.lower()
+
+        is_lambda_url = (
+            ".lambda-url."
+            in normalized_domain
+            and normalized_domain.endswith(
+                ".on.aws"
+            )
+        )
+
+        if not is_lambda_url:
+            continue
+
+        if origin.get(
+            "origin_access_control_id"
+        ):
+            continue
+
+        insecure_origins.append(
+            {
+                "origin_id": origin.get(
+                    "origin_id"
+                ),
+                "domain_name": domain_name,
+                "origin_access_control_id": (
+                    origin.get(
+                        "origin_access_control_id"
+                    )
+                ),
+            }
+        )
+
+    if not insecure_origins:
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "insecure_lambda_function_url_origins": (
+                insecure_origins
+            ),
+        },
+    )
+
+
+def build_cloudfront_lambda_function_url_oac_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-012",
+        title=(
+            "CloudFront Lambda function URL origin "
+            "does not use Origin Access Control"
+        ),
+        severity=Severity.MEDIUM,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} has one or more "
+            "Lambda function URL origins without "
+            "Origin Access Control."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Configure Origin Access Control for the "
+            "Lambda function URL origin and require "
+            "AWS_IAM authentication on the function URL."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.16",
+        ],
+    )
+
+
+# ============================================================
+# CLOUDFRONT.17
+# ============================================================
+
+def check_cloudfront_trusted_key_groups(
+    resource_id: str,
+    resource_type: str,
+    cache_behaviors: list[dict],
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    insecure_behaviors = []
+
+    for behavior in cache_behaviors:
+        key_groups_enabled = bool(
+            behavior.get(
+                "trusted_key_groups_enabled",
+                False,
+            )
+        )
+
+        signers_enabled = bool(
+            behavior.get(
+                "trusted_signers_enabled",
+                False,
+            )
+        )
+
+        key_group_ids = behavior.get(
+            "trusted_key_group_ids",
+            [],
+        )
+
+        signer_ids = behavior.get(
+            "trusted_signer_ids",
+            [],
+        )
+
+        if (
+            signers_enabled
+            or not key_groups_enabled
+            or not key_group_ids
+        ):
+            insecure_behaviors.append(
+                {
+                    "behavior_type": behavior.get(
+                        "behavior_type"
+                    ),
+                    "target_origin_id": behavior.get(
+                        "target_origin_id"
+                    ),
+                    "trusted_key_groups_enabled": (
+                        key_groups_enabled
+                    ),
+                    "trusted_key_group_ids": (
+                        key_group_ids
+                    ),
+                    "trusted_signers_enabled": (
+                        signers_enabled
+                    ),
+                    "trusted_signer_ids": signer_ids,
+                }
+            )
+
+    if not insecure_behaviors:
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "insecure_behaviors": insecure_behaviors,
+        },
+    )
+
+
+def build_cloudfront_trusted_key_groups_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-013",
+        title=(
+            "CloudFront distribution does not use "
+            "trusted key groups for signed URLs or cookies"
+        ),
+        severity=Severity.MEDIUM,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} has a cache behavior "
+            "without trusted key group authentication, "
+            "or it uses legacy trusted signers."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Configure trusted key groups for cache "
+            "behaviors that require signed URLs or "
+            "signed cookies, and migrate away from "
+            "legacy trusted signers."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.17",
         ],
     )
