@@ -38,6 +38,15 @@ from engine.rules.aws.rds.storage_encryption import (
     check_rds_storage_encryption,
 )
 
+from engine.rules.aws.rds.resilience_controls import (
+    build_rds_aurora_backtracking_finding,
+    build_rds_cluster_multi_az_finding,
+    build_rds_global_cluster_supported_version_finding,
+    check_rds_aurora_backtracking,
+    check_rds_cluster_multi_az,
+    check_rds_global_cluster_supported_version,
+)
+
 from engine.rules.aws.rds.advanced_controls import (
     build_aurora_mysql_audit_logs_finding,
     build_rds_cluster_admin_username_finding,
@@ -471,6 +480,48 @@ RDS_RULES = RuleRegistry(
                 result,
                 "CS-AWS-RDS-029",
                 "RDS DB Security Group Is Not Tagged",
+            ),
+        ),
+
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-030",
+            name="rds_aurora_backtracking",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "engine",
+                "backtrack_window",
+            ],
+            check=check_rds_aurora_backtracking,
+            build_finding=build_rds_aurora_backtracking_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-031",
+            name="rds_cluster_multi_az",
+            data_source="rds_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "db_cluster_id",
+                "engine",
+                "availability_zone_count",
+            ],
+            check=check_rds_cluster_multi_az,
+            build_finding=build_rds_cluster_multi_az_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-RDS-032",
+            name="rds_global_cluster_supported_version",
+            data_source="rds_global_clusters",
+            collection_mode="multiple",
+            check_arguments=[
+                "global_cluster_id",
+                "engine",
+                "engine_version",
+            ],
+            check=check_rds_global_cluster_supported_version,
+            build_finding=(
+                build_rds_global_cluster_supported_version_finding
             ),
         ),
     ]

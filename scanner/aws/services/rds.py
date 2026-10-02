@@ -66,6 +66,13 @@ class RDSService:
             "DB cluster",
         )
 
+    def describe_global_clusters(self) -> list[dict[str, Any]]:
+        return self._paginate(
+            "describe_global_clusters",
+            "GlobalClusters",
+            "global cluster",
+        )
+
     def describe_db_snapshots(self) -> list[dict[str, Any]]:
         return self._paginate(
             "describe_db_snapshots",
@@ -116,7 +123,9 @@ class RDSService:
             results: list[dict[str, Any]] = []
 
             for page in paginator.paginate():
-                results.extend(page.get("DBSecurityGroups", []))
+                results.extend(
+                    page.get("DBSecurityGroups", [])
+                )
 
             return results
 

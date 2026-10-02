@@ -13,6 +13,12 @@ def collect_rds_clusters(
     return collector.collect_clusters()
 
 
+def collect_rds_global_clusters(
+    collector: RDSDataCollector,
+) -> list[dict]:
+    return collector.collect_global_clusters()
+
+
 def collect_rds_snapshots(
     collector: RDSDataCollector,
 ) -> list[dict]:
@@ -58,6 +64,7 @@ def collect_rds_security_groups(
 RDS_DATA_SOURCE_HANDLERS = {
     "rds_instances": collect_rds_instances,
     "rds_clusters": collect_rds_clusters,
+    "rds_global_clusters": collect_rds_global_clusters,
     "rds_snapshots": collect_rds_snapshots,
     "rds_cluster_snapshots": collect_rds_cluster_snapshots,
     "rds_event_subscriptions": collect_rds_event_subscriptions,

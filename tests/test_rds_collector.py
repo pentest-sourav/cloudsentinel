@@ -187,3 +187,107 @@ def test_collect_instances_is_cached():
 
     assert first_result == second_result
     service.describe_db_instances.assert_called_once()
+
+
+def test_collect_clusters_normalizes_backtrack_and_az_count():
+    service = MagicMock()
+
+    service.describe_db_clusters.return_value = [
+        {
+            "DBClusterIdentifier": "aurora-prod",
+            "DBClusterArn": (
+                "arn:aws:rds:ap-south-1:123456789012:"
+                "cluster:aurora-prod"
+            ),
+            "Engine": "aurora-mysql",
+            "EngineVersion": "8.0.mysql_aurora.3.08.0",
+            "BacktrackWindow": 86400,
+            "AvailabilityZones": [
+                "ap-south-1a",
+                "ap-south-1b",
+                "ap-south-1c",
+            ],
+            "BackupRetentionPeriod": 7,
+        }
+    ]
+
+    service.list_tags_for_resource.return_value = []
+
+    collector = RDSDataCollector(service)
+
+    result = collector.collect_clusters()
+
+    assert result == [
+        {
+            "db_cluster_id": "aurora-prod",
+            "db_cluster_arn": (
+                "arn:aws:rds:ap-south-1:123456789012:"
+                "cluster:aurora-prod"
+            ),
+            "engine": "aurora-mysql",
+            "engine_version": "8.0.mysql_aurora.3.08.0",
+            "status": None,
+            "port": None,
+            "storage_encrypted": None,
+            "kms_key_id": None,
+            "backup_retention_period": 7,
+            "deletion_protection": None,
+            "iam_database_authentication_enabled": None,
+            "copy_tags_to_snapshot": None,
+            "engine_mode": None,
+            "auto_minor_version_upgrade": None,
+            "availability_zones": [
+                "ap-south-1a",
+                "ap-south-1b",
+                "ap-south-1c",
+            ],
+            "availability_zone_count": 3,
+            "backtrack_window": 86400,
+            "enabled_cloudwatch_logs_exports": None,
+            "master_username": None,
+            "tags": [],
+        }
+    ]
+
+
+def test_collect_global_clusters():
+    service = MagicMock()
+
+    service.describe_global_clusters.return_value = [
+        {
+            "GlobalClusterIdentifier": "global-prod",
+            "GlobalClusterArn": (
+                "arn:aws:rds::123456789012:"
+                "global-cluster:global-prod"
+            ),
+            "Engine": "aurora-mysql",
+            "EngineVersion": "8.0.mysql_aurora.3.08.0",
+            "Status": "available",
+            "StorageEncrypted": True,
+            "GlobalClusterMembers": [
+                {"DBClusterArn": "arn:cluster:primary"},
+                {"DBClusterArn": "arn:cluster:secondary"},
+            ],
+        }
+    ]
+
+    collector = RDSDataCollector(service)
+
+    result = collector.collect_global_clusters()
+
+    assert result == [
+        {
+            "global_cluster_id": "global-prod",
+            "global_cluster_arn": (
+                "arn:aws:rds::123456789012:"
+                "global-cluster:global-prod"
+            ),
+            "engine": "aurora-mysql",
+            "engine_version": "8.0.mysql_aurora.3.08.0",
+            "status": "available",
+            "storage_encrypted": True,
+            "member_count": 2,
+        }
+    ]
+
+    service.describe_global_clusters.assert_called_once_with()

@@ -16,6 +16,7 @@ class RDSDataCollector:
 
         self._instances_cache: list[dict[str, Any]] | None = None
         self._clusters_cache: list[dict[str, Any]] | None = None
+        self._global_clusters_cache: list[dict[str, Any]] | None = None
         self._snapshots_cache: list[dict[str, Any]] | None = None
         self._cluster_snapshots_cache: list[dict[str, Any]] | None = None
         self._subscriptions_cache: list[dict[str, Any]] | None = None
@@ -24,25 +25,45 @@ class RDSDataCollector:
         self._parameter_groups_cache: list[dict[str, Any]] | None = None
         self._security_groups_cache: list[dict[str, Any]] | None = None
 
-        self._snapshot_attributes_cache: dict[str, dict[str, Any]] = {}
-        self._cluster_snapshot_attributes_cache: dict[
-            str, dict[str, Any]
+        self._snapshot_attributes_cache: dict[
+            str,
+            dict[str, Any],
         ] = {}
-        self._tags_cache: dict[str, list[dict[str, Any]]] = {}
+
+        self._cluster_snapshot_attributes_cache: dict[
+            str,
+            dict[str, Any],
+        ] = {}
+
+        self._tags_cache: dict[
+            str,
+            list[dict[str, Any]],
+        ] = {}
 
     def _get_instances(self) -> list[dict[str, Any]]:
         if self._instances_cache is None:
             self._instances_cache = self.service.describe_db_instances()
+
         return self._instances_cache
 
     def _get_clusters(self) -> list[dict[str, Any]]:
         if self._clusters_cache is None:
             self._clusters_cache = self.service.describe_db_clusters()
+
         return self._clusters_cache
+
+    def _get_global_clusters(self) -> list[dict[str, Any]]:
+        if self._global_clusters_cache is None:
+            self._global_clusters_cache = (
+                self.service.describe_global_clusters()
+            )
+
+        return self._global_clusters_cache
 
     def _get_snapshots(self) -> list[dict[str, Any]]:
         if self._snapshots_cache is None:
             self._snapshots_cache = self.service.describe_db_snapshots()
+
         return self._snapshots_cache
 
     def _get_cluster_snapshots(self) -> list[dict[str, Any]]:
@@ -50,6 +71,7 @@ class RDSDataCollector:
             self._cluster_snapshots_cache = (
                 self.service.describe_db_cluster_snapshots()
             )
+
         return self._cluster_snapshots_cache
 
     def _get_subscriptions(self) -> list[dict[str, Any]]:
@@ -57,11 +79,13 @@ class RDSDataCollector:
             self._subscriptions_cache = (
                 self.service.describe_event_subscriptions()
             )
+
         return self._subscriptions_cache
 
     def _get_proxies(self) -> list[dict[str, Any]]:
         if self._proxies_cache is None:
             self._proxies_cache = self.service.describe_db_proxies()
+
         return self._proxies_cache
 
     def _get_subnet_groups(self) -> list[dict[str, Any]]:
@@ -69,6 +93,7 @@ class RDSDataCollector:
             self._subnet_groups_cache = (
                 self.service.describe_db_subnet_groups()
             )
+
         return self._subnet_groups_cache
 
     def _get_parameter_groups(self) -> list[dict[str, Any]]:
@@ -76,6 +101,7 @@ class RDSDataCollector:
             self._parameter_groups_cache = (
                 self.service.describe_db_parameter_groups()
             )
+
         return self._parameter_groups_cache
 
     def _get_security_groups(self) -> list[dict[str, Any]]:
@@ -83,16 +109,22 @@ class RDSDataCollector:
             self._security_groups_cache = (
                 self.service.describe_db_security_groups()
             )
+
         return self._security_groups_cache
 
     @staticmethod
-    def _normalize_tags(tags: Any) -> list[dict[str, str]]:
+    def _normalize_tags(
+        tags: Any,
+    ) -> list[dict[str, str]]:
         if not tags:
             return []
 
         normalized: list[dict[str, str]] = []
 
         for tag in tags:
+            if not isinstance(tag, dict):
+                continue
+
             key = tag.get("Key")
             value = tag.get("Value", "")
 
@@ -108,7 +140,10 @@ class RDSDataCollector:
 
         return normalized
 
-    def _tags(self, arn: str | None) -> list[dict[str, str]] | None:
+    def _tags(
+        self,
+        arn: str | None,
+    ) -> list[dict[str, str]] | None:
         if not arn:
             return None
 
@@ -135,7 +170,9 @@ class RDSDataCollector:
                     "db_instance_id": instance_id,
                     "db_instance_arn": instance_arn,
                     "engine": instance.get("Engine"),
-                    "engine_version": instance.get("EngineVersion"),
+                    "engine_version": instance.get(
+                        "EngineVersion"
+                    ),
                     "db_name": instance.get("DBName"),
                     "db_instance_class": instance.get(
                         "DBInstanceClass"
@@ -180,11 +217,15 @@ class RDSDataCollector:
                         "MonitoringInterval"
                     ),
                     "port": instance.get("DbInstancePort"),
-                    "admin_username": instance.get("MasterUsername"),
+                    "admin_username": instance.get(
+                        "MasterUsername"
+                    ),
                     "db_cluster_identifier": instance.get(
                         "DBClusterIdentifier"
                     ),
-                    "db_subnet_group": instance.get("DBSubnetGroup"),
+                    "db_subnet_group": instance.get(
+                        "DBSubnetGroup"
+                    ),
                     "vpc_security_groups": instance.get(
                         "VpcSecurityGroups"
                     ),
@@ -212,12 +253,23 @@ class RDSDataCollector:
             if not cluster_id:
                 continue
 
+            availability_zones = cluster.get(
+                "AvailabilityZones"
+            )
+
+            if not isinstance(availability_zones, list):
+                availability_zones = []
+
             normalized.append(
                 {
                     "db_cluster_id": cluster_id,
-                    "db_cluster_arn": cluster.get("DBClusterArn"),
+                    "db_cluster_arn": cluster.get(
+                        "DBClusterArn"
+                    ),
                     "engine": cluster.get("Engine"),
-                    "engine_version": cluster.get("EngineVersion"),
+                    "engine_version": cluster.get(
+                        "EngineVersion"
+                    ),
                     "status": cluster.get("Status"),
                     "port": cluster.get("Port"),
                     "storage_encrypted": cluster.get(
@@ -236,18 +288,72 @@ class RDSDataCollector:
                     "copy_tags_to_snapshot": cluster.get(
                         "CopyTagsToSnapshot"
                     ),
-                    "engine_mode": cluster.get("EngineMode"),
+                    "engine_mode": cluster.get(
+                        "EngineMode"
+                    ),
                     "auto_minor_version_upgrade": cluster.get(
                         "AutoMinorVersionUpgrade"
                     ),
-                    "availability_zones": cluster.get(
-                        "AvailabilityZones"
+                    "availability_zones": availability_zones,
+                    "availability_zone_count": len(
+                        availability_zones
+                    ),
+                    "backtrack_window": cluster.get(
+                        "BacktrackWindow"
                     ),
                     "enabled_cloudwatch_logs_exports": cluster.get(
                         "EnabledCloudwatchLogsExports"
                     ),
-                    "master_username": cluster.get("MasterUsername"),
-                    "tags": self._tags(cluster.get("DBClusterArn")),
+                    "master_username": cluster.get(
+                        "MasterUsername"
+                    ),
+                    "tags": self._tags(
+                        cluster.get("DBClusterArn")
+                    ),
+                }
+            )
+
+        return normalized
+
+    def collect_global_clusters(self) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+
+        for cluster in self._get_global_clusters():
+            cluster_id = cluster.get(
+                "GlobalClusterIdentifier"
+            )
+
+            if not cluster_id:
+                continue
+
+            normalized.append(
+                {
+                    "global_cluster_id": cluster_id,
+                    "global_cluster_arn": cluster.get(
+                        "GlobalClusterArn"
+                    ),
+                    "engine": cluster.get("Engine"),
+                    "engine_version": cluster.get(
+                        "EngineVersion"
+                    ),
+                    "status": cluster.get("Status"),
+                    "storage_encrypted": cluster.get(
+                        "StorageEncrypted"
+                    ),
+                    "member_count": len(
+                        cluster.get(
+                            "GlobalClusterMembers",
+                            [],
+                        )
+                        if isinstance(
+                            cluster.get(
+                                "GlobalClusterMembers",
+                                [],
+                            ),
+                            list,
+                        )
+                        else []
+                    ),
                 }
             )
 
@@ -257,42 +363,77 @@ class RDSDataCollector:
         normalized: list[dict[str, Any]] = []
 
         for snapshot in self._get_snapshots():
-            snapshot_id = snapshot.get("DBSnapshotIdentifier")
+            snapshot_id = snapshot.get(
+                "DBSnapshotIdentifier"
+            )
 
             if not snapshot_id:
                 continue
 
-            attributes = self._snapshot_attributes_cache.get(snapshot_id)
-
-            if attributes is None:
-                attributes = self.service.describe_db_snapshot_attributes(
+            attributes = (
+                self._snapshot_attributes_cache.get(
                     snapshot_id
                 )
-                self._snapshot_attributes_cache[snapshot_id] = attributes
+            )
+
+            if attributes is None:
+                attributes = (
+                    self.service
+                    .describe_db_snapshot_attributes(
+                        snapshot_id
+                    )
+                )
+
+                self._snapshot_attributes_cache[
+                    snapshot_id
+                ] = attributes
 
             values = {
                 attribute.get("AttributeName"): attribute.get(
-                    "AttributeValues", []
+                    "AttributeValues",
+                    [],
                 )
-                for attribute in attributes.get("DBSnapshotAttributesResult", {})
-                .get("DBSnapshotAttributes", [])
+                for attribute in attributes.get(
+                    "DBSnapshotAttributesResult",
+                    {},
+                ).get(
+                    "DBSnapshotAttributes",
+                    [],
+                )
             }
 
             normalized.append(
                 {
                     "snapshot_id": snapshot_id,
-                    "snapshot_arn": snapshot.get("DBSnapshotArn"),
+                    "snapshot_arn": snapshot.get(
+                        "DBSnapshotArn"
+                    ),
                     "db_instance_identifier": snapshot.get(
                         "DBInstanceIdentifier"
                     ),
                     "engine": snapshot.get("Engine"),
-                    "engine_version": snapshot.get("EngineVersion"),
-                    "encrypted": snapshot.get("Encrypted"),
-                    "kms_key_id": snapshot.get("KmsKeyId"),
-                    "snapshot_type": snapshot.get("SnapshotType"),
+                    "engine_version": snapshot.get(
+                        "EngineVersion"
+                    ),
+                    "encrypted": snapshot.get(
+                        "Encrypted"
+                    ),
+                    "kms_key_id": snapshot.get(
+                        "KmsKeyId"
+                    ),
+                    "snapshot_type": snapshot.get(
+                        "SnapshotType"
+                    ),
                     "status": snapshot.get("Status"),
-                    "shared_accounts": values.get("restore", []),
-                    "tags": self._tags(snapshot.get("DBSnapshotArn")),
+                    "shared_accounts": values.get(
+                        "restore",
+                        [],
+                    ),
+                    "tags": self._tags(
+                        snapshot.get(
+                            "DBSnapshotArn"
+                        )
+                    ),
                 }
             )
 
@@ -302,50 +443,73 @@ class RDSDataCollector:
         normalized: list[dict[str, Any]] = []
 
         for snapshot in self._get_cluster_snapshots():
-            snapshot_id = snapshot.get("DBClusterSnapshotIdentifier")
+            snapshot_id = snapshot.get(
+                "DBClusterSnapshotIdentifier"
+            )
 
             if not snapshot_id:
                 continue
 
-            attributes = self._cluster_snapshot_attributes_cache.get(
-                snapshot_id
+            attributes = (
+                self._cluster_snapshot_attributes_cache.get(
+                    snapshot_id
+                )
             )
 
             if attributes is None:
                 attributes = (
-                    self.service.describe_db_cluster_snapshot_attributes(
+                    self.service
+                    .describe_db_cluster_snapshot_attributes(
                         snapshot_id
                     )
                 )
+
                 self._cluster_snapshot_attributes_cache[
                     snapshot_id
                 ] = attributes
 
             values = {
                 attribute.get("AttributeName"): attribute.get(
-                    "AttributeValues", []
+                    "AttributeValues",
+                    [],
                 )
                 for attribute in attributes.get(
                     "DBClusterSnapshotAttributesResult",
                     {},
-                ).get("DBClusterSnapshotAttributes", [])
+                ).get(
+                    "DBClusterSnapshotAttributes",
+                    [],
+                )
             }
 
             normalized.append(
                 {
                     "snapshot_id": snapshot_id,
-                    "snapshot_arn": snapshot.get("DBClusterSnapshotArn"),
+                    "snapshot_arn": snapshot.get(
+                        "DBClusterSnapshotArn"
+                    ),
                     "db_cluster_identifier": snapshot.get(
                         "DBClusterIdentifier"
                     ),
                     "engine": snapshot.get("Engine"),
-                    "engine_version": snapshot.get("EngineVersion"),
-                    "encrypted": snapshot.get("StorageEncrypted"),
-                    "kms_key_id": snapshot.get("KmsKeyId"),
+                    "engine_version": snapshot.get(
+                        "EngineVersion"
+                    ),
+                    "encrypted": snapshot.get(
+                        "StorageEncrypted"
+                    ),
+                    "kms_key_id": snapshot.get(
+                        "KmsKeyId"
+                    ),
                     "status": snapshot.get("Status"),
-                    "shared_accounts": values.get("restore", []),
+                    "shared_accounts": values.get(
+                        "restore",
+                        [],
+                    ),
                     "tags": self._tags(
-                        snapshot.get("DBClusterSnapshotArn")
+                        snapshot.get(
+                            "DBClusterSnapshotArn"
+                        )
                     ),
                 }
             )
@@ -356,7 +520,9 @@ class RDSDataCollector:
         normalized: list[dict[str, Any]] = []
 
         for subscription in self._get_subscriptions():
-            name = subscription.get("CustSubscriptionId")
+            name = subscription.get(
+                "CustSubscriptionId"
+            )
 
             if not name:
                 continue
@@ -364,15 +530,26 @@ class RDSDataCollector:
             normalized.append(
                 {
                     "subscription_id": name,
-                    "status": subscription.get("Status"),
-                    "source_type": subscription.get("SourceType"),
-                    "source_ids": subscription.get("SourceIdsList", []),
+                    "status": subscription.get(
+                        "Status"
+                    ),
+                    "source_type": subscription.get(
+                        "SourceType"
+                    ),
+                    "source_ids": subscription.get(
+                        "SourceIdsList",
+                        [],
+                    ),
                     "event_categories": subscription.get(
                         "EventCategoriesList",
                         [],
                     ),
-                    "enabled": subscription.get("Enabled"),
-                    "sns_topic_arn": subscription.get("SnsTopicArn"),
+                    "enabled": subscription.get(
+                        "Enabled"
+                    ),
+                    "sns_topic_arn": subscription.get(
+                        "SnsTopicArn"
+                    ),
                 }
             )
 
@@ -390,16 +567,26 @@ class RDSDataCollector:
             normalized.append(
                 {
                     "proxy_name": name,
-                    "proxy_arn": proxy.get("DBProxyArn"),
+                    "proxy_arn": proxy.get(
+                        "DBProxyArn"
+                    ),
                     "status": proxy.get("Status"),
-                    "require_tls": proxy.get("RequireTLS"),
-                    "engine_family": proxy.get("EngineFamily"),
-                    "debug_logging": proxy.get("DebugLogging"),
+                    "require_tls": proxy.get(
+                        "RequireTLS"
+                    ),
+                    "engine_family": proxy.get(
+                        "EngineFamily"
+                    ),
+                    "debug_logging": proxy.get(
+                        "DebugLogging"
+                    ),
                     "idle_client_timeout": proxy.get(
                         "IdleClientTimeout"
                     ),
                     "vpc_id": proxy.get("VpcId"),
-                    "tags": self._tags(proxy.get("DBProxyArn")),
+                    "tags": self._tags(
+                        proxy.get("DBProxyArn")
+                    ),
                 }
             )
 
@@ -417,11 +604,22 @@ class RDSDataCollector:
             normalized.append(
                 {
                     "subnet_group_name": name,
-                    "arn": group.get("DBSubnetGroupArn"),
-                    "description": group.get("DBSubnetGroupDescription"),
+                    "arn": group.get(
+                        "DBSubnetGroupArn"
+                    ),
+                    "description": group.get(
+                        "DBSubnetGroupDescription"
+                    ),
                     "vpc_id": group.get("VpcId"),
-                    "subnets": group.get("Subnets", []),
-                    "tags": self._tags(group.get("DBSubnetGroupArn")),
+                    "subnets": group.get(
+                        "Subnets",
+                        [],
+                    ),
+                    "tags": self._tags(
+                        group.get(
+                            "DBSubnetGroupArn"
+                        )
+                    ),
                 }
             )
 
@@ -431,7 +629,9 @@ class RDSDataCollector:
         normalized: list[dict[str, Any]] = []
 
         for group in self._get_parameter_groups():
-            name = group.get("DBParameterGroupName")
+            name = group.get(
+                "DBParameterGroupName"
+            )
 
             if not name:
                 continue
@@ -439,12 +639,20 @@ class RDSDataCollector:
             normalized.append(
                 {
                     "parameter_group_name": name,
-                    "arn": group.get("DBParameterGroupArn"),
-                    "family": group.get("DBParameterGroupFamily"),
+                    "arn": group.get(
+                        "DBParameterGroupArn"
+                    ),
+                    "family": group.get(
+                        "DBParameterGroupFamily"
+                    ),
                     "description": group.get(
                         "Description"
                     ),
-                    "tags": self._tags(group.get("DBParameterGroupArn")),
+                    "tags": self._tags(
+                        group.get(
+                            "DBParameterGroupArn"
+                        )
+                    ),
                 }
             )
 
@@ -454,7 +662,9 @@ class RDSDataCollector:
         normalized: list[dict[str, Any]] = []
 
         for group in self._get_security_groups():
-            name = group.get("DBSecurityGroupName")
+            name = group.get(
+                "DBSecurityGroupName"
+            )
 
             if not name:
                 continue
@@ -462,12 +672,18 @@ class RDSDataCollector:
             normalized.append(
                 {
                     "security_group_name": name,
-                    "arn": group.get("DBSecurityGroupArn"),
+                    "arn": group.get(
+                        "DBSecurityGroupArn"
+                    ),
                     "description": group.get(
                         "DBSecurityGroupDescription"
                     ),
                     "vpc_id": group.get("VpcId"),
-                    "tags": self._tags(group.get("DBSecurityGroupArn")),
+                    "tags": self._tags(
+                        group.get(
+                            "DBSecurityGroupArn"
+                        )
+                    ),
                 }
             )
 
