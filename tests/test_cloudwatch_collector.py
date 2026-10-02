@@ -153,3 +153,115 @@ def test_collect_alarms_skips_entries_without_alarm_name():
 
     assert len(result) == 1
     assert result[0]["resource_id"] == "valid-alarm"
+
+
+def test_collect_log_metric_alarm_controls_detects_root_chain():
+    service = MagicMock()
+
+    service.session = MagicMock()
+
+    service.list_metric_alarms.return_value = [
+        {
+            "AlarmName": "root-usage-alarm",
+            "AlarmArn": "arn:alarm:root",
+            "MetricName": "RootUsage",
+            "Namespace": "LogMetrics",
+            "ComparisonOperator": (
+                "GreaterThanOrEqualToThreshold"
+            ),
+            "Threshold": 1.0,
+            "AlarmActions": [
+                "arn:aws:sns:ap-south-1:"
+                "123456789012:security-alerts"
+            ],
+        }
+    ]
+
+    service.list_metric_filters_for_log_group.return_value = [
+        {
+            "filterName": "root-usage",
+            "filterPattern": (
+                '{$.userIdentity.type="Root" && '
+                '$.userIdentity.invokedBy NOT EXISTS && '
+                '$.eventType !="AwsServiceEvent"}'
+            ),
+            "metricTransformations": [
+                {
+                    "metricName": "RootUsage",
+                    "metricNamespace": "LogMetrics",
+                    "metricValue": "1",
+                    "defaultValue": "0",
+                }
+            ],
+        }
+    ]
+
+    cloudtrail = MagicMock()
+    cloudtrail.describe_trails.return_value = [
+        {
+            "TrailARN": "arn:aws:cloudtrail:ap-south-1:123:trail/test",
+            "CloudWatchLogsLogGroupArn": (
+                "arn:aws:logs:ap-south-1:123:"
+                "log-group:/aws/cloudtrail:*"
+            ),
+        }
+    ]
+
+    sns_service = MagicMock()
+    sns_service.list_subscriptions_by_topic.return_value = [
+        {
+            "SubscriptionArn": (
+                "arn:aws:sns:ap-south-1:123:"
+                "security-alerts:sub"
+            )
+        }
+    ]
+
+    from unittest.mock import patch
+
+    with patch(
+        "scanner.aws.collectors.cloudwatch.CloudTrailService",
+        return_value=cloudtrail,
+    ), patch(
+        "scanner.aws.collectors.cloudwatch.SNSService",
+        return_value=sns_service,
+    ):
+        results = CloudWatchDataCollector(
+            service
+        ).collect_log_metric_alarm_controls()
+
+    root = next(
+        item
+        for item in results
+        if item["control_id"] == "1"
+    )
+
+    assert root["compliant"] is True
+    assert root["evidence"]["alarm_name"] == (
+        "root-usage-alarm"
+    )
+
+
+def test_collect_log_metric_alarm_controls_marks_missing_chain():
+    service = MagicMock()
+    service.session = MagicMock()
+    service.list_metric_alarms.return_value = []
+    service.list_metric_filters_for_log_group.return_value = []
+
+    cloudtrail = MagicMock()
+    cloudtrail.describe_trails.return_value = []
+
+    from unittest.mock import patch
+
+    with patch(
+        "scanner.aws.collectors.cloudwatch.CloudTrailService",
+        return_value=cloudtrail,
+    ):
+        results = CloudWatchDataCollector(
+            service
+        ).collect_log_metric_alarm_controls()
+        assert results == []
+    assert all(
+        item["compliant"] is False
+        for item in results
+    )

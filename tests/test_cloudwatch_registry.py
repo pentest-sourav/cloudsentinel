@@ -5,9 +5,10 @@ from engine.rules.registry.cloudwatch_registry import (
 
 
 EXPECTED_RULE_IDS = {
-    "CS-AWS-CLOUDWATCH-001",
-    "CS-AWS-CLOUDWATCH-002",
-    "CS-AWS-CLOUDWATCH-003",
+    *{
+        f"CS-AWS-CLOUDWATCH-{index:03d}"
+        for index in range(1, 18)
+    },
 }
 
 
@@ -51,14 +52,21 @@ def test_cloudwatch_registry_uses_correct_data_sources():
         for rule in CLOUDWATCH_RULES
     }
 
-    assert sources == {
-        "CS-AWS-CLOUDWATCH-001": (
-            "cloudwatch_alarms"
-        ),
-        "CS-AWS-CLOUDWATCH-002": (
-            "cloudwatch_alarms"
-        ),
-        "CS-AWS-CLOUDWATCH-003": (
-            "cloudwatch_log_groups"
-        ),
-    }
+    assert sources["CS-AWS-CLOUDWATCH-001"] == (
+        "cloudwatch_alarms"
+    )
+    assert sources["CS-AWS-CLOUDWATCH-002"] == (
+        "cloudwatch_alarms"
+    )
+    assert sources["CS-AWS-CLOUDWATCH-003"] == (
+        "cloudwatch_log_groups"
+    )
+
+    assert all(
+        sources[f"CS-AWS-CLOUDWATCH-{index:03d}"]
+        == (
+            "cloudwatch_log_metric_alarm_control_"
+            f"{index - 3}"
+        )
+        for index in range(4, 18)
+    )

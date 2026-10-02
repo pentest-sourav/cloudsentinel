@@ -90,3 +90,29 @@ def check_cloudwatch_log_retention(
         retention_in_days=retention_in_days,
         minimum_retention_days=minimum_retention_days,
     )
+
+
+@dataclass(frozen=True)
+class CloudWatchLogMetricAlarmResult:
+    resource_id: str
+    control_id: str
+    evidence: dict[str, Any]
+
+
+def check_cloudwatch_log_metric_alarm(
+    resource_id: str,
+    control_id: str,
+    compliant: bool,
+    evidence: dict[str, Any],
+) -> CloudWatchLogMetricAlarmResult | None:
+    if not resource_id:
+        return None
+
+    if compliant:
+        return None
+
+    return CloudWatchLogMetricAlarmResult(
+        resource_id=resource_id,
+        control_id=control_id,
+        evidence=evidence,
+    )

@@ -176,3 +176,35 @@ def test_boolean_retention_value_is_not_treated_as_integer():
 
     assert result is not None
     assert result.retention_in_days is None
+
+
+def test_log_metric_alarm_missing_chain_is_detected():
+    from engine.rules.aws.cloudwatch.protection import (
+        check_cloudwatch_log_metric_alarm,
+    )
+
+    result = check_cloudwatch_log_metric_alarm(
+        resource_id="cloudwatch-control-1",
+        control_id="1",
+        compliant=False,
+        evidence={"control_id": "1"},
+    )
+
+    assert result is not None
+    assert result.control_id == "1"
+    assert result.evidence["control_id"] == "1"
+
+
+def test_log_metric_alarm_compliant_is_not_detected():
+    from engine.rules.aws.cloudwatch.protection import (
+        check_cloudwatch_log_metric_alarm,
+    )
+
+    result = check_cloudwatch_log_metric_alarm(
+        resource_id="cloudwatch-control-1",
+        control_id="1",
+        compliant=True,
+        evidence={},
+    )
+
+    assert result is None

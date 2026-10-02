@@ -179,3 +179,75 @@ def test_empty_log_group_response_returns_empty_list():
     service.logs_client.describe_log_groups.return_value = {}
 
     assert service.list_log_groups() == []
+
+
+def test_list_metric_filters_for_log_group_returns_filters():
+    service = CloudWatchService.__new__(
+        CloudWatchService
+    )
+    service.cloudwatch_client = MagicMock()
+    service.logs_client = MagicMock()
+
+    service.logs_client.describe_metric_filters.return_value = {
+        "metricFilters": [
+            {
+                "filterName": "root-usage",
+                "filterPattern": (
+                    '{$.userIdentity.type="Root"}'
+                ),
+                "metricTransformations": [
+                    {
+                        "metricName": "RootUsage",
+                        "metricNamespace": "LogMetrics",
+                        "metricValue": "1",
+                        "defaultValue": 0,
+                    }
+                ],
+            }
+        ]
+    }
+
+    result = service.list_metric_filters_for_log_group(
+        "/aws/cloudtrail"
+    )
+
+    assert len(result) == 1
+    assert result[0]["filterName"] == "root-usage"
+
+    service.logs_client.describe_metric_filters.assert_called_once_with(
+        logGroupName="/aws/cloudtrail",
+    )
+
+
+def test_list_metric_filters_for_log_group_handles_pages():
+    service = CloudWatchService.__new__(
+        CloudWatchService
+    )
+    service.cloudwatch_client = MagicMock()
+    service.logs_client = MagicMock()
+
+    service.logs_client.describe_metric_filters.side_effect = [
+        {
+            "metricFilters": [
+                {"filterName": "filter-1"}
+            ],
+            "nextToken": "page-2",
+        },
+        {
+            "metricFilters": [
+                {"filterName": "filter-2"}
+            ]
+        },
+    ]
+
+    result = service.list_metric_filters_for_log_group(
+        "/aws/cloudtrail"
+    )
+
+    assert [
+        item["filterName"]
+        for item in result
+    ] == [
+        "filter-1",
+        "filter-2",
+    ]

@@ -14,6 +14,8 @@ class CloudWatchService:
     """
 
     def __init__(self, session):
+        self.session = session
+
         self.cloudwatch_client = create_aws_client(
             session,
             "cloudwatch",
@@ -115,6 +117,61 @@ class CloudWatchService:
                 exc,
             )
             raise AssertionError("unreachable")
+
+    def list_metric_filters_for_log_group(
+        self,
+        log_group_name: str,
+    ) -> list[dict[str, Any]]:
+        """Return all metric filters configured on a log group."""
+        filters: list[dict[str, Any]] = []
+        next_token: str | None = None
+
+        try:
+            while True:
+                request: dict[str, Any] = {
+                    "logGroupName": log_group_name,
+                }
+
+                if next_token:
+                    request["nextToken"] = next_token
+
+                response = (
+                    self.logs_client.describe_metric_filters(
+                        **request
+                    )
+                )
+
+                entries = response.get(
+                    "metricFilters",
+                    [],
+                )
+
+                if isinstance(entries, list):
+                    filters.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
+
+                token = response.get("nextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                ):
+                    break
+
+                next_token = token
+
+            return filters
+
+        except Exception as exc:
+            self._raise_api_error(
+                "metric filter discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
 
     def list_log_groups(
         self,

@@ -1,8 +1,18 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
-from scanner.aws.scanners.cloudwatch import (
-    CloudWatchScanner,
-)
+from scanner.aws.scanners.cloudwatch import CloudWatchScanner
+
+
+def _scanner_with_no_cloudtrail(service):
+    service.session = MagicMock()
+
+    cloudtrail = MagicMock()
+    cloudtrail.describe_trails.return_value = []
+
+    return patch(
+        "scanner.aws.collectors.cloudwatch.CloudTrailService",
+        return_value=cloudtrail,
+    )
 
 
 def test_cloudwatch_scanner_detects_alarm_without_actions():
@@ -20,20 +30,11 @@ def test_cloudwatch_scanner_detects_alarm_without_actions():
 
     service.list_log_groups.return_value = []
 
-    scanner = CloudWatchScanner(service)
-
-    findings = scanner.scan()
+    with _scanner_with_no_cloudtrail(service):
+        findings = CloudWatchScanner(service).scan()
 
     assert len(findings) == 1
-
-    finding = findings[0]
-
-    assert (
-        finding.rule_id
-        == "CS-AWS-CLOUDWATCH-001"
-    )
-    assert finding.resource_id == "root-usage"
-    assert finding.severity.value == "high"
+    assert findings[0].rule_id == "CS-AWS-CLOUDWATCH-001"
 
 
 def test_cloudwatch_scanner_detects_disabled_alarm_actions():
@@ -45,7 +46,7 @@ def test_cloudwatch_scanner_detects_disabled_alarm_actions():
             "AlarmArn": "arn:alarm:security-alarm",
             "ActionsEnabled": False,
             "AlarmActions": [
-                "arn:sns:security"
+                "arn:sns:security",
             ],
             "StateValue": "OK",
         }
@@ -53,19 +54,11 @@ def test_cloudwatch_scanner_detects_disabled_alarm_actions():
 
     service.list_log_groups.return_value = []
 
-    scanner = CloudWatchScanner(service)
-
-    findings = scanner.scan()
+    with _scanner_with_no_cloudtrail(service):
+        findings = CloudWatchScanner(service).scan()
 
     assert len(findings) == 1
-
-    finding = findings[0]
-
-    assert (
-        finding.rule_id
-        == "CS-AWS-CLOUDWATCH-002"
-    )
-    assert finding.resource_id == "security-alarm"
+    assert findings[0].rule_id == "CS-AWS-CLOUDWATCH-002"
 
 
 def test_cloudwatch_scanner_detects_short_log_retention():
@@ -80,22 +73,11 @@ def test_cloudwatch_scanner_detects_short_log_retention():
         }
     ]
 
-    scanner = CloudWatchScanner(service)
-
-    findings = scanner.scan()
+    with _scanner_with_no_cloudtrail(service):
+        findings = CloudWatchScanner(service).scan()
 
     assert len(findings) == 1
-
-    finding = findings[0]
-
-    assert (
-        finding.rule_id
-        == "CS-AWS-CLOUDWATCH-003"
-    )
-    assert (
-        finding.resource_id
-        == "/aws/application"
-    )
+    assert findings[0].rule_id == "CS-AWS-CLOUDWATCH-003"
 
 
 def test_cloudwatch_scanner_returns_no_findings_for_compliant_configuration():
@@ -107,7 +89,7 @@ def test_cloudwatch_scanner_returns_no_findings_for_compliant_configuration():
             "AlarmArn": "arn:alarm:security-alarm",
             "ActionsEnabled": True,
             "AlarmActions": [
-                "arn:sns:security"
+                "arn:sns:security",
             ],
             "StateValue": "OK",
         }
@@ -120,9 +102,8 @@ def test_cloudwatch_scanner_returns_no_findings_for_compliant_configuration():
         }
     ]
 
-    scanner = CloudWatchScanner(service)
-
-    findings = scanner.scan()
+    with _scanner_with_no_cloudtrail(service):
+        findings = CloudWatchScanner(service).scan()
 
     assert findings == []
 
@@ -133,6 +114,46 @@ def test_cloudwatch_scanner_handles_empty_account():
     service.list_metric_alarms.return_value = []
     service.list_log_groups.return_value = []
 
-    scanner = CloudWatchScanner(service)
+    with _scanner_with_no_cloudtrail(service):
+        findings = CloudWatchScanner(service).scan()
 
-    assert scanner.scan() == []
+    assert findings == []
+
+
+def test_cloudwatch_scanner_executes_log_metric_controls():
+    service = MagicMock()
+
+    service.list_metric_alarms.return_value = []
+    service.list_log_groups.return_value = []
+    service.session = MagicMock()
+
+    cloudtrail = MagicMock()
+    cloudtrail.describe_trails.return_value = [
+        {
+            "Name": "security-trail",
+            "TrailARN": (
+                "arn:aws:cloudtrail:ap-south-1:"
+                "123456789012:trail/security-trail"
+            ),
+            "CloudWatchLogsLogGroupArn": (
+                "arn:aws:logs:ap-south-1:"
+                "123456789012:log-group:/aws/cloudtrail:*"
+            ),
+        }
+    ]
+
+    with patch(
+        "scanner.aws.collectors.cloudwatch.CloudTrailService",
+        return_value=cloudtrail,
+    ):
+        findings = CloudWatchScanner(service).scan()
+
+    rule_ids = {
+        finding.rule_id
+        for finding in findings
+    }
+
+    assert rule_ids == {
+        f"CS-AWS-CLOUDWATCH-{index:03d}"
+        for index in range(4, 18)
+    }

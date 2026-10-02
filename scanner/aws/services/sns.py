@@ -192,6 +192,77 @@ class SNSService:
                 f"parsed for '{topic_arn}': {exc}"
             ) from exc
 
+    def list_subscriptions_by_topic(
+        self,
+        topic_arn: str,
+    ) -> list[dict[str, Any]]:
+        """Return all subscriptions for an SNS topic."""
+        subscriptions: list[dict[str, Any]] = []
+        next_token: str | None = None
+
+        try:
+            while True:
+                request: dict[str, Any] = {
+                    "TopicArn": topic_arn,
+                }
+
+                if next_token:
+                    request["NextToken"] = next_token
+
+                response = (
+                    self.sns_client
+                    .list_subscriptions_by_topic(
+                        **request
+                    )
+                )
+
+                entries = response.get(
+                    "Subscriptions",
+                    [],
+                )
+
+                if isinstance(entries, list):
+                    subscriptions.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                ):
+                    break
+
+                next_token = token
+
+            return subscriptions
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"SNS subscription discovery failed for "
+                f"'{topic_arn}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while retrieving SNS "
+                f"subscriptions for '{topic_arn}': {exc}"
+            ) from exc
+
+
     def list_tags(
         self,
         topic_arn: str,
