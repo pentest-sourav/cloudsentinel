@@ -4,10 +4,12 @@ from engine.rules.aws.efs.protection import (
     build_efs_access_point_user_identity_finding,
     build_efs_automatic_backups_finding,
     build_efs_encryption_finding,
+    build_efs_mount_target_public_subnet_finding,
     check_efs_access_point_root_directory,
     check_efs_access_point_user_identity,
     check_efs_automatic_backups,
     check_efs_encryption,
+    check_efs_mount_target_public_subnet,
 )
 
 
@@ -109,3 +111,33 @@ def test_posix_identity_is_missing():
 
     assert finding.rule_id == "CS-AWS-EFS-004"
     assert finding.evidence["user_identity_enforced"] is False
+
+
+def test_mount_target_in_public_ip_subnet_fails():
+    result = check_efs_mount_target_public_subnet(
+        "fsmt-1",
+        "subnet-public",
+        True,
+    )
+
+    assert result is not None
+    finding = build_efs_mount_target_public_subnet_finding(
+        result
+    )
+
+    assert finding.rule_id == "CS-AWS-EFS-006"
+    assert finding.severity == Severity.MEDIUM
+    assert (
+        finding.evidence["map_public_ip_on_launch"]
+        is True
+    )
+
+
+def test_mount_target_in_private_subnet_passes():
+    result = check_efs_mount_target_public_subnet(
+        "fsmt-1",
+        "subnet-private",
+        False,
+    )
+
+    assert result is None

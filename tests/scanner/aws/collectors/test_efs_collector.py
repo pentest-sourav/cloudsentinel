@@ -171,3 +171,67 @@ def test_collector_caches_file_systems():
     collector.collect_file_systems()
 
     service.list_file_systems.assert_called_once()
+
+
+def test_collect_mount_targets_normalizes_public_subnet_state():
+    service = Mock()
+
+    service.list_file_systems.return_value = [
+        {
+            "FileSystemId": "fs-123",
+        },
+    ]
+
+    service.list_mount_targets.return_value = [
+        {
+            "MountTargetId": "fsmt-123",
+            "FileSystemId": "fs-123",
+            "SubnetId": "subnet-public",
+            "VpcId": "vpc-123",
+        },
+    ]
+
+    service.list_subnets.return_value = [
+        {
+            "SubnetId": "subnet-public",
+            "MapPublicIpOnLaunch": True,
+        },
+    ]
+
+    collector = EFSDataCollector(service)
+
+    assert collector.collect_mount_targets() == [
+        {
+            "resource_id": "fsmt-123",
+            "resource_type": "efs_mount_target",
+            "file_system_id": "fs-123",
+            "subnet_id": "subnet-public",
+            "vpc_id": "vpc-123",
+            "map_public_ip_on_launch": True,
+        },
+    ]
+
+
+def test_collect_mount_targets_caches_mount_targets_and_subnets():
+    service = Mock()
+
+    service.list_file_systems.return_value = [
+        {
+            "FileSystemId": "fs-123",
+        },
+    ]
+
+    service.list_mount_targets.return_value = []
+
+    service.list_subnets.return_value = []
+
+    collector = EFSDataCollector(service)
+
+    collector.collect_mount_targets()
+    collector.collect_mount_targets()
+
+    service.list_file_systems.assert_called_once()
+    service.list_mount_targets.assert_called_once_with(
+        "fs-123"
+    )
+    service.list_subnets.assert_called_once()

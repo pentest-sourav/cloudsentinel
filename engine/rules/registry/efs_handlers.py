@@ -13,7 +13,14 @@ def collect_efs_access_points(
     return collector.collect_access_points()
 
 
+def collect_efs_mount_targets(
+    collector: EFSDataCollector,
+) -> list[dict]:
+    return collector.collect_mount_targets()
+
+
 EFS_DATA_SOURCE_HANDLERS = {
     "efs_file_systems": collect_efs_file_systems,
     "efs_access_points": collect_efs_access_points,
+    "efs_mount_targets": collect_efs_mount_targets,
 }

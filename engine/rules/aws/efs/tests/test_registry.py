@@ -16,6 +16,7 @@ def test_efs_registry_contains_expected_rules():
         "CS-AWS-EFS-003",
         "CS-AWS-EFS-004",
         "CS-AWS-EFS-005",
+        "CS-AWS-EFS-006",
     ]
 
 
@@ -23,4 +24,5 @@ def test_efs_handlers_cover_all_data_sources():
     assert set(EFS_DATA_SOURCE_HANDLERS) == {
         "efs_file_systems",
         "efs_access_points",
+        "efs_mount_targets",
     }

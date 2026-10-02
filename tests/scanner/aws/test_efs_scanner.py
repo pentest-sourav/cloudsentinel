@@ -17,6 +17,22 @@ def test_efs_scanner_executes_registered_rules():
         },
     ]
 
+    service.list_mount_targets.return_value = [
+        {
+            "MountTargetId": "fsmt-public",
+            "FileSystemId": "fs-unencrypted",
+            "SubnetId": "subnet-public",
+            "VpcId": "vpc-123",
+        },
+    ]
+
+    service.list_subnets.return_value = [
+        {
+            "SubnetId": "subnet-public",
+            "MapPublicIpOnLaunch": True,
+        },
+    ]
+
     service.list_access_points.return_value = [
         {
             "AccessPointId": "ap-insecure",
@@ -41,4 +57,5 @@ def test_efs_scanner_executes_registered_rules():
         "CS-AWS-EFS-003",
         "CS-AWS-EFS-004",
         "CS-AWS-EFS-005",
+        "CS-AWS-EFS-006",
     }

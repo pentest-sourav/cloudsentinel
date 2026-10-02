@@ -95,3 +95,74 @@ def test_service_wraps_client_error():
         match="AWS EFS file-system discovery failed",
     ):
         service.list_file_systems()
+
+
+def test_list_mount_targets_paginates():
+    service, client = make_service()
+
+    client.describe_mount_targets.side_effect = [
+        {
+            "MountTargets": [
+                {
+                    "MountTargetId": "fsmt-1",
+                    "SubnetId": "subnet-1",
+                },
+            ],
+            "NextMarker": "next",
+        },
+        {
+            "MountTargets": [
+                {
+                    "MountTargetId": "fsmt-2",
+                    "SubnetId": "subnet-2",
+                },
+            ],
+        },
+    ]
+
+    assert service.list_mount_targets("fs-1") == [
+        {
+            "MountTargetId": "fsmt-1",
+            "SubnetId": "subnet-1",
+        },
+        {
+            "MountTargetId": "fsmt-2",
+            "SubnetId": "subnet-2",
+        },
+    ]
+
+    assert client.describe_mount_targets.call_count == 2
+    assert (
+        client.describe_mount_targets.call_args_list[1]
+        .kwargs["Marker"]
+        == "next"
+    )
+
+
+def test_list_subnets():
+    service, client = make_service()
+
+    paginator = Mock()
+    paginator.paginate.return_value = [
+        {
+            "Subnets": [
+                {
+                    "SubnetId": "subnet-1",
+                    "MapPublicIpOnLaunch": True,
+                },
+            ],
+        },
+    ]
+
+    client.get_paginator.return_value = paginator
+
+    assert service.list_subnets() == [
+        {
+            "SubnetId": "subnet-1",
+            "MapPublicIpOnLaunch": True,
+        },
+    ]
+
+    client.get_paginator.assert_called_once_with(
+        "describe_subnets"
+    )

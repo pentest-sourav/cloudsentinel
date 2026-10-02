@@ -14,6 +14,8 @@ class EFSService:
     """
 
     def __init__(self, session):
+        self._session = session
+
         self.efs_client = create_aws_client(
             session,
             "efs",
@@ -102,6 +104,97 @@ class EFSService:
         except Exception as exc:
             self._raise_api_error(
                 "file-system discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
+    def list_mount_targets(
+        self,
+        file_system_id: str,
+    ) -> list[dict[str, Any]]:
+        mount_targets: list[dict[str, Any]] = []
+        marker: str | None = None
+
+        try:
+            while True:
+                request: dict[str, Any] = {
+                    "FileSystemId": file_system_id,
+                    "MaxItems": 100,
+                }
+
+                if marker:
+                    request["Marker"] = marker
+
+                response = self.efs_client.describe_mount_targets(
+                    **request,
+                )
+
+                entries = response.get(
+                    "MountTargets",
+                    [],
+                )
+
+                if isinstance(entries, list):
+                    mount_targets.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
+
+                next_marker = response.get(
+                    "NextMarker"
+                )
+
+                if (
+                    not isinstance(next_marker, str)
+                    or not next_marker
+                ):
+                    break
+
+                marker = next_marker
+
+            return mount_targets
+
+        except Exception as exc:
+            self._raise_api_error(
+                "mount-target discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
+    def list_subnets(
+        self,
+    ) -> list[dict[str, Any]]:
+        try:
+            ec2_client = create_aws_client(
+                self._session,
+                "ec2",
+            )
+
+            paginator = ec2_client.get_paginator(
+                "describe_subnets"
+            )
+
+            subnets: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                entries = page.get(
+                    "Subnets",
+                    [],
+                )
+
+                if isinstance(entries, list):
+                    subnets.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
+
+            return subnets
+
+        except Exception as exc:
+            self._raise_api_error(
+                "subnet discovery",
                 exc,
             )
             raise AssertionError("unreachable")

@@ -4,11 +4,13 @@ from engine.rules.aws.efs.protection import (
     build_efs_access_point_user_identity_finding,
     build_efs_automatic_backups_finding,
     build_efs_encryption_finding,
+    build_efs_mount_target_public_subnet_finding,
     check_efs_access_point_root_directory,
     check_efs_access_point_tags,
     check_efs_access_point_user_identity,
     check_efs_automatic_backups,
     check_efs_encryption,
+    check_efs_mount_target_public_subnet,
 )
 from engine.rules.model import RuleDefinition
 from engine.rules.registry.base import RuleRegistry
@@ -84,6 +86,21 @@ EFS_RULES = RuleRegistry(
             check=check_efs_access_point_tags,
             build_finding=(
                 build_efs_access_point_tags_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EFS-006",
+            name="efs_mount_target_public_subnet",
+            data_source="efs_mount_targets",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "subnet_id",
+                "map_public_ip_on_launch",
+            ],
+            check=check_efs_mount_target_public_subnet,
+            build_finding=(
+                build_efs_mount_target_public_subnet_finding
             ),
         ),
     ]

@@ -24,6 +24,14 @@ class EFSDataCollector:
             list[dict[str, Any]] | None
         ) = None
 
+        self._mount_targets_cache: (
+            list[dict[str, Any]] | None
+        ) = None
+
+        self._subnets_cache: (
+            list[dict[str, Any]] | None
+        ) = None
+
     def _get_file_systems(self) -> list[dict[str, Any]]:
         if self._file_systems_cache is None:
             self._file_systems_cache = (
@@ -39,6 +47,37 @@ class EFSDataCollector:
             )
 
         return self._access_points_cache
+
+    def _get_mount_targets(self) -> list[dict[str, Any]]:
+        if self._mount_targets_cache is None:
+            mount_targets: list[dict[str, Any]] = []
+
+            for file_system in self._get_file_systems():
+                file_system_id = file_system.get(
+                    "FileSystemId"
+                )
+
+                if (
+                    not isinstance(file_system_id, str)
+                    or not file_system_id
+                ):
+                    continue
+
+                mount_targets.extend(
+                    self.service.list_mount_targets(
+                        file_system_id
+                    )
+                )
+
+            self._mount_targets_cache = mount_targets
+
+        return self._mount_targets_cache
+
+    def _get_subnets(self) -> list[dict[str, Any]]:
+        if self._subnets_cache is None:
+            self._subnets_cache = self.service.list_subnets()
+
+        return self._subnets_cache
 
     @staticmethod
     def _normalize_tags(
@@ -129,6 +168,72 @@ class EFSDataCollector:
                     ),
                     "tags": self._normalize_tags(
                         file_system.get("Tags")
+                    ),
+                }
+            )
+
+        return normalized
+
+    def collect_mount_targets(
+        self,
+    ) -> list[dict[str, Any]]:
+        subnet_public_ip: dict[str, bool] = {}
+
+        for subnet in self._get_subnets():
+            subnet_id = subnet.get("SubnetId")
+
+            if (
+                not isinstance(subnet_id, str)
+                or not subnet_id
+            ):
+                continue
+
+            subnet_public_ip[subnet_id] = bool(
+                subnet.get(
+                    "MapPublicIpOnLaunch",
+                    False,
+                )
+            )
+
+        normalized: list[dict[str, Any]] = []
+
+        for mount_target in self._get_mount_targets():
+            mount_target_id = mount_target.get(
+                "MountTargetId"
+            )
+
+            subnet_id = mount_target.get(
+                "SubnetId"
+            )
+
+            if (
+                not isinstance(mount_target_id, str)
+                or not mount_target_id
+            ):
+                continue
+
+            if (
+                not isinstance(subnet_id, str)
+                or not subnet_id
+            ):
+                continue
+
+            normalized.append(
+                {
+                    "resource_id": mount_target_id,
+                    "resource_type": "efs_mount_target",
+                    "file_system_id": mount_target.get(
+                        "FileSystemId"
+                    ),
+                    "subnet_id": subnet_id,
+                    "vpc_id": mount_target.get(
+                        "VpcId"
+                    ),
+                    "map_public_ip_on_launch": (
+                        subnet_public_ip.get(
+                            subnet_id,
+                            False,
+                        )
                     ),
                 }
             )

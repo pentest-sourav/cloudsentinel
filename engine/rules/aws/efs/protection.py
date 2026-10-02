@@ -273,3 +273,53 @@ def build_efs_access_point_tags_finding(
             "AWS Security Hub EFS.5",
         ],
     )
+
+
+def check_efs_mount_target_public_subnet(
+    resource_id: str,
+    subnet_id: str,
+    map_public_ip_on_launch: bool,
+) -> EFSResult | None:
+    if not resource_id:
+        return None
+
+    if not map_public_ip_on_launch:
+        return None
+
+    return EFSResult(
+        resource_id=resource_id,
+        resource_type="efs_mount_target",
+        details={
+            "subnet_id": subnet_id,
+            "map_public_ip_on_launch": True,
+        },
+    )
+
+
+def build_efs_mount_target_public_subnet_finding(
+    result: EFSResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-EFS-006",
+        title="EFS mount target is associated with a public-IP-assigned subnet",
+        severity=Severity.MEDIUM,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The EFS mount target {result.resource_id} "
+            "is associated with a subnet that assigns "
+            "public IP addresses on launch."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Move the EFS mount target to a subnet where "
+            "MapPublicIpOnLaunch is disabled."
+        ),
+        compliance=[
+            "AWS Security Hub EFS.6",
+        ],
+    )
