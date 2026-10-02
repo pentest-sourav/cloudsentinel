@@ -1948,6 +1948,189 @@ class IAMDataCollector:
         return results
 
 
+    def collect_privileged_roles_without_boundary(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM roles that have privilege-management permissions
+        but no permissions boundary.
+
+        Managed and inline role policies are collected directly through
+        existing IAMService APIs. Role metadata is reused from the
+        existing role cache.
+        """
+        results: list[dict[str, Any]] = []
+
+        for role in self._get_roles():
+            role_name = role.get("RoleName")
+            role_arn = role.get("Arn")
+
+            if not role_name or not role_arn:
+                continue
+
+            permissions_boundary = None
+            boundary = role.get("PermissionsBoundary")
+
+            if isinstance(boundary, dict):
+                permissions_boundary = boundary.get(
+                    "PermissionsBoundaryArn"
+                )
+
+            # -------------------------
+            # Managed policies
+            # -------------------------
+            attached_policies = (
+                self.service.list_attached_role_policies(
+                    role_name
+                )
+            )
+
+            for attached_policy in attached_policies:
+                policy_name = attached_policy.get(
+                    "PolicyName",
+                    "",
+                )
+                policy_arn = attached_policy.get(
+                    "PolicyArn"
+                )
+
+                if not policy_arn:
+                    continue
+
+                policy = self.service.get_policy(
+                    policy_arn
+                )
+
+                default_version_id = policy.get(
+                    "DefaultVersionId"
+                )
+
+                if not default_version_id:
+                    continue
+
+                version = self.service.get_policy_version(
+                    policy_arn,
+                    default_version_id,
+                )
+
+                document = version.get(
+                    "document",
+                    {},
+                )
+
+                if not isinstance(document, dict):
+                    continue
+
+                statements = document.get(
+                    "Statement",
+                    [],
+                )
+
+                if isinstance(statements, dict):
+                    statements = [statements]
+
+                if not isinstance(statements, list):
+                    continue
+
+                for statement_index, statement in enumerate(
+                    statements
+                ):
+                    if not isinstance(statement, dict):
+                        continue
+
+                    results.append(
+                        {
+                            "role_name": role_name,
+                            "role_arn": role_arn,
+                            "permissions_boundary": (
+                                permissions_boundary
+                            ),
+                            "policy_name": policy_name,
+                            "policy_arn": policy_arn,
+                            "action": statement.get(
+                                "Action"
+                            ),
+                            "resource": statement.get(
+                                "Resource"
+                            ),
+                            "permission_source": (
+                                "role_managed_policy"
+                            ),
+                            "condition": statement.get(
+                                "Condition"
+                            ),
+                            "statement_index": statement_index,
+                        }
+                    )
+
+            # -------------------------
+            # Inline policies
+            # -------------------------
+            inline_policy_names = (
+                self.service.list_role_policies(
+                    role_name
+                )
+            )
+
+            for policy_name in inline_policy_names:
+                policy = self.service.get_role_policy(
+                    role_name,
+                    policy_name,
+                )
+
+                document = policy.get(
+                    "document",
+                    {},
+                )
+
+                if not isinstance(document, dict):
+                    continue
+
+                statements = document.get(
+                    "Statement",
+                    [],
+                )
+
+                if isinstance(statements, dict):
+                    statements = [statements]
+
+                if not isinstance(statements, list):
+                    continue
+
+                for statement_index, statement in enumerate(
+                    statements
+                ):
+                    if not isinstance(statement, dict):
+                        continue
+
+                    results.append(
+                        {
+                            "role_name": role_name,
+                            "role_arn": role_arn,
+                            "permissions_boundary": (
+                                permissions_boundary
+                            ),
+                            "policy_name": policy_name,
+                            "policy_arn": None,
+                            "action": statement.get(
+                                "Action"
+                            ),
+                            "resource": statement.get(
+                                "Resource"
+                            ),
+                            "permission_source": (
+                                "role_inline_policy"
+                            ),
+                            "condition": statement.get(
+                                "Condition"
+                            ),
+                            "statement_index": statement_index,
+                        }
+                    )
+
+        return results
+
+
     def _get_roles(self) -> list[dict[str, Any]]:
         if self._roles_cache is None:
             self._roles_cache = self.service.list_roles()
@@ -2104,3 +2287,306 @@ class IAMDataCollector:
                 )
 
         return results
+
+
+    def collect_access_analyzer_tagging(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM Access Analyzer analyzers and their tags for IAM-040.
+        """
+        cached = getattr(
+            self,
+            "_access_analyzer_tagging_cache",
+            None,
+        )
+
+        if cached is not None:
+            return cached
+
+        results: list[dict[str, Any]] = []
+
+        for analyzer in self.service.list_access_analyzer_analyzers():
+            arn = analyzer.get("arn")
+
+            if not arn:
+                continue
+
+            results.append(
+                {
+                    "analyzer_arn": arn,
+                    "analyzer_name": analyzer.get("name"),
+                    "tags": analyzer.get(
+                        "tags",
+                        {},
+                    ),
+                    "type": analyzer.get("type"),
+                    "status": analyzer.get("status"),
+                }
+            )
+
+        self._access_analyzer_tagging_cache = results
+
+        return results
+
+    def collect_role_tagging(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM roles and their tags for IAM-041.
+        """
+        cached = getattr(
+            self,
+            "_role_tagging_cache",
+            None,
+        )
+
+        if cached is not None:
+            return cached
+
+        results: list[dict[str, Any]] = []
+
+        for role in self._get_roles():
+            role_name = role.get("RoleName")
+
+            if not role_name:
+                continue
+
+            results.append(
+                {
+                    "role_name": role_name,
+                    "role_arn": role.get("Arn"),
+                    "tags": self.service.list_role_tags(
+                        role_name
+                    ),
+                }
+            )
+
+        self._role_tagging_cache = results
+
+        return results
+
+    def collect_user_tagging(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM users and their tags for IAM-042.
+        """
+        cached = getattr(
+            self,
+            "_user_tagging_cache",
+            None,
+        )
+
+        if cached is not None:
+            return cached
+
+        results: list[dict[str, Any]] = []
+
+        for user in self._get_users():
+            username = user.get("UserName")
+
+            if not username:
+                continue
+
+            results.append(
+                {
+                    "username": username,
+                    "user_arn": user.get("Arn"),
+                    "tags": self.service.list_user_tags(
+                        username
+                    ),
+                }
+            )
+
+        self._user_tagging_cache = results
+
+        return results
+
+    def collect_expired_server_certificates(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM-managed server certificates whose expiration
+        timestamp has already passed.
+        """
+        cached = getattr(
+            self,
+            "_expired_server_certificates_cache",
+            None,
+        )
+
+        if cached is not None:
+            return cached
+
+        now = datetime.now(timezone.utc)
+        results: list[dict[str, Any]] = []
+
+        for certificate in self.service.list_server_certificates():
+            expiration = certificate.get(
+                "Expiration"
+            )
+
+            if expiration is None:
+                continue
+
+            if isinstance(expiration, str):
+                try:
+                    expiration = datetime.fromisoformat(
+                        expiration.replace(
+                            "Z",
+                            "+00:00",
+                        )
+                    )
+                except ValueError:
+                    continue
+
+            if expiration.tzinfo is None:
+                expiration = expiration.replace(
+                    tzinfo=timezone.utc
+                )
+
+            if expiration >= now:
+                continue
+
+            results.append(
+                {
+                    "certificate_name": certificate.get(
+                        "ServerCertificateName"
+                    ),
+                    "certificate_arn": certificate.get(
+                        "Arn"
+                    ),
+                    "certificate_id": certificate.get(
+                        "ServerCertificateId"
+                    ),
+                    "expiration": expiration,
+                }
+            )
+
+        self._expired_server_certificates_cache = results
+
+        return results
+
+    def _get_cloudshell_policy_arn(self) -> str:
+        region = getattr(
+            self.service.session,
+            "region_name",
+            None,
+        )
+
+        if region and region.startswith("cn-"):
+            partition = "aws-cn"
+        elif region and region.startswith("us-gov-"):
+            partition = "aws-us-gov"
+        else:
+            partition = "aws"
+
+        return (
+            f"arn:{partition}:iam::aws:policy/"
+            "AWSCloudShellFullAccess"
+        )
+
+    def collect_cloudshell_full_access_identities(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Collect IAM users, groups, and roles attached to
+        AWSCloudShellFullAccess for IAM-044.
+        """
+        cached = getattr(
+            self,
+            "_cloudshell_full_access_cache",
+            None,
+        )
+
+        if cached is not None:
+            return cached
+
+        policy_arn = self._get_cloudshell_policy_arn()
+
+        entities = self.service.list_entities_for_policy(
+            policy_arn
+        )
+
+        results: list[dict[str, Any]] = []
+
+        for user in entities.get("Users", []):
+            results.append(
+                {
+                    "identity_type": "user",
+                    "identity_name": user.get("UserName"),
+                    "identity_arn": user.get("Arn"),
+                    "policy_arn": policy_arn,
+                }
+            )
+
+        for group in entities.get("Groups", []):
+            results.append(
+                {
+                    "identity_type": "group",
+                    "identity_name": group.get("GroupName"),
+                    "identity_arn": group.get("Arn"),
+                    "policy_arn": policy_arn,
+                }
+            )
+
+        for role in entities.get("Roles", []):
+            results.append(
+                {
+                    "identity_type": "role",
+                    "identity_name": role.get("RoleName"),
+                    "identity_arn": role.get("Arn"),
+                    "policy_arn": policy_arn,
+                }
+            )
+
+        self._cloudshell_full_access_cache = results
+
+        return results
+
+    def collect_external_access_analyzer(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Determine whether an account-scoped external-access analyzer
+        is ACTIVE in the current AWS Region.
+
+        Organization-scoped analyzers are intentionally not counted,
+        matching AWS Security Hub IAM.28 semantics.
+        """
+        cached = getattr(
+            self,
+            "_external_access_analyzer_cache",
+            None,
+        )
+
+        if cached is not None:
+            return cached
+
+        analyzers = (
+            self.service.list_access_analyzer_analyzers(
+                "ACCOUNT"
+            )
+        )
+
+        active = [
+            analyzer
+            for analyzer in analyzers
+            if analyzer.get("status") == "ACTIVE"
+        ]
+
+        result = {
+            "external_access_analyzer_enabled": bool(
+                active
+            ),
+            "analyzer_arns": [
+                analyzer.get("arn")
+                for analyzer in active
+                if analyzer.get("arn")
+            ],
+        }
+
+        self._external_access_analyzer_cache = result
+
+        return result

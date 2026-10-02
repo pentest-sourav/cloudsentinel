@@ -5,11 +5,250 @@ from urllib.parse import unquote
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from scanner.aws.client_factory import create_aws_client
+
 
 class IAMService:
+    def _get_access_analyzer_client(self):
+        """
+        Lazily create the IAM Access Analyzer client.
+
+        Access Analyzer is used only when IAM policy validation is
+        requested, so the client is not created for IAM scans that do
+        not execute the validation rule.
+        """
+        if not hasattr(self, "_access_analyzer_client"):
+            self._access_analyzer_client = create_aws_client(
+                self.session,
+                "accessanalyzer",
+            )
+
+        return self._access_analyzer_client
+
+    def validate_policy(
+        self,
+        policy_document,
+    ):
+        client = self._get_access_analyzer_client()
+
+        document = json.dumps(
+            policy_document,
+            separators=(",", ":"),
+        )
+
+        findings = []
+        next_token = None
+
+        try:
+            while True:
+                kwargs = {
+                    "locale": "EN",
+                    "policyDocument": document,
+                    "policyType": "IDENTITY_POLICY",
+                    "maxResults": 100,
+                }
+
+                if next_token:
+                    kwargs["nextToken"] = next_token
+
+                response = client.validate_policy(
+                    **kwargs
+                )
+
+                page_findings = response.get(
+                    "findings",
+                    [],
+                )
+
+                if isinstance(page_findings, list):
+                    findings.extend(page_findings)
+
+                token = response.get("nextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
+
+            return findings
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                "IAM policy validation failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during IAM policy validation: "
+                f"{exc}"
+            ) from exc
+
+    def list_attached_role_policies(
+        self,
+        role_name: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Return managed policies directly attached to an IAM role.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_attached_role_policies"
+            )
+
+            policies: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                RoleName=role_name,
+            ):
+                policies.extend(
+                    page.get(
+                        "AttachedPolicies",
+                        [],
+                    )
+                )
+
+            return policies
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM attached role policy listing failed for "
+                f"'{role_name}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error while listing attached role "
+                f"policies for '{role_name}': {exc}"
+            ) from exc
+
+    def list_role_policies(
+        self,
+        role_name: str,
+    ) -> list[str]:
+        """
+        Return inline policy names directly attached to an IAM role.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_role_policies"
+            )
+
+            policy_names: list[str] = []
+
+            for page in paginator.paginate(
+                RoleName=role_name,
+            ):
+                policy_names.extend(
+                    page.get(
+                        "PolicyNames",
+                        [],
+                    )
+                )
+
+            return policy_names
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM role inline policy listing failed for "
+                f"'{role_name}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error while listing inline role "
+                f"policies for '{role_name}': {exc}"
+            ) from exc
+
+    def get_role_policy(
+        self,
+        role_name: str,
+        policy_name: str,
+    ) -> dict[str, Any]:
+        """
+        Retrieve and decode an inline IAM role policy.
+        """
+        try:
+            response = self.iam_client.get_role_policy(
+                RoleName=role_name,
+                PolicyName=policy_name,
+            )
+
+            document = response.get(
+                "PolicyDocument",
+                {},
+            )
+
+            if isinstance(document, str):
+                document = json.loads(
+                    unquote(document)
+                )
+
+            return {
+                "policy_name": response.get(
+                    "PolicyName",
+                    policy_name,
+                ),
+                "document": document,
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM role inline policy retrieval failed for "
+                f"'{role_name}' policy '{policy_name}': "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error while retrieving inline role "
+                f"policy '{policy_name}' for '{role_name}': {exc}"
+            ) from exc
+
     def __init__(self, session):
         self.session = session
-        self.iam_client = session.client("iam")
+        self.iam_client = create_aws_client(session, "iam")
         self._account_summary_cache: dict[str, Any] | None = None
         self._attached_user_policies_cache: dict[
             str,
@@ -881,4 +1120,276 @@ class IAMService:
             raise RuntimeError(
                 f"AWS SDK error while retrieving IAM role "
                 f"'{role_name}': {exc}"
+            ) from exc
+
+
+    def list_role_tags(
+        self,
+        role_name: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Return all tags attached to an IAM role.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_role_tags"
+            )
+
+            tags: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                RoleName=role_name,
+            ):
+                tags.extend(
+                    page.get(
+                        "Tags",
+                        [],
+                    )
+                )
+
+            return tags
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM role tag listing failed for "
+                f"'{role_name}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing tags for IAM role "
+                f"'{role_name}': {exc}"
+            ) from exc
+
+    def list_user_tags(
+        self,
+        username: str,
+    ) -> list[dict[str, Any]]:
+        """
+        Return all tags attached to an IAM user.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_user_tags"
+            )
+
+            tags: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                UserName=username,
+            ):
+                tags.extend(
+                    page.get(
+                        "Tags",
+                        [],
+                    )
+                )
+
+            return tags
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM user tag listing failed for "
+                f"'{username}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing tags for IAM user "
+                f"'{username}': {exc}"
+            ) from exc
+
+    def list_access_analyzer_analyzers(
+        self,
+        analyzer_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Return IAM Access Analyzer analyzers for the current AWS Region.
+
+        Access Analyzer is regional. When analyzer_type is supplied,
+        AWS filters the result server-side.
+        """
+        try:
+            client = self._get_access_analyzer_client()
+
+            analyzers: list[dict[str, Any]] = []
+            next_token: str | None = None
+
+            while True:
+                kwargs: dict[str, Any] = {
+                    "maxResults": 100,
+                }
+
+                if analyzer_type:
+                    kwargs["type"] = analyzer_type
+
+                if next_token:
+                    kwargs["nextToken"] = next_token
+
+                response = client.list_analyzers(
+                    **kwargs
+                )
+
+                page_analyzers = response.get(
+                    "analyzers",
+                    [],
+                )
+
+                if isinstance(page_analyzers, list):
+                    analyzers.extend(
+                        analyzer
+                        for analyzer in page_analyzers
+                        if isinstance(analyzer, dict)
+                    )
+
+                token = response.get("nextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
+
+            return analyzers
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                "IAM Access Analyzer discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during IAM Access Analyzer "
+                f"discovery: {exc}"
+            ) from exc
+
+    def list_server_certificates(
+        self,
+    ) -> list[dict[str, Any]]:
+        """
+        Return all IAM-managed server certificate metadata.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_server_certificates"
+            )
+
+            certificates: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                certificates.extend(
+                    page.get(
+                        "ServerCertificateMetadataList",
+                        [],
+                    )
+                )
+
+            return certificates
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM server certificate listing failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing IAM server certificates: "
+                f"{exc}"
+            ) from exc
+
+    def list_entities_for_policy(
+        self,
+        policy_arn: str,
+    ) -> dict[str, Any]:
+        """
+        Return users, groups, and roles attached to a managed policy.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_entities_for_policy"
+            )
+
+            users: list[dict[str, Any]] = []
+            groups: list[dict[str, Any]] = []
+            roles: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                PolicyArn=policy_arn,
+                PolicyUsageFilter="PermissionsPolicy",
+            ):
+                users.extend(
+                    page.get(
+                        "PolicyUsers",
+                        [],
+                    )
+                )
+                groups.extend(
+                    page.get(
+                        "PolicyGroups",
+                        [],
+                    )
+                )
+                roles.extend(
+                    page.get(
+                        "PolicyRoles",
+                        [],
+                    )
+                )
+
+            return {
+                "Users": users,
+                "Groups": groups,
+                "Roles": roles,
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"IAM policy entity listing failed for "
+                f"'{policy_arn}': {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while listing IAM policy entities "
+                f"for '{policy_arn}': {exc}"
             ) from exc

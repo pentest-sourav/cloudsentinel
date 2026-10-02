@@ -1,6 +1,8 @@
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
+from scanner.aws.client_factory import create_aws_client
+
 from scanner.common.providers.base import (
     CloudProvider,
     ProviderIdentity,
@@ -12,7 +14,7 @@ class AWSProvider(CloudProvider):
 
     def __init__(self, session: boto3.Session):
         self.session = session
-        self.sts_client = session.client("sts")
+        self.sts_client = create_aws_client(session, "sts")
 
     def verify_identity(self) -> ProviderIdentity:
         try:

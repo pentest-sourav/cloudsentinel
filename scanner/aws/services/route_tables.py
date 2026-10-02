@@ -2,6 +2,8 @@ from typing import Any
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from scanner.aws.client_factory import create_aws_client
+
 
 class RouteTableService:
     """
@@ -14,7 +16,7 @@ class RouteTableService:
 
     def __init__(self, session):
         self.session = session
-        self.ec2_client = session.client("ec2")
+        self.ec2_client = create_aws_client(session, "ec2")
 
     def describe_route_tables(self) -> list[dict[str, Any]]:
         """

@@ -30,7 +30,7 @@ class FakeSession:
         self.response = response
         self.error_code = error_code
 
-    def client(self, service_name):
+    def client(self, service_name, **kwargs):
         assert service_name == "s3"
 
         return FakeS3Client(

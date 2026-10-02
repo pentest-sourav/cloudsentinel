@@ -71,3 +71,18 @@ def test_verify_identity_handles_boto_core_error():
         assert False, "Expected RuntimeError"
     except RuntimeError as exc:
         assert "AWS SDK error during identity verification" in str(exc)
+
+
+def test_provider_uses_centralized_retry_config():
+    from scanner.aws.session import AWS_RETRY_CONFIG
+
+    fake_session = Mock(spec=boto3.Session)
+    fake_sts = Mock()
+    fake_session.client.return_value = fake_sts
+
+    AWSProvider(fake_session)
+
+    fake_session.client.assert_called_once_with(
+        "sts",
+        config=AWS_RETRY_CONFIG,
+    )
