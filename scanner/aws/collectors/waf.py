@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Sequence
 
 from scanner.aws.services.waf import WAFService
 
@@ -6,10 +6,44 @@ from scanner.aws.services.waf import WAFService
 class WAFDataCollector:
     """
     Normalize AWS WAFv2 configuration for CloudSentinel rules.
+
+    By default both WAF scopes are collected for backwards compatibility.
+    Regional orchestration can explicitly select REGIONAL or CLOUDFRONT
+    to avoid duplicate findings across multi-region scans.
     """
 
-    def __init__(self, service: WAFService):
+    DEFAULT_SCOPES = ("REGIONAL", "CLOUDFRONT")
+
+    def __init__(
+        self,
+        service: WAFService,
+        scopes: Sequence[str] | None = None,
+    ):
         self.service = service
+
+        selected_scopes = (
+            self.DEFAULT_SCOPES
+            if scopes is None
+            else tuple(scopes)
+        )
+
+        invalid_scopes = set(selected_scopes) - {
+            "REGIONAL",
+            "CLOUDFRONT",
+        }
+
+        if invalid_scopes:
+            raise ValueError(
+                "Unsupported WAF scope(s): "
+                + ", ".join(sorted(invalid_scopes))
+            )
+
+        if not selected_scopes:
+            raise ValueError(
+                "At least one WAF scope must be configured"
+            )
+
+        self.scopes = selected_scopes
 
         self._web_acls_cache: list[dict[str, Any]] | None = None
         self._rule_groups_cache: list[dict[str, Any]] | None = None
@@ -20,7 +54,7 @@ class WAFDataCollector:
 
         normalized: list[dict[str, Any]] = []
 
-        for scope in ("REGIONAL", "CLOUDFRONT"):
+        for scope in self.scopes:
             for summary in self.service.list_web_acls(scope):
                 name = summary.get("Name")
                 web_acl_id = summary.get("Id")
@@ -74,7 +108,7 @@ class WAFDataCollector:
 
         normalized: list[dict[str, Any]] = []
 
-        for scope in ("REGIONAL", "CLOUDFRONT"):
+        for scope in self.scopes:
             for summary in self.service.list_rule_groups(scope):
                 name = summary.get("Name")
                 rule_group_id = summary.get("Id")
@@ -83,10 +117,7 @@ class WAFDataCollector:
                 if not isinstance(name, str) or not name:
                     continue
 
-                if not isinstance(
-                    rule_group_id,
-                    str,
-                ) or not rule_group_id:
+                if not isinstance(rule_group_id, str) or not rule_group_id:
                     continue
 
                 if not isinstance(arn, str) or not arn:
@@ -99,8 +130,7 @@ class WAFDataCollector:
                 )
 
                 visibility_config = (
-                    rule_group.get("VisibilityConfig")
-                    or {}
+                    rule_group.get("VisibilityConfig") or {}
                 )
 
                 normalized.append(

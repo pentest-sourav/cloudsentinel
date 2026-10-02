@@ -1,6 +1,14 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, JSON, Float, String, Text, UniqueConstraint
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    JSON,
+    Float,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.core.database import Base
@@ -13,6 +21,7 @@ class Finding(Base):
         UniqueConstraint(
             "scan_id",
             "provider",
+            "region",
             "rule_id",
             "resource_type",
             "resource_id",
@@ -62,6 +71,13 @@ class Finding(Base):
     provider: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
+    )
+
+    region: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="unknown",
+        index=True,
     )
 
     resource_type: Mapped[str] = mapped_column(

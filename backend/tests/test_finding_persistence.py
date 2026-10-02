@@ -2,8 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.app.core.database import Base
-from backend.app.models.cloud_account import CloudAccount
 from backend.app.models.scan import Scan
+from backend.app.models.tenant import Tenant
 from backend.app.models.finding import Finding as FindingModel
 from backend.app.services.finding_service import persist_finding
 from engine.findings.model import Finding, Severity
@@ -19,7 +19,17 @@ def test_persist_engine_finding():
     db = SessionLocal()
 
     try:
+        tenant = Tenant(
+            name="Finding Persistence Test Tenant",
+            slug="finding-persistence-test-tenant",
+            status="active",
+        )
+        db.add(tenant)
+        db.commit()
+        db.refresh(tenant)
+
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )

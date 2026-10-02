@@ -673,3 +673,313 @@ def test_persist_findings_handles_duplicate_engine_findings_in_same_batch():
 
     finally:
         db.close()
+
+
+def test_persist_finding_allows_same_resource_across_different_regions():
+    engine = create_engine("sqlite:///:memory:")
+
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    tenant = Tenant(
+        name="Finding Region Test Tenant",
+        slug="finding-region-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
+    try:
+        scan = Scan(
+            tenant_id=tenant.id,
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        ap_south_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="ap-south-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        us_east_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="us-east-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=ap_south_finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=us_east_finding,
+        )
+
+        assert first.id != second.id
+        assert first.region == "ap-south-1"
+        assert second.region == "us-east-1"
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 2
+
+    finally:
+        db.close()
+
+
+def test_persist_finding_is_idempotent_within_same_region():
+    engine = create_engine("sqlite:///:memory:")
+
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    tenant = Tenant(
+        name="Finding Region Idempotency Test Tenant",
+        slug="finding-region-idempotency-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
+    try:
+        scan = Scan(
+            tenant_id=tenant.id,
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        first_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="ap-south-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        second_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="ap-south-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Updated description should not create a duplicate.",
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=first_finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=second_finding,
+        )
+
+        assert second.id == first.id
+        assert second.region == "ap-south-1"
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 1
+
+    finally:
+        db.close()
+
+
+def test_persist_finding_allows_same_resource_across_different_regions():
+    engine = create_engine("sqlite:///:memory:")
+
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    tenant = Tenant(
+        name="Finding Region Test Tenant",
+        slug="finding-region-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
+    try:
+        scan = Scan(
+            tenant_id=tenant.id,
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        ap_south_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="ap-south-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        us_east_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="us-east-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=ap_south_finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=us_east_finding,
+        )
+
+        assert first.id != second.id
+        assert first.region == "ap-south-1"
+        assert second.region == "us-east-1"
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 2
+
+    finally:
+        db.close()
+
+
+def test_persist_finding_is_idempotent_within_same_region():
+    engine = create_engine("sqlite:///:memory:")
+
+    Base.metadata.create_all(engine)
+
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+
+    tenant = Tenant(
+        name="Finding Region Idempotency Test Tenant",
+        slug="finding-region-idempotency-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
+    try:
+        scan = Scan(
+            tenant_id=tenant.id,
+            provider="aws",
+            status="running",
+        )
+
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        first_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="ap-south-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Bucket is public.",
+        )
+
+        second_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="S3 Public Access",
+            severity=Severity.HIGH,
+            provider="aws",
+            region="ap-south-1",
+            resource_type="s3_bucket",
+            resource_id="same-bucket",
+            description="Updated description should not create a duplicate.",
+        )
+
+        first = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=first_finding,
+        )
+
+        second = persist_finding(
+            db=db,
+            scan_id=scan.id,
+            finding=second_finding,
+        )
+
+        assert second.id == first.id
+        assert second.region == "ap-south-1"
+
+        total = (
+            db.query(FindingModel)
+            .filter(FindingModel.scan_id == scan.id)
+            .count()
+        )
+
+        assert total == 1
+
+    finally:
+        db.close()

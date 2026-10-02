@@ -30,6 +30,13 @@ class ScanExecutionError(Base):
         index=True,
     )
 
+    region: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        default="unknown",
+        index=True,
+    )
+
     error_type: Mapped[str] = mapped_column(
         String(255),
         nullable=False,

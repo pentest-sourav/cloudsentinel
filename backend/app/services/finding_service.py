@@ -22,6 +22,7 @@ def create_finding(
     evidence: dict,
     remediation: str,
     compliance: list,
+    region: str = "unknown",
 ) -> FindingModel:
     engine_finding = EngineFinding(
         rule_id=rule_id,
@@ -34,6 +35,7 @@ def create_finding(
         evidence=evidence,
         remediation=remediation,
         compliance=compliance,
+        region=region,
     )
 
     risk_context = build_risk_context(engine_finding)
@@ -51,6 +53,7 @@ def create_finding(
         risk_score=risk_score.score,
         risk_level=risk_score.level.value,
         provider=engine_finding.provider,
+        region=engine_finding.region,
         resource_type=engine_finding.resource_type,
         resource_id=engine_finding.resource_id,
         description=engine_finding.description,
@@ -69,17 +72,18 @@ def create_finding(
 def _finding_identity(
     scan_id: int,
     finding: EngineFinding,
-) -> tuple[int, str, str, str, str]:
+) -> tuple[int, str, str, str, str, str]:
     """
     Return the database identity of one logical finding.
 
-    A finding is unique within a scan by provider, rule, resource type,
-    and resource identifier. Finding details such as evidence and risk
-    are intentionally not part of the identity.
+    A finding is unique within a scan by provider, region, rule,
+    resource type, and resource identifier. Finding details such as
+    evidence and risk are intentionally not part of the identity.
     """
     return (
         scan_id,
         finding.provider,
+        finding.region,
         finding.rule_id,
         finding.resource_type,
         finding.resource_id,
@@ -90,13 +94,21 @@ def _get_existing_finding(
     db: Session,
     identity: tuple[int, str, str, str, str],
 ) -> FindingModel | None:
-    scan_id, provider, rule_id, resource_type, resource_id = identity
+    (
+        scan_id,
+        provider,
+        region,
+        rule_id,
+        resource_type,
+        resource_id,
+    ) = identity
 
     statement = (
         select(FindingModel)
         .where(
             FindingModel.scan_id == scan_id,
             FindingModel.provider == provider,
+            FindingModel.region == region,
             FindingModel.rule_id == rule_id,
             FindingModel.resource_type == resource_type,
             FindingModel.resource_id == resource_id,
@@ -149,6 +161,7 @@ def persist_finding(
         risk_score=risk_score.score,
         risk_level=risk_score.level.value,
         provider=finding.provider,
+        region=finding.region,
         resource_type=finding.resource_type,
         resource_id=finding.resource_id,
         description=finding.description,
@@ -316,6 +329,7 @@ def persist_findings(
             risk_score=risk_score.score,
             risk_level=risk_score.level.value,
             provider=finding.provider,
+            region=finding.region,
             resource_type=finding.resource_type,
             resource_id=finding.resource_id,
             description=finding.description,

@@ -317,6 +317,13 @@ def patch_aws_scanners(
     fake_provider,
 ):
     with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "backend.app.services.aws_scan_service.discover_aws_regions",
+                return_value=[REGION],
+            )
+        )
+
         mock_session = stack.enter_context(
             patch(
                 "backend.app.services.aws_scan_service.create_aws_session",
@@ -666,6 +673,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["ecs"],
         findings["api_gateway"],
         findings["waf"],
+        findings["waf"],
         findings["eks"],
         findings["secretsmanager"],
         findings["acm"],
@@ -709,8 +717,11 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
 
     assert result.errors == []
 
-    for scanner in scanners.values():
-        scanner.scan.assert_called_once()
+    for name, scanner in scanners.items():
+        if name == "waf":
+            assert scanner.scan.call_count == 2
+        else:
+            scanner.scan.assert_called_once()
 
 
 def test_run_aws_scan_rejects_missing_role_arn():
@@ -797,6 +808,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["dynamodb"],
         findings["ecs"],
         findings["api_gateway"],
+        findings["waf"],
         findings["waf"],
         findings["eks"],
         findings["secretsmanager"],
@@ -889,6 +901,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["dynamodb"],
         findings["ecs"],
         findings["api_gateway"],
+        findings["waf"],
         findings["waf"],
         findings["eks"],
         findings["secretsmanager"],

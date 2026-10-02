@@ -20,6 +20,7 @@ def persist_execution_errors(
         execution_error = ScanExecutionError(
             scan_id=scan_id,
             service=error.service,
+            region=getattr(error, "region", "unknown"),
             error_type=error.error_type,
             error_code=error.error_code,
             message=_normalise_message(error.message),

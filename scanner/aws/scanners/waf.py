@@ -14,8 +14,15 @@ class WAFScanner:
     Runs registered AWS WAFv2 security rules.
     """
 
-    def __init__(self, service: WAFService):
-        self.collector = WAFDataCollector(service)
+    def __init__(
+        self,
+        service: WAFService,
+        scopes: tuple[str, ...] | None = None,
+    ):
+        self.collector = WAFDataCollector(
+            service,
+            scopes=scopes,
+        )
 
         self.executor = RuleExecutor(
             handlers=WAF_DATA_SOURCE_HANDLERS,

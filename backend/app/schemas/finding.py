@@ -12,6 +12,7 @@ class FindingResponse(BaseModel):
     risk_score: float
     risk_level: str
     provider: str
+    region: str
     resource_type: str
     resource_id: str
     description: str

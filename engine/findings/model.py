@@ -22,3 +22,4 @@ class Finding:
     evidence: dict[str, object] = field(default_factory=dict)
     remediation: str = ""
     compliance: list[str] = field(default_factory=list)
+    region: str = "unknown"
