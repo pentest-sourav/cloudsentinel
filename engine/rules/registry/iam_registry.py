@@ -841,8 +841,14 @@ IAM_RULES = RuleRegistry(
                 resource_id=kwargs["analyzer_arn"],
                 title="IAM Access Analyzer Should Be Tagged",
                 tags=kwargs["tags"],
+                required_tag_keys=kwargs.get(
+                    "required_tag_keys"
+                ),
             ),
             build_finding=build_iam_tagging_finding,
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-041",
@@ -859,8 +865,14 @@ IAM_RULES = RuleRegistry(
                 resource_id=kwargs["role_arn"],
                 title="IAM Role Should Be Tagged",
                 tags=kwargs["tags"],
+                required_tag_keys=kwargs.get(
+                    "required_tag_keys"
+                ),
             ),
             build_finding=build_iam_tagging_finding,
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-042",
@@ -877,8 +889,14 @@ IAM_RULES = RuleRegistry(
                 resource_id=kwargs["user_arn"],
                 title="IAM User Should Be Tagged",
                 tags=kwargs["tags"],
+                required_tag_keys=kwargs.get(
+                    "required_tag_keys"
+                ),
             ),
             build_finding=build_iam_tagging_finding,
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
         RuleDefinition(
             rule_id="CS-AWS-IAM-043",

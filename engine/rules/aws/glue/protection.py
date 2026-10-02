@@ -7,6 +7,9 @@ from engine.findings.model import Finding, Severity
 class GlueJobResult:
     job_name: str
     reason: str
+    tags: dict[str, str]
+    required_tag_keys: list[str]
+    missing_tag_keys: list[str]
 
 
 @dataclass(frozen=True)
@@ -15,12 +18,61 @@ class GlueMLTransformResult:
     reason: str
 
 
+def _normalize_required_tag_keys(
+    required_tag_keys: list[str] | tuple[str, ...] | None,
+) -> list[str]:
+    normalized: list[str] = []
+
+    if not isinstance(required_tag_keys, (list, tuple)):
+        return normalized
+
+    for key in required_tag_keys:
+        if not isinstance(key, str):
+            continue
+
+        key = key.strip()
+
+        if not key or key.lower().startswith("aws:"):
+            continue
+
+        if key not in normalized:
+            normalized.append(key)
+
+    return normalized
+
+
 def check_glue_job_tags(
     job_name: str,
     has_non_system_tags: bool,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | tuple[str, ...] | None = None,
 ) -> GlueJobResult | None:
     if not job_name:
         return None
+
+    actual_tags = tags if isinstance(tags, dict) else {}
+
+    normalized_required_keys = _normalize_required_tag_keys(
+        required_tag_keys
+    )
+
+    if normalized_required_keys:
+        missing_tag_keys = [
+            key
+            for key in normalized_required_keys
+            if key not in actual_tags
+        ]
+
+        if not missing_tag_keys:
+            return None
+
+        return GlueJobResult(
+            job_name=job_name,
+            reason="missing_required_tag_keys",
+            tags=actual_tags,
+            required_tag_keys=normalized_required_keys,
+            missing_tag_keys=missing_tag_keys,
+        )
 
     if has_non_system_tags:
         return None
@@ -28,12 +80,36 @@ def check_glue_job_tags(
     return GlueJobResult(
         job_name=job_name,
         reason="missing_non_system_tags",
+        tags=actual_tags,
+        required_tag_keys=[],
+        missing_tag_keys=[],
     )
 
 
 def build_glue_job_tags_finding(
     result: GlueJobResult,
 ) -> Finding:
+    if result.required_tag_keys:
+        description = (
+            f"The AWS Glue job {result.job_name} "
+            "is missing one or more required tag keys."
+        )
+        remediation = (
+            "Add all configured required tag keys to the "
+            "AWS Glue job. Tag keys are case-sensitive."
+        )
+    else:
+        description = (
+            f"The AWS Glue job {result.job_name} "
+            "does not have any non-system tags."
+        )
+        remediation = (
+            "Add at least one non-system tag to the "
+            "AWS Glue job. If your organization uses "
+            "required tag keys, ensure the job contains "
+            "all required keys."
+        )
+
     return Finding(
         rule_id="CS-AWS-GLUE-001",
         title="AWS Glue Job Is Not Tagged",
@@ -41,20 +117,15 @@ def build_glue_job_tags_finding(
         provider="aws",
         resource_type="glue_job",
         resource_id=result.job_name,
-        description=(
-            f"The AWS Glue job {result.job_name} "
-            "does not have any non-system tags."
-        ),
+        description=description,
         evidence={
             "job_name": result.job_name,
             "configuration_issue": result.reason,
+            "tags": result.tags,
+            "required_tag_keys": result.required_tag_keys,
+            "missing_tag_keys": result.missing_tag_keys,
         },
-        remediation=(
-            "Add at least one non-system tag to the "
-            "AWS Glue job. If your organization uses "
-            "required tag keys, ensure the job contains "
-            "all required keys."
-        ),
+        remediation=remediation,
         compliance=[
             "AWS Security Hub Glue.1",
         ],
@@ -150,6 +221,9 @@ def check_glue_spark_version(
     return GlueJobResult(
         job_name=job_name,
         reason=f"unsupported_glue_version:{glue_version}",
+        tags={},
+        required_tag_keys=[],
+        missing_tag_keys=[],
     )
 
 
@@ -168,7 +242,7 @@ def build_glue_spark_version_finding(
         resource_id=result.job_name,
         description=(
             f"The AWS Glue Spark job {result.job_name} "
-            f"uses an unsupported Glue version."
+            "uses an unsupported Glue version."
         ),
         evidence={
             "job_name": result.job_name,

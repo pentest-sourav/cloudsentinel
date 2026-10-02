@@ -123,9 +123,13 @@ AUTOSCALING_RULES = RuleRegistry(
                 "group_name",
                 "group_arn",
                 "has_non_system_tags",
+                "tags",
             ],
             check=check_autoscaling_tags,
             build_finding=build_autoscaling_tags_finding,
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
     ]
 )

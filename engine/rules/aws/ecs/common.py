@@ -21,6 +21,60 @@ def non_system_tags(
     ]
 
 
+def normalize_required_tag_keys(
+    required_tag_keys: list[str] | tuple[str, ...] | None,
+) -> tuple[str, ...]:
+    if not isinstance(required_tag_keys, (list, tuple)):
+        return ()
+
+    normalized: list[str] = []
+
+    for key in required_tag_keys:
+        if not isinstance(key, str):
+            continue
+
+        key = key.strip()
+
+        if not key:
+            continue
+
+        if key.lower().startswith("aws:"):
+            continue
+
+        if key not in normalized:
+            normalized.append(key)
+
+    return tuple(normalized)
+
+
+def has_required_tag_keys(
+    tags: Any,
+    required_tag_keys: list[str] | tuple[str, ...] | None,
+) -> bool:
+    normalized_required_keys = normalize_required_tag_keys(
+        required_tag_keys,
+    )
+
+    valid_tags = non_system_tags(tags)
+
+    if not normalized_required_keys:
+        return bool(valid_tags)
+
+    actual_keys = {
+        tag.get("key", tag.get("Key"))
+        for tag in valid_tags
+        if isinstance(
+            tag.get("key", tag.get("Key")),
+            str,
+        )
+    }
+
+    return all(
+        required_key in actual_keys
+        for required_key in normalized_required_keys
+    )
+
+
 def finding(
     *,
     rule_id: str,

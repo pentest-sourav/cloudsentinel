@@ -20,9 +20,13 @@ GLUE_RULES = RuleRegistry(
             check_arguments=[
                 "job_name",
                 "has_non_system_tags",
+                "tags",
             ],
             check=check_glue_job_tags,
             build_finding=build_glue_job_tags_finding,
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
         RuleDefinition(
             rule_id="CS-AWS-GLUE-003",

@@ -208,6 +208,9 @@ ECS_RULES = RuleRegistry(
             build_finding=(
                 build_ecs_service_tagging_finding
             ),
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
         RuleDefinition(
             rule_id="CS-AWS-ECS-014",
@@ -224,6 +227,9 @@ ECS_RULES = RuleRegistry(
             build_finding=(
                 build_ecs_cluster_tagging_finding
             ),
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
         RuleDefinition(
             rule_id="CS-AWS-ECS-015",
@@ -240,6 +246,9 @@ ECS_RULES = RuleRegistry(
             build_finding=(
                 build_ecs_task_definition_tagging_finding
             ),
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
         RuleDefinition(
             rule_id="CS-AWS-ECS-016",

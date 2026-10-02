@@ -357,9 +357,50 @@ def check_autoscaling_tags(
     group_name: str,
     group_arn: str | None,
     has_non_system_tags: bool,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | tuple[str, ...] | None = None,
 ) -> AutoScalingResult | None:
     if not group_name:
         return None
+
+    normalized_required_keys: list[str] = []
+
+    if isinstance(required_tag_keys, (list, tuple)):
+        for key in required_tag_keys:
+            if not isinstance(key, str):
+                continue
+
+            key = key.strip()
+
+            if not key or key.lower().startswith("aws:"):
+                continue
+
+            if key not in normalized_required_keys:
+                normalized_required_keys.append(key)
+
+    actual_tags = tags if isinstance(tags, dict) else {}
+
+    if normalized_required_keys:
+        missing_keys = [
+            key
+            for key in normalized_required_keys
+            if key not in actual_tags
+        ]
+
+        if not missing_keys:
+            return None
+
+        return AutoScalingResult(
+            group_name=group_name,
+            group_arn=group_arn,
+            reason="missing_required_tag_keys",
+            evidence={
+                "has_non_system_tags": has_non_system_tags,
+                "tags": actual_tags,
+                "required_tag_keys": normalized_required_keys,
+                "missing_tag_keys": missing_keys,
+            },
+        )
 
     if has_non_system_tags:
         return None
@@ -370,9 +411,11 @@ def check_autoscaling_tags(
         reason="missing_non_system_tags",
         evidence={
             "has_non_system_tags": False,
+            "tags": actual_tags,
+            "required_tag_keys": [],
+            "missing_tag_keys": [],
         },
     )
-
 
 def build_autoscaling_tags_finding(
     result: AutoScalingResult,

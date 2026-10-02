@@ -1,3 +1,5 @@
+from typing import Any
+
 from engine.findings.model import Finding
 from engine.rules.executor import RuleExecutor
 from engine.rules.registry.autoscaling_handlers import (
@@ -18,6 +20,7 @@ class AutoScalingScanner:
     def __init__(
         self,
         service: AutoScalingService,
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ):
         self.collector = AutoScalingDataCollector(
             service
@@ -25,6 +28,7 @@ class AutoScalingScanner:
 
         self.executor = RuleExecutor(
             handlers=AUTOSCALING_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:
