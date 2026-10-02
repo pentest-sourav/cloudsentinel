@@ -76,7 +76,7 @@ class WAFService:
                 }
 
                 if next_token:
-                    kwargs["NextLockToken"] = next_token
+                    kwargs["NextMarker"] = next_token
 
                 response = client.list_web_acls(
                     **kwargs
@@ -94,7 +94,7 @@ class WAFService:
                         if isinstance(acl, dict)
                     )
 
-                token = response.get("NextLockToken")
+                token = response.get("NextMarker")
 
                 if (
                     not isinstance(token, str)
@@ -194,7 +194,7 @@ class WAFService:
                 }
 
                 if next_token:
-                    kwargs["NextLockToken"] = next_token
+                    kwargs["NextMarker"] = next_token
 
                 response = client.list_rule_groups(
                     **kwargs
@@ -212,7 +212,7 @@ class WAFService:
                         if isinstance(group, dict)
                     )
 
-                token = response.get("NextLockToken")
+                token = response.get("NextMarker")
 
                 if (
                     not isinstance(token, str)

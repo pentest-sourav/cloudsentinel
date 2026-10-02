@@ -53,7 +53,7 @@ def test_list_web_acls_uses_requested_scope():
                     "ARN": "arn:aws:wafv2:test",
                 }
             ],
-            "NextLockToken": "token-2",
+            "NextMarker": "token-2",
         },
         {
             "WebACLs": [
@@ -89,7 +89,7 @@ def test_list_web_acls_uses_requested_scope():
     assert service.regional_client.list_web_acls.call_args_list[1].kwargs == {
         "Scope": "REGIONAL",
         "Limit": 100,
-        "NextLockToken": "token-2",
+        "NextMarker": "token-2",
     }
 
     service.regional_client.get_paginator.assert_not_called()
@@ -131,7 +131,7 @@ def test_list_rule_groups_uses_requested_scope():
                     "ARN": "arn:aws:wafv2:group",
                 }
             ],
-            "NextLockToken": "token-2",
+            "NextMarker": "token-2",
         },
         {
             "RuleGroups": [
@@ -167,7 +167,7 @@ def test_list_rule_groups_uses_requested_scope():
     assert service.cloudfront_client.list_rule_groups.call_args_list[1].kwargs == {
         "Scope": "CLOUDFRONT",
         "Limit": 100,
-        "NextLockToken": "token-2",
+        "NextMarker": "token-2",
     }
 
     service.cloudfront_client.get_paginator.assert_not_called()
