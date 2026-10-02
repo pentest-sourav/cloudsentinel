@@ -20,6 +20,7 @@ from scanner.aws.scanners.eks import EKSScanner
 from scanner.aws.scanners.secretsmanager import SecretsManagerScanner
 from scanner.aws.scanners.acm import ACMScanner
 from scanner.aws.scanners.guardduty import GuardDutyScanner
+from scanner.aws.scanners.securityhub import SecurityHubScanner
 from scanner.aws.scanners.inspector import InspectorScanner
 from scanner.aws.scanners.macie import MacieScanner
 from scanner.aws.scanners.kinesis import KinesisScanner
@@ -96,6 +97,7 @@ from scanner.aws.services.eks import EKSService
 from scanner.aws.services.secretsmanager import SecretsManagerService
 from scanner.aws.services.acm import ACMService
 from scanner.aws.services.guardduty import GuardDutyService
+from scanner.aws.services.securityhub import SecurityHubService
 from scanner.aws.services.inspector import InspectorService
 from scanner.aws.services.macie import MacieService
 from scanner.aws.services.kinesis import KinesisService
@@ -476,6 +478,12 @@ def _build_scanners(
             "guardduty",
             lambda: GuardDutyScanner(
                 GuardDutyService(session)
+            ),
+        ),
+        (
+            "securityhub",
+            lambda: SecurityHubScanner(
+                SecurityHubService(session)
             ),
         ),
         (

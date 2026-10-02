@@ -43,6 +43,7 @@ def make_mocks():
         "secretsmanager": Mock(),
         "acm": Mock(),
         "guardduty": Mock(),
+        "securityhub": Mock(),
         "inspector": Mock(),
         "macie": Mock(),
         "kinesis": Mock(),
@@ -107,6 +108,7 @@ def make_mocks():
         "secretsmanager": Mock(),
         "acm": Mock(),
         "guardduty": Mock(),
+        "securityhub": Mock(),
         "inspector": Mock(),
         "macie": Mock(),
         "kinesis": Mock(),
@@ -192,6 +194,9 @@ def make_mocks():
         ),
         "guardduty": Mock(
             rule_id="CS-AWS-GD-001"
+        ),
+        "securityhub": Mock(
+            rule_id="CS-AWS-SH-001"
         ),
         "inspector": Mock(
             rule_id="CS-AWS-INSPECTOR-001"
@@ -419,6 +424,11 @@ def patch_aws_scanners(
                 "GuardDutyService",
                 "GuardDutyScanner",
                 "guardduty",
+            ),
+            (
+                "SecurityHubService",
+                "SecurityHubScanner",
+                "securityhub",
             ),
             (
                 "InspectorService",
@@ -678,6 +688,7 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         findings["secretsmanager"],
         findings["acm"],
         findings["guardduty"],
+        findings["securityhub"],
         findings["inspector"],
         findings["macie"],
         findings["kinesis"],
@@ -814,6 +825,7 @@ def test_run_aws_scan_allows_scan_when_expected_account_id_is_missing():
         findings["secretsmanager"],
         findings["acm"],
         findings["guardduty"],
+        findings["securityhub"],
         findings["inspector"],
         findings["macie"],
         findings["kinesis"],
@@ -907,6 +919,7 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
         findings["secretsmanager"],
         findings["acm"],
         findings["guardduty"],
+        findings["securityhub"],
         findings["inspector"],
         findings["macie"],
         findings["kinesis"],
