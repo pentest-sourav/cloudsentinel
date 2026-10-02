@@ -4,6 +4,7 @@ from engine.rules.aws.cloudfront.protection import (
     build_cloudfront_deprecated_ssl_protocols_finding,
     build_cloudfront_logging_finding,
     build_cloudfront_s3_oac_finding,
+    build_cloudfront_tls_security_policy_finding,
     build_cloudfront_viewer_https_finding,
     build_cloudfront_waf_finding,
     check_cloudfront_custom_origin_https,
@@ -11,6 +12,7 @@ from engine.rules.aws.cloudfront.protection import (
     check_cloudfront_deprecated_ssl_protocols,
     check_cloudfront_logging,
     check_cloudfront_s3_oac,
+    check_cloudfront_tls_security_policy,
     check_cloudfront_viewer_https,
     check_cloudfront_waf,
 )
@@ -120,6 +122,21 @@ CLOUDFRONT_RULES = RuleRegistry(
             check=check_cloudfront_deprecated_ssl_protocols,
             build_finding=(
                 build_cloudfront_deprecated_ssl_protocols_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-008",
+            name="cloudfront_tls_security_policy",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "viewer_security_policy",
+            ],
+            check=check_cloudfront_tls_security_policy,
+            build_finding=(
+                build_cloudfront_tls_security_policy_finding
             ),
         ),
     ]

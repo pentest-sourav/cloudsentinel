@@ -4,6 +4,7 @@ from engine.rules.aws.cloudfront.protection import (
     build_cloudfront_default_root_object_finding,
     build_cloudfront_deprecated_ssl_protocols_finding,
     build_cloudfront_logging_finding,
+    build_cloudfront_tls_security_policy_finding,
     build_cloudfront_s3_oac_finding,
     build_cloudfront_viewer_https_finding,
     build_cloudfront_waf_finding,
@@ -11,6 +12,7 @@ from engine.rules.aws.cloudfront.protection import (
     check_cloudfront_default_root_object,
     check_cloudfront_deprecated_ssl_protocols,
     check_cloudfront_logging,
+    check_cloudfront_tls_security_policy,
     check_cloudfront_s3_oac,
     check_cloudfront_viewer_https,
     check_cloudfront_waf,
@@ -471,3 +473,62 @@ def test_multiple_custom_origins_only_insecure_origins_fail():
             ],
         }
     ]
+
+
+def test_cloudfront_tls_2021_policy_passes_cloudfront_008():
+    assert (
+        check_cloudfront_tls_security_policy(
+            "E1",
+            "cloudfront_distribution",
+            "TLSv1.2_2021",
+        )
+        is None
+    )
+
+
+def test_cloudfront_tls_2025_policy_passes_cloudfront_008():
+    assert (
+        check_cloudfront_tls_security_policy(
+            "E1",
+            "cloudfront_distribution",
+            "TLSv1.2_2025",
+        )
+        is None
+    )
+
+
+def test_cloudfront_tls_13_2025_policy_passes_cloudfront_008():
+    assert (
+        check_cloudfront_tls_security_policy(
+            "E1",
+            "cloudfront_distribution",
+            "TLSv1.3_2025",
+        )
+        is None
+    )
+
+
+def test_cloudfront_legacy_tls_policy_fails_cloudfront_008():
+    result = check_cloudfront_tls_security_policy(
+        "E1",
+        "cloudfront_distribution",
+        "TLSv1",
+    )
+
+    finding = build_cloudfront_tls_security_policy_finding(
+        result
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-008"
+    assert finding.severity == Severity.MEDIUM
+
+
+def test_cloudfront_missing_tls_policy_fails_cloudfront_008():
+    result = check_cloudfront_tls_security_policy(
+        "E1",
+        "cloudfront_distribution",
+        None,
+    )
+
+    assert result is not None
+    assert result.details["viewer_security_policy"] is None

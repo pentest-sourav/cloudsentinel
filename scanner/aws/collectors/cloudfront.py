@@ -212,6 +212,13 @@ class CloudFrontDataCollector:
             distribution_config.get("Logging") or {}
         )
 
+        viewer_certificate = (
+            distribution_config.get("ViewerCertificate") or {}
+        )
+        viewer_security_policy = viewer_certificate.get(
+            "MinimumProtocolVersion"
+        )
+
         waf_web_acl_id = distribution.get("WebACLId")
         if waf_web_acl_id is None:
             waf_web_acl_id = distribution_config.get("WebACLId")
@@ -245,6 +252,7 @@ class CloudFrontDataCollector:
             "logging_enabled": bool(
                 logging_config.get("Enabled", False)
             ),
+            "viewer_security_policy": viewer_security_policy,
             "waf_web_acl_id": waf_web_acl_id,
             "waf_enabled": bool(waf_web_acl_id),
             "origins": origins,

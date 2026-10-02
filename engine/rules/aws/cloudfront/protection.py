@@ -564,3 +564,65 @@ def build_cloudfront_deprecated_ssl_protocols_finding(
             "PCI DSS v4.0.1/4.2.1",
         ],
     )
+
+
+def check_cloudfront_tls_security_policy(
+    resource_id: str,
+    resource_type: str,
+    viewer_security_policy: str | None,
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    recommended_policies = {
+        "TLSv1.2_2021",
+        "TLSv1.2_2025",
+        "TLSv1.3_2025",
+    }
+
+    if viewer_security_policy in recommended_policies:
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "viewer_security_policy": viewer_security_policy,
+            "recommended_policies": sorted(
+                recommended_policies
+            ),
+        },
+    )
+
+
+def build_cloudfront_tls_security_policy_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-008",
+        title=(
+            "CloudFront distribution does not use "
+            "a recommended TLS security policy"
+        ),
+        severity=Severity.MEDIUM,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} is not configured "
+            "with a recommended viewer TLS security policy."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Configure the CloudFront distribution to use "
+            "one of the recommended TLS security policies: "
+            "TLSv1.2_2021, TLSv1.2_2025, or TLSv1.3_2025."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.15",
+        ],
+    )

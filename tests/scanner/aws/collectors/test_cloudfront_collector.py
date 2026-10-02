@@ -29,6 +29,11 @@ def test_collect_distributions_normalizes_security_fields():
                     "Enabled": True,
                     "Bucket": "logs.example.com",
                 },
+                "ViewerCertificate": {
+                    "CloudFrontDefaultCertificate": False,
+                    "MinimumProtocolVersion": "TLSv1.2_2021",
+                    "SSLSupportMethod": "sni-only",
+                },
                 "WebACLId": "waf-example",
                 "Origins": {
                     "Items": [
@@ -62,6 +67,7 @@ def test_collect_distributions_normalizes_security_fields():
                 "https-only",
             ],
             "logging_enabled": True,
+            "viewer_security_policy": "TLSv1.2_2021",
             "waf_web_acl_id": "waf-example",
             "waf_enabled": True,
             "origins": [
@@ -183,6 +189,7 @@ def test_collect_distributions_normalizes_cache_behavior_origin_groups():
                 "https-only",
             ],
             "logging_enabled": False,
+            "viewer_security_policy": None,
             "waf_web_acl_id": None,
             "waf_enabled": False,
             "origins": [
