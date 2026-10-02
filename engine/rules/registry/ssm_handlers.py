@@ -21,6 +21,12 @@ def collect_ssm_document_permissions(
     return collector.collect_document_permissions()
 
 
+def collect_ssm_document_tags(
+    collector: SSMDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_document_tags()
+
+
 def collect_ssm_automation_logging(
     collector: SSMDataCollector,
 ) -> list[dict[str, Any]]:
@@ -37,6 +43,7 @@ SSM_DATA_SOURCE_HANDLERS = {
     "ssm_ec2_management": collect_ssm_ec2_management,
     "ssm_compliance": collect_ssm_compliance,
     "ssm_document_permissions": collect_ssm_document_permissions,
+    "ssm_document_tags": collect_ssm_document_tags,
     "ssm_automation_logging": collect_ssm_automation_logging,
     "ssm_public_sharing_setting": collect_ssm_public_sharing_setting,
 }

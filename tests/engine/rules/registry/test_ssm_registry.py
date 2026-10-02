@@ -6,7 +6,7 @@ from engine.rules.registry.ssm_registry import (
 def test_ssm_registry_contains_expected_rules():
     rules = list(SSM_RULES)
 
-    assert len(rules) == 6
+    assert len(rules) == 7
 
     assert [
         rule.rule_id
@@ -16,6 +16,7 @@ def test_ssm_registry_contains_expected_rules():
         "CS-AWS-SSM-002",
         "CS-AWS-SSM-003",
         "CS-AWS-SSM-004",
+        "CS-AWS-SSM-007",
         "CS-AWS-SSM-005",
         "CS-AWS-SSM-006",
     ]
@@ -29,6 +30,7 @@ def test_ssm_registry_data_sources_are_valid():
         "CS-AWS-SSM-002": "ssm_compliance",
         "CS-AWS-SSM-003": "ssm_compliance",
         "CS-AWS-SSM-004": "ssm_document_permissions",
+        "CS-AWS-SSM-007": "ssm_document_tags",
         "CS-AWS-SSM-005": "ssm_automation_logging",
         "CS-AWS-SSM-006": "ssm_public_sharing_setting",
     }

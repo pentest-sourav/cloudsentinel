@@ -194,6 +194,44 @@ def test_list_self_owned_documents(
     )
 
 
+def test_list_document_tags(
+    service,
+    ssm_client,
+):
+    ssm_client.list_tags_for_resource.return_value = {
+        "TagList": [
+            {
+                "Key": "Environment",
+                "Value": "Production",
+            },
+            {
+                "Key": "aws:createdBy",
+                "Value": "system",
+            },
+        ]
+    }
+
+    result = service.list_document_tags(
+        "MyDocument"
+    )
+
+    assert result == [
+        {
+            "Key": "Environment",
+            "Value": "Production",
+        },
+        {
+            "Key": "aws:createdBy",
+            "Value": "system",
+        },
+    ]
+
+    ssm_client.list_tags_for_resource.assert_called_once_with(
+        ResourceType="Document",
+        ResourceId="MyDocument",
+    )
+
+
 def test_describe_document_permission(
     service,
     ssm_client,

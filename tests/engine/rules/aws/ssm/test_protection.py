@@ -2,6 +2,7 @@ from engine.rules.aws.ssm.protection import (
     check_association_compliance,
     check_automation_logging,
     check_document_not_public,
+    check_document_tags,
     check_ec2_managed_by_ssm,
     check_patch_compliance,
     check_public_sharing_block,
@@ -180,3 +181,33 @@ def test_public_sharing_block_fails_when_missing():
 
     assert result is not None
     assert result.setting_value is None
+
+
+def test_document_tags_pass_when_non_system_tag_exists():
+    assert (
+        check_document_tags(
+            "doc-001",
+            "MyDocument",
+            "123456789012",
+            {
+                "Environment": "Production",
+            },
+            True,
+        )
+        is None
+    )
+
+
+def test_document_tags_fail_when_no_non_system_tags_exist():
+    result = check_document_tags(
+        "doc-001",
+        "MyDocument",
+        "123456789012",
+        {},
+        False,
+    )
+
+    assert result is not None
+    assert result.resource_id == "doc-001"
+    assert result.document_name == "MyDocument"
+    assert result.has_non_system_tags is False

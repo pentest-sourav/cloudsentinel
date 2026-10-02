@@ -216,6 +216,40 @@ class SSMService:
             )
             raise AssertionError("unreachable")
 
+    def list_document_tags(
+        self,
+        document_name: str,
+    ) -> list[dict[str, Any]]:
+        if not document_name:
+            return []
+
+        try:
+            response = self.ssm_client.list_tags_for_resource(
+                ResourceType="Document",
+                ResourceId=document_name,
+            )
+
+            tags = response.get(
+                "TagList",
+                [],
+            )
+
+            if not isinstance(tags, list):
+                return []
+
+            return [
+                tag
+                for tag in tags
+                if isinstance(tag, dict)
+            ]
+
+        except Exception as exc:
+            self._raise_api_error(
+                f"document tag discovery for {document_name}",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
     def describe_document_permission(
         self,
         document_name: str,

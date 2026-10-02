@@ -3,6 +3,7 @@ from engine.rules.aws.ssm.protection import (
     check_association_compliance,
     check_automation_logging,
     check_document_not_public,
+    check_document_tags,
     check_ec2_managed_by_ssm,
     check_patch_compliance,
     check_public_sharing_block,
@@ -150,6 +151,40 @@ def build_ssm4_finding(
     )
 
 
+def build_ssm5_finding(
+    result,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-SSM-007",
+        title="SSM Document Is Not Tagged",
+        severity=Severity.LOW,
+        provider="aws",
+        resource_type="ssm_document",
+        resource_id=result.resource_id,
+        description=(
+            f"SSM document {result.document_name} "
+            "does not have any non-system tags."
+        ),
+        evidence={
+            "document_name": result.document_name,
+            "owner": result.owner,
+            "tags": result.tags,
+            "has_non_system_tags": (
+                result.has_non_system_tags
+            ),
+        },
+        remediation=(
+            "Add the required organizational tags to "
+            "the self-owned SSM document. If your "
+            "organization uses required tag keys, ensure "
+            "all required keys are present."
+        ),
+        compliance=[
+            "AWS Security Hub SSM.5",
+        ],
+    )
+
+
 def build_ssm6_finding(
     result,
 ) -> Finding:
@@ -286,6 +321,23 @@ SSM_RULES = RuleRegistry(
             ],
             check=check_document_not_public,
             build_finding=build_ssm4_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-SSM-007",
+            name=(
+                "SSM documents should be tagged"
+            ),
+            data_source="ssm_document_tags",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "document_name",
+                "owner",
+                "tags",
+                "has_non_system_tags",
+            ],
+            check=check_document_tags,
+            build_finding=build_ssm5_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-SSM-005",

@@ -181,3 +181,72 @@ def test_collect_public_sharing_setting():
 
     assert result[0]["setting_value"] == "Disable"
     assert result[0]["status"] == "Customized"
+
+
+def test_collect_document_tags_normalizes_non_system_tags():
+    service = Mock()
+
+    service.list_self_owned_documents.return_value = [
+        {
+            "Name": "TaggedDocument",
+            "Owner": "123456789012",
+        },
+    ]
+
+    service.list_document_tags.return_value = [
+        {
+            "Key": "Environment",
+            "Value": "Production",
+        },
+        {
+            "Key": "aws:createdBy",
+            "Value": "system",
+        },
+    ]
+
+    collector = SSMDataCollector(service)
+
+    result = collector.collect_document_tags()
+
+    assert result == [
+        {
+            "resource_id": "TaggedDocument",
+            "document_name": "TaggedDocument",
+            "owner": "123456789012",
+            "tags": {
+                "Environment": "Production",
+            },
+            "has_non_system_tags": True,
+        },
+    ]
+
+    service.list_document_tags.assert_called_once_with(
+        "TaggedDocument"
+    )
+
+
+def test_collect_document_tags_detects_untagged_document():
+    service = Mock()
+
+    service.list_self_owned_documents.return_value = [
+        {
+            "Name": "UntaggedDocument",
+            "Owner": "123456789012",
+        },
+    ]
+
+    service.list_document_tags.return_value = []
+
+    collector = SSMDataCollector(service)
+
+    result = collector.collect_document_tags()
+
+    assert result == [
+        {
+            "resource_id": "UntaggedDocument",
+            "document_name": "UntaggedDocument",
+            "owner": "123456789012",
+            "tags": {},
+            "has_non_system_tags": False,
+        },
+    ]

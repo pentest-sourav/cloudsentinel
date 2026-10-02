@@ -169,3 +169,34 @@ def check_public_sharing_block(
         setting_value=setting_value,
         status=status,
     )
+
+
+@dataclass(frozen=True)
+class SSMDocumentTagResult:
+    resource_id: str
+    document_name: str
+    owner: str | None
+    tags: dict[str, str]
+    has_non_system_tags: bool
+
+
+def check_document_tags(
+    resource_id: str,
+    document_name: str,
+    owner: str | None,
+    tags: dict[str, str],
+    has_non_system_tags: bool,
+) -> SSMDocumentTagResult | None:
+    if not resource_id:
+        return None
+
+    if has_non_system_tags:
+        return None
+
+    return SSMDocumentTagResult(
+        resource_id=resource_id,
+        document_name=document_name,
+        owner=owner,
+        tags=tags,
+        has_non_system_tags=False,
+    )

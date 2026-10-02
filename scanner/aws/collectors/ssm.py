@@ -37,6 +37,10 @@ class SSMDataCollector:
             dict[str, dict[str, Any]]
         ) = {}
 
+        self._document_tags_cache: (
+            dict[str, list[dict[str, Any]]]
+        ) = {}
+
         self._settings_cache: (
             dict[str, dict[str, Any]]
         ) = {}
@@ -93,6 +97,21 @@ class SSMDataCollector:
             )
 
         return self._document_permissions_cache[
+            document_name
+        ]
+
+    def _get_document_tags(
+        self,
+        document_name: str,
+    ) -> list[dict[str, Any]]:
+        if document_name not in self._document_tags_cache:
+            self._document_tags_cache[
+                document_name
+            ] = self.service.list_document_tags(
+                document_name
+            )
+
+        return self._document_tags_cache[
             document_name
         ]
 
@@ -261,6 +280,48 @@ class SSMDataCollector:
                     "public": (
                         "All" in account_ids
                     ),
+                }
+            )
+
+        return normalized
+
+    def collect_document_tags(
+        self,
+    ) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+
+        for document in self._get_documents():
+            name = document.get("Name")
+
+            if not isinstance(name, str) or not name:
+                continue
+
+            raw_tags = self._get_document_tags(name)
+
+            tags: dict[str, str] = {}
+
+            for tag in raw_tags:
+                key = tag.get("Key")
+                value = tag.get("Value", "")
+
+                if (
+                    isinstance(key, str)
+                    and key
+                    and not key.startswith("aws:")
+                ):
+                    tags[key] = (
+                        value
+                        if isinstance(value, str)
+                        else str(value)
+                    )
+
+            normalized.append(
+                {
+                    "resource_id": name,
+                    "document_name": name,
+                    "owner": document.get("Owner"),
+                    "tags": tags,
+                    "has_non_system_tags": bool(tags),
                 }
             )
 
