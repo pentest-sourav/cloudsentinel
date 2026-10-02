@@ -2,17 +2,20 @@ from engine.findings.model import Severity
 from engine.rules.aws.cloudfront.protection import (
     build_cloudfront_custom_origin_https_finding,
     build_cloudfront_default_root_object_finding,
+    build_cloudfront_deprecated_ssl_protocols_finding,
     build_cloudfront_logging_finding,
     build_cloudfront_s3_oac_finding,
     build_cloudfront_viewer_https_finding,
     build_cloudfront_waf_finding,
     check_cloudfront_custom_origin_https,
     check_cloudfront_default_root_object,
+    check_cloudfront_deprecated_ssl_protocols,
     check_cloudfront_logging,
     check_cloudfront_s3_oac,
     check_cloudfront_viewer_https,
     check_cloudfront_waf,
 )
+
 
 
 S3_ORIGIN = {
@@ -350,3 +353,121 @@ def test_allow_all_on_different_origin_does_not_fail():
         )
         is None
     )
+
+
+def test_custom_origin_ssl_v3_fails_cloudfront_007():
+    result = check_cloudfront_deprecated_ssl_protocols(
+        "E1",
+        "cloudfront_distribution",
+        [
+            {
+                **CUSTOM_ORIGIN,
+                "origin_protocol_policy": "https-only",
+                "origin_ssl_protocols": [
+                    "SSLv3",
+                    "TLSv1.2",
+                ],
+            }
+        ],
+    )
+
+    finding = (
+        build_cloudfront_deprecated_ssl_protocols_finding(
+            result
+        )
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-007"
+    assert finding.severity == Severity.MEDIUM
+
+
+def test_custom_origin_tls12_only_passes_cloudfront_007():
+    assert (
+        check_cloudfront_deprecated_ssl_protocols(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    **CUSTOM_ORIGIN,
+                    "origin_protocol_policy": "https-only",
+                    "origin_ssl_protocols": [
+                        "TLSv1.2",
+                    ],
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_http_only_origin_is_ignored_by_cloudfront_007():
+    assert (
+        check_cloudfront_deprecated_ssl_protocols(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    **CUSTOM_ORIGIN,
+                    "origin_protocol_policy": "http-only",
+                    "origin_ssl_protocols": [],
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_s3_origin_is_ignored_by_cloudfront_007():
+    assert (
+        check_cloudfront_deprecated_ssl_protocols(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    **S3_ORIGIN,
+                    "origin_protocol_policy": None,
+                    "origin_ssl_protocols": [
+                        "SSLv3",
+                    ],
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_multiple_custom_origins_only_insecure_origins_fail():
+    result = check_cloudfront_deprecated_ssl_protocols(
+        "E1",
+        "cloudfront_distribution",
+        [
+            {
+                **CUSTOM_ORIGIN,
+                "origin_id": "secure-origin",
+                "origin_ssl_protocols": [
+                    "TLSv1.2",
+                ],
+            },
+            {
+                **CUSTOM_ORIGIN,
+                "origin_id": "legacy-origin",
+                "origin_ssl_protocols": [
+                    "SSLv3",
+                    "TLSv1.2",
+                ],
+            },
+        ],
+    )
+
+    assert result is not None
+    assert result.details["insecure_origins"] == [
+        {
+            "origin_id": "legacy-origin",
+            "domain_name": "origin.example.com",
+            "origin_protocol_policy": "https-only",
+            "origin_ssl_protocols": [
+                "SSLv3",
+                "TLSv1.2",
+            ],
+        }
+    ]

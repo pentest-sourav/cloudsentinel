@@ -1,13 +1,15 @@
 from engine.rules.aws.cloudfront.protection import (
+    build_cloudfront_custom_origin_https_finding,
     build_cloudfront_default_root_object_finding,
+    build_cloudfront_deprecated_ssl_protocols_finding,
     build_cloudfront_logging_finding,
     build_cloudfront_s3_oac_finding,
     build_cloudfront_viewer_https_finding,
     build_cloudfront_waf_finding,
-    check_cloudfront_default_root_object,
-    check_cloudfront_logging,
-    build_cloudfront_custom_origin_https_finding,
     check_cloudfront_custom_origin_https,
+    check_cloudfront_default_root_object,
+    check_cloudfront_deprecated_ssl_protocols,
+    check_cloudfront_logging,
     check_cloudfront_s3_oac,
     check_cloudfront_viewer_https,
     check_cloudfront_waf,
@@ -103,6 +105,21 @@ CLOUDFRONT_RULES = RuleRegistry(
             check=check_cloudfront_custom_origin_https,
             build_finding=(
                 build_cloudfront_custom_origin_https_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-007",
+            name="cloudfront_deprecated_ssl_protocols",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "origins",
+            ],
+            check=check_cloudfront_deprecated_ssl_protocols,
+            build_finding=(
+                build_cloudfront_deprecated_ssl_protocols_finding
             ),
         ),
     ]

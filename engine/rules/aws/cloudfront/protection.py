@@ -469,3 +469,98 @@ def build_cloudfront_custom_origin_https_finding(
             "PCI DSS v4.0.1/4.2.1",
         ],
     )
+
+
+def check_cloudfront_deprecated_ssl_protocols(
+    resource_id: str,
+    resource_type: str,
+    origins: list[dict],
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    insecure_origins = []
+
+    for origin in origins:
+        if origin.get("is_s3_origin"):
+            continue
+
+        origin_id = origin.get("origin_id")
+        origin_protocol_policy = origin.get(
+            "origin_protocol_policy"
+        )
+
+        if not origin_id:
+            continue
+
+        if origin_protocol_policy == "http-only":
+            continue
+
+        ssl_protocols = origin.get(
+            "origin_ssl_protocols",
+            [],
+        )
+
+        if "SSLv3" not in ssl_protocols:
+            continue
+
+        insecure_origins.append(
+            {
+                "origin_id": origin_id,
+                "domain_name": origin.get(
+                    "domain_name"
+                ),
+                "origin_protocol_policy": (
+                    origin_protocol_policy
+                ),
+                "origin_ssl_protocols": ssl_protocols,
+            }
+        )
+
+    if not insecure_origins:
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "insecure_origins": insecure_origins,
+        },
+    )
+
+
+def build_cloudfront_deprecated_ssl_protocols_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-007",
+        title=(
+            "CloudFront custom origin uses "
+            "deprecated SSL protocol"
+        ),
+        severity=Severity.MEDIUM,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} has one or more "
+            "custom origins that allow the deprecated "
+            "SSLv3 protocol."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Remove SSLv3 from OriginSslProtocols for "
+            "all custom origins. Prefer TLSv1.2 or later "
+            "for HTTPS communication with custom origins."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.10",
+            "NIST SP 800-53 Rev. 5 SC-8",
+            "NIST SP 800-171 Rev. 2 3.13.15",
+            "PCI DSS v4.0.1/4.2.1",
+        ],
+    )
