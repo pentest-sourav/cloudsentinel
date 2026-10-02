@@ -9,17 +9,22 @@ from scanner.aws.services.iam import IAMService
 def test_list_access_keys_returns_access_key_metadata():
     session = Mock()
     iam_client = Mock()
-    iam_client.list_access_keys.return_value = {
-        "AccessKeyMetadata": [
-            {
-                "UserName": "cloudsentinel-auditor",
-                "AccessKeyId": "AKIAEXAMPLE123",
-                "Status": "Active",
-                "CreateDate": "2026-01-01T00:00:00Z",
-            }
-        ]
-    }
+    paginator = Mock()
 
+    paginator.paginate.return_value = [
+        {
+            "AccessKeyMetadata": [
+                {
+                    "UserName": "cloudsentinel-auditor",
+                    "AccessKeyId": "AKIAEXAMPLE123",
+                    "Status": "Active",
+                    "CreateDate": "2026-01-01T00:00:00Z",
+                }
+            ]
+        }
+    ]
+
+    iam_client.get_paginator.return_value = paginator
     session.client.return_value = iam_client
 
     service = IAMService(session)
@@ -37,7 +42,10 @@ def test_list_access_keys_returns_access_key_metadata():
         }
     ]
 
-    iam_client.list_access_keys.assert_called_once_with(
+    iam_client.get_paginator.assert_called_once_with(
+        "list_access_keys"
+    )
+    paginator.paginate.assert_called_once_with(
         UserName="cloudsentinel-auditor"
     )
 

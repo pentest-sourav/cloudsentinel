@@ -59,16 +59,24 @@ def test_get_root_mfa_status_returns_false_when_disabled():
 
     assert service.get_root_mfa_status() is False
 
-def test_list_users_returns_users():
+def test_list_users_returns_users_across_all_pages():
     session = Mock()
 
     iam_client = Mock()
-    iam_client.list_users.return_value = {
-        "Users": [
-            {"UserName": "user-one"},
-            {"UserName": "user-two"},
-        ]
-    }
+    paginator = Mock()
+    paginator.paginate.return_value = [
+        {
+            "Users": [
+                {"UserName": "user-one"},
+            ]
+        },
+        {
+            "Users": [
+                {"UserName": "user-two"},
+            ]
+        },
+    ]
+    iam_client.get_paginator.return_value = paginator
 
     session.client.return_value = iam_client
 
@@ -81,19 +89,37 @@ def test_list_users_returns_users():
         {"UserName": "user-two"},
     ]
 
-    iam_client.list_users.assert_called_once_with()
+    iam_client.get_paginator.assert_called_once_with(
+        "list_users"
+    )
+    paginator.paginate.assert_called_once_with()
 
-def test_list_mfa_devices_returns_devices():
+def test_list_mfa_devices_returns_devices_across_all_pages():
     session = Mock()
 
     iam_client = Mock()
-    iam_client.list_mfa_devices.return_value = {
-        "MFADevices": [
-            {
-                "SerialNumber": "arn:aws:iam::123456789012:mfa/user-one"
-            }
-        ]
-    }
+    paginator = Mock()
+    paginator.paginate.return_value = [
+        {
+            "MFADevices": [
+                {
+                    "SerialNumber": (
+                        "arn:aws:iam::123456789012:mfa/user-one"
+                    )
+                }
+            ]
+        },
+        {
+            "MFADevices": [
+                {
+                    "SerialNumber": (
+                        "arn:aws:iam::123456789012:mfa/user-two"
+                    )
+                }
+            ]
+        },
+    ]
+    iam_client.get_paginator.return_value = paginator
 
     session.client.return_value = iam_client
 
@@ -103,10 +129,70 @@ def test_list_mfa_devices_returns_devices():
 
     assert result == [
         {
-            "SerialNumber": "arn:aws:iam::123456789012:mfa/user-one"
-        }
+            "SerialNumber": (
+                "arn:aws:iam::123456789012:mfa/user-one"
+            )
+        },
+        {
+            "SerialNumber": (
+                "arn:aws:iam::123456789012:mfa/user-two"
+            )
+        },
     ]
 
-    iam_client.list_mfa_devices.assert_called_once_with(
+    iam_client.get_paginator.assert_called_once_with(
+        "list_mfa_devices"
+    )
+    paginator.paginate.assert_called_once_with(
+        UserName="user-one"
+    )
+
+
+def test_list_access_keys_returns_keys_across_all_pages():
+    session = Mock()
+
+    iam_client = Mock()
+    paginator = Mock()
+    paginator.paginate.return_value = [
+        {
+            "AccessKeyMetadata": [
+                {
+                    "AccessKeyId": "AKIAUSERONE",
+                    "Status": "Active",
+                }
+            ]
+        },
+        {
+            "AccessKeyMetadata": [
+                {
+                    "AccessKeyId": "AKIAUSERTWO",
+                    "Status": "Inactive",
+                }
+            ]
+        },
+    ]
+    iam_client.get_paginator.return_value = paginator
+
+    session.client.return_value = iam_client
+
+    service = IAMService(session)
+
+    result = service.list_access_keys("user-one")
+
+    assert result == [
+        {
+            "AccessKeyId": "AKIAUSERONE",
+            "Status": "Active",
+        },
+        {
+            "AccessKeyId": "AKIAUSERTWO",
+            "Status": "Inactive",
+        },
+    ]
+
+    iam_client.get_paginator.assert_called_once_with(
+        "list_access_keys"
+    )
+    paginator.paginate.assert_called_once_with(
         UserName="user-one"
     )

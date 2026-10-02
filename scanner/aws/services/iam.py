@@ -323,13 +323,29 @@ class IAMService:
         ) > 0
 
     def list_users(self) -> list[dict[str, Any]]:
-        try:
-            response = self.iam_client.list_users()
+        """
+        Return all IAM users in the account.
 
-            return response.get(
-                "Users",
-                [],
+        IAM user listing is paginated. The paginator is consumed
+        completely so security rules do not silently miss users beyond
+        the first AWS response page.
+        """
+        try:
+            paginator = self.iam_client.get_paginator(
+                "list_users"
             )
+
+            users: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                users.extend(
+                    page.get(
+                        "Users",
+                        [],
+                    )
+                )
+
+            return users
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
@@ -354,15 +370,30 @@ class IAMService:
         self,
         username: str,
     ) -> list[dict[str, Any]]:
+        """
+        Return all MFA devices associated with an IAM user.
+
+        IAM MFA-device listing is paginated. All pages are consumed so
+        the caller receives the complete device set.
+        """
         try:
-            response = self.iam_client.list_mfa_devices(
-                UserName=username,
+            paginator = self.iam_client.get_paginator(
+                "list_mfa_devices"
             )
 
-            return response.get(
-                "MFADevices",
-                [],
-            )
+            devices: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                UserName=username,
+            ):
+                devices.extend(
+                    page.get(
+                        "MFADevices",
+                        [],
+                    )
+                )
+
+            return devices
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
@@ -387,15 +418,30 @@ class IAMService:
         self,
         username: str,
     ) -> list[dict[str, Any]]:
+        """
+        Return all access keys associated with an IAM user.
+
+        IAM access-key listing is paginated. All pages are consumed so
+        access-key security rules evaluate the complete user state.
+        """
         try:
-            response = self.iam_client.list_access_keys(
-                UserName=username,
+            paginator = self.iam_client.get_paginator(
+                "list_access_keys"
             )
 
-            return response.get(
-                "AccessKeyMetadata",
-                [],
-            )
+            access_keys: list[dict[str, Any]] = []
+
+            for page in paginator.paginate(
+                UserName=username,
+            ):
+                access_keys.extend(
+                    page.get(
+                        "AccessKeyMetadata",
+                        [],
+                    )
+                )
+
+            return access_keys
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
