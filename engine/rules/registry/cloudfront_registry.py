@@ -6,6 +6,8 @@ from engine.rules.aws.cloudfront.protection import (
     build_cloudfront_waf_finding,
     check_cloudfront_default_root_object,
     check_cloudfront_logging,
+    build_cloudfront_custom_origin_https_finding,
+    check_cloudfront_custom_origin_https,
     check_cloudfront_s3_oac,
     check_cloudfront_viewer_https,
     check_cloudfront_waf,
@@ -86,6 +88,22 @@ CLOUDFRONT_RULES = RuleRegistry(
             ],
             check=check_cloudfront_s3_oac,
             build_finding=build_cloudfront_s3_oac_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-006",
+            name="cloudfront_custom_origin_https",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "origins",
+                "cache_behaviors",
+            ],
+            check=check_cloudfront_custom_origin_https,
+            build_finding=(
+                build_cloudfront_custom_origin_https_finding
+            ),
         ),
     ]
 )

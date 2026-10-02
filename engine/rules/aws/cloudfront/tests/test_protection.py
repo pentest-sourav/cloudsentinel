@@ -1,10 +1,12 @@
 from engine.findings.model import Severity
 from engine.rules.aws.cloudfront.protection import (
+    build_cloudfront_custom_origin_https_finding,
     build_cloudfront_default_root_object_finding,
     build_cloudfront_logging_finding,
     build_cloudfront_s3_oac_finding,
     build_cloudfront_viewer_https_finding,
     build_cloudfront_waf_finding,
+    check_cloudfront_custom_origin_https,
     check_cloudfront_default_root_object,
     check_cloudfront_logging,
     check_cloudfront_s3_oac,
@@ -160,3 +162,191 @@ def test_s3_oac_missing_fails():
     )
 
     assert finding.rule_id == "CS-AWS-CLOUDFRONT-005"
+
+
+CUSTOM_ORIGIN = {
+    "origin_id": "custom-origin",
+    "domain_name": "origin.example.com",
+    "is_s3_origin": False,
+    "origin_protocol_policy": "https-only",
+}
+
+
+def test_custom_origin_http_only_fails_cloudfront_006():
+    result = check_cloudfront_custom_origin_https(
+        "E1",
+        "cloudfront_distribution",
+        [
+            {
+                **CUSTOM_ORIGIN,
+                "origin_protocol_policy": "http-only",
+            }
+        ],
+        [
+            {
+                "target_origin_id": "custom-origin",
+                "target_origin_ids": ["custom-origin"],
+                "viewer_protocol_policy": "https-only",
+            }
+        ],
+    )
+
+    finding = build_cloudfront_custom_origin_https_finding(
+        result
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-006"
+    assert finding.severity == Severity.MEDIUM
+
+
+def test_custom_origin_https_only_passes_cloudfront_006():
+    assert (
+        check_cloudfront_custom_origin_https(
+            "E1",
+            "cloudfront_distribution",
+            [CUSTOM_ORIGIN],
+            [
+                {
+                    "target_origin_id": "custom-origin",
+                    "target_origin_ids": ["custom-origin"],
+                    "viewer_protocol_policy": "https-only",
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_match_viewer_with_allow_all_fails_cloudfront_006():
+    result = check_cloudfront_custom_origin_https(
+        "E1",
+        "cloudfront_distribution",
+        [
+            {
+                **CUSTOM_ORIGIN,
+                "origin_protocol_policy": "match-viewer",
+            }
+        ],
+        [
+            {
+                "target_origin_id": "custom-origin",
+                "target_origin_ids": ["custom-origin"],
+                "viewer_protocol_policy": "allow-all",
+            }
+        ],
+    )
+
+    finding = build_cloudfront_custom_origin_https_finding(
+        result
+    )
+
+    assert finding.rule_id == "CS-AWS-CLOUDFRONT-006"
+
+
+def test_match_viewer_with_redirect_to_https_passes():
+    assert (
+        check_cloudfront_custom_origin_https(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    **CUSTOM_ORIGIN,
+                    "origin_protocol_policy": "match-viewer",
+                }
+            ],
+            [
+                {
+                    "target_origin_id": "custom-origin",
+                    "target_origin_ids": ["custom-origin"],
+                    "viewer_protocol_policy": (
+                        "redirect-to-https"
+                    ),
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_match_viewer_with_https_only_passes():
+    assert (
+        check_cloudfront_custom_origin_https(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    **CUSTOM_ORIGIN,
+                    "origin_protocol_policy": "match-viewer",
+                }
+            ],
+            [
+                {
+                    "target_origin_id": "custom-origin",
+                    "target_origin_ids": ["custom-origin"],
+                    "viewer_protocol_policy": "https-only",
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_s3_origin_is_ignored_by_cloudfront_006():
+    assert (
+        check_cloudfront_custom_origin_https(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    **S3_ORIGIN,
+                    "origin_protocol_policy": None,
+                }
+            ],
+            [
+                {
+                    "target_origin_id": "S3-origin",
+                    "target_origin_ids": ["S3-origin"],
+                    "viewer_protocol_policy": "allow-all",
+                }
+            ],
+        )
+        is None
+    )
+
+
+def test_allow_all_on_different_origin_does_not_fail():
+    assert (
+        check_cloudfront_custom_origin_https(
+            "E1",
+            "cloudfront_distribution",
+            [
+                {
+                    **CUSTOM_ORIGIN,
+                    "origin_id": "secure-origin",
+                    "origin_protocol_policy": (
+                        "match-viewer"
+                    ),
+                },
+                {
+                    **CUSTOM_ORIGIN,
+                    "origin_id": "other-origin",
+                    "origin_protocol_policy": (
+                        "https-only"
+                    ),
+                },
+            ],
+            [
+                {
+                    "target_origin_id": "secure-origin",
+                    "target_origin_ids": ["secure-origin"],
+                    "viewer_protocol_policy": "https-only",
+                },
+                {
+                    "target_origin_id": "other-origin",
+                    "target_origin_ids": ["other-origin"],
+                    "viewer_protocol_policy": "allow-all",
+                },
+            ],
+        )
+        is None
+    )

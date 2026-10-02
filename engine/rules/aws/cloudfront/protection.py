@@ -321,3 +321,151 @@ def build_cloudfront_s3_oac_finding(
             "AWS Security Hub CloudFront.13",
         ],
     )
+
+
+def check_cloudfront_custom_origin_https(
+    resource_id: str,
+    resource_type: str,
+    origins: list[dict],
+    cache_behaviors: list[dict],
+) -> CloudFrontResult | None:
+    if not resource_id:
+        return None
+
+    behaviors_by_origin: dict[str, list[str]] = {}
+
+    for behavior in cache_behaviors:
+        viewer_protocol_policy = behavior.get(
+            "viewer_protocol_policy"
+        )
+
+        if not viewer_protocol_policy:
+            continue
+
+        target_origin_ids = behavior.get(
+            "target_origin_ids"
+        )
+
+        if not target_origin_ids:
+            target_origin_id = behavior.get(
+                "target_origin_id"
+            )
+            target_origin_ids = (
+                [target_origin_id]
+                if target_origin_id
+                else []
+            )
+
+        for target_origin_id in target_origin_ids:
+            behaviors_by_origin.setdefault(
+                target_origin_id,
+                [],
+            ).append(viewer_protocol_policy)
+
+    insecure_origins = []
+
+    for origin in origins:
+        if origin.get("is_s3_origin"):
+            continue
+
+        origin_id = origin.get("origin_id")
+        origin_protocol_policy = origin.get(
+            "origin_protocol_policy"
+        )
+
+        if not origin_id or not origin_protocol_policy:
+            continue
+
+        viewer_policies = behaviors_by_origin.get(
+            origin_id,
+            [],
+        )
+
+        # AWS Security Hub CloudFront.9:
+        # - http-only always fails.
+        # - match-viewer fails when the relevant viewer
+        #   protocol policy allows HTTP.
+        if origin_protocol_policy == "http-only":
+            insecure_origins.append(
+                {
+                    "origin_id": origin_id,
+                    "domain_name": origin.get(
+                        "domain_name"
+                    ),
+                    "origin_protocol_policy": (
+                        origin_protocol_policy
+                    ),
+                    "viewer_protocol_policies": (
+                        viewer_policies
+                    ),
+                }
+            )
+            continue
+
+        if (
+            origin_protocol_policy == "match-viewer"
+            and "allow-all" in viewer_policies
+        ):
+            insecure_origins.append(
+                {
+                    "origin_id": origin_id,
+                    "domain_name": origin.get(
+                        "domain_name"
+                    ),
+                    "origin_protocol_policy": (
+                        origin_protocol_policy
+                    ),
+                    "viewer_protocol_policies": (
+                        viewer_policies
+                    ),
+                }
+            )
+
+    if not insecure_origins:
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "insecure_origins": insecure_origins,
+        },
+    )
+
+
+def build_cloudfront_custom_origin_https_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-006",
+        title=(
+            "CloudFront distribution does not encrypt "
+            "traffic to custom origins"
+        ),
+        severity=Severity.MEDIUM,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} has one or more "
+            "custom origins that can receive "
+            "unencrypted HTTP traffic."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Configure custom origins to use "
+            "OriginProtocolPolicy=https-only. If "
+            "using match-viewer, ensure every cache "
+            "behavior targeting that origin uses "
+            "redirect-to-https or https-only."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.9",
+            "NIST SP 800-53 Rev. 5 SC-8",
+            "PCI DSS v4.0.1/4.2.1",
+        ],
+    )

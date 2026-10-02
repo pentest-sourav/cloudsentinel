@@ -97,6 +97,98 @@ class CloudFrontDataCollector:
 
         return policies
 
+    @staticmethod
+    def _normalize_origin_groups(
+        origin_groups: dict[str, Any] | None,
+    ) -> dict[str, list[str]]:
+        if not origin_groups:
+            return {}
+
+        normalized: dict[str, list[str]] = {}
+
+        for group in origin_groups.get("Items", []) or []:
+            group_id = group.get("Id")
+            if not group_id:
+                continue
+
+            members = group.get("Members") or {}
+
+            origin_ids = [
+                member.get("OriginId")
+                for member in members.get("Items", []) or []
+                if member.get("OriginId")
+            ]
+
+            if origin_ids:
+                normalized[group_id] = origin_ids
+
+        return normalized
+
+    @classmethod
+    def _normalize_cache_behaviors(
+        cls,
+        distribution_config: dict[str, Any],
+        origin_groups: dict[str, list[str]],
+    ) -> list[dict[str, Any]]:
+        behaviors: list[dict[str, Any]] = []
+
+        default_cache_behavior = (
+            distribution_config.get("DefaultCacheBehavior") or {}
+        )
+
+        default_target = default_cache_behavior.get(
+            "TargetOriginId"
+        )
+        default_policy = default_cache_behavior.get(
+            "ViewerProtocolPolicy"
+        )
+
+        if default_target and default_policy:
+            target_origin_ids = origin_groups.get(
+                default_target,
+                [default_target],
+            )
+
+            behaviors.append(
+                {
+                    "behavior_type": "default",
+                    "target_origin_id": default_target,
+                    "target_origin_ids": target_origin_ids,
+                    "viewer_protocol_policy": default_policy,
+                }
+            )
+
+        ordered_cache_behaviors = (
+            distribution_config.get("CacheBehaviors") or {}
+        )
+
+        for behavior in ordered_cache_behaviors.get("Items", []) or []:
+            target_origin_id = behavior.get("TargetOriginId")
+            viewer_protocol_policy = behavior.get(
+                "ViewerProtocolPolicy"
+            )
+
+            if not target_origin_id or not viewer_protocol_policy:
+                continue
+
+            target_origin_ids = origin_groups.get(
+                target_origin_id,
+                [target_origin_id],
+            )
+
+            behaviors.append(
+                {
+                    "behavior_type": "ordered",
+                    "target_origin_id": target_origin_id,
+                    "target_origin_ids": target_origin_ids,
+                    "viewer_protocol_policy": (
+                        viewer_protocol_policy
+                    ),
+                }
+            )
+
+        return behaviors
+
     @classmethod
     def _normalize_distribution(
         cls,
@@ -128,6 +220,15 @@ class CloudFrontDataCollector:
             distribution_config.get("OriginGroups") or {}
         )
 
+        normalized_origin_groups = cls._normalize_origin_groups(
+            origin_groups
+        )
+
+        cache_behaviors = cls._normalize_cache_behaviors(
+            distribution_config,
+            normalized_origin_groups,
+        )
+
         return {
             "resource_id": distribution.get("Id"),
             "resource_type": "cloudfront_distribution",
@@ -148,6 +249,7 @@ class CloudFrontDataCollector:
             "waf_enabled": bool(waf_web_acl_id),
             "origins": origins,
             "s3_origins": s3_origins,
+            "cache_behaviors": cache_behaviors,
             "origin_groups_count": len(
                 origin_groups.get("Items", []) or []
             ),
