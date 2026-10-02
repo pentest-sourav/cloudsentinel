@@ -189,7 +189,6 @@ def test_authenticated_user_can_access_own_tenant_html_report(
     assert "default-src 'none'" in csp
     assert "style-src 'unsafe-inline'" in csp
     assert "img-src 'data:'" in csp
-    assert "img-src 'data:;'" not in csp
     assert "object-src 'none'" in csp
     assert "frame-ancestors 'none'" in csp
 

@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ScanCreate(BaseModel):
-    provider: Literal["aws", "azure"]
-    cloud_account_id: int | None = None
+    provider: Literal["aws"]
+    cloud_account_id: int = Field(..., gt=0)
 
 
 class ScanExecutionErrorResponse(BaseModel):
@@ -28,6 +28,12 @@ class ScanResponse(BaseModel):
     started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
-    execution_errors: list[ScanExecutionErrorResponse] = Field(default_factory=list)
+    attempt_count: int
+    max_attempts: int
+    created_at: datetime
+    updated_at: datetime
+    execution_errors: list[ScanExecutionErrorResponse] = Field(
+        default_factory=list
+    )
 
     model_config = ConfigDict(from_attributes=True)

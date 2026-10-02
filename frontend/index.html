@@ -942,13 +942,23 @@
                         </p>
                     </div>
 
-                    <button
-                        id="history-scan-btn"
-                        class="primary-btn"
-                        type="button"
-                    >
-                        + Start AWS Scan
-                    </button>
+                    <div class="button-group">
+                        <button
+                            id="clear-history-btn"
+                            class="secondary-btn danger-action"
+                            type="button"
+                        >
+                            Clear History
+                        </button>
+
+                        <button
+                            id="history-scan-btn"
+                            class="primary-btn"
+                            type="button"
+                        >
+                            + Start AWS Scan
+                        </button>
+                    </div>
 
                 </div>
 
@@ -1160,7 +1170,7 @@
                     <form id="account-form" class="account-form">
 
                         <label>
-                            <span>Account name</span>
+                            <span>Account name <span class="required-mark">*</span></span>
                             <input
                                 id="account-name"
                                 type="text"
@@ -1171,7 +1181,7 @@
                         </label>
 
                         <label>
-                            <span>AWS Account ID</span>
+                            <span>AWS Account ID <span class="required-mark">*</span></span>
                             <input
                                 id="account-id"
                                 type="text"
@@ -1184,22 +1194,13 @@
                         </label>
 
                         <label class="span-2">
-                            <span>IAM Role ARN</span>
+                            <span>IAM Role ARN <span class="required-mark">*</span></span>
                             <input
                                 id="role-arn"
                                 type="text"
                                 maxlength="2048"
                                 placeholder="arn:aws:iam::123456789012:role/CloudSentinelReadOnly"
                                 required
-                            >
-                        </label>
-
-                        <label>
-                            <span>External ID</span>
-                            <input
-                                id="external-id"
-                                type="text"
-                                maxlength="1024"
                             >
                         </label>
 
@@ -1237,6 +1238,114 @@
                 </div>
 
 
+                <div id="account-setup-panel" class="panel hidden account-setup-panel">
+
+                    <div class="panel-header">
+
+                        <div>
+                            <span class="panel-eyebrow">AWS CONNECTION SETUP</span>
+                            <h3>Connect your AWS account</h3>
+                            <p>
+                                Add the CloudSentinel trust relationship in AWS, then verify the connection.
+                            </p>
+                        </div>
+
+                        <button
+                            id="close-account-setup"
+                            class="icon-btn"
+                            type="button"
+                            title="Close setup"
+                        >
+                            ×
+                        </button>
+
+                    </div>
+
+                    <div class="account-setup-content">
+
+                        <div class="setup-step">
+                            <span class="setup-step-number">1</span>
+                            <div>
+                                <strong>Open AWS IAM</strong>
+                                <p>
+                                    Create or update the CloudSentinel read-only IAM role
+                                    in the customer AWS account.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="setup-step">
+                            <span class="setup-step-number">2</span>
+                            <div class="setup-field">
+                                <strong>CloudSentinel principal ARN</strong>
+                                <div class="copy-row">
+                                    <code id="setup-principal-arn">—</code>
+                                    <button
+                                        type="button"
+                                        class="secondary-btn tiny"
+                                        data-copy-target="setup-principal-arn"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setup-step">
+                            <span class="setup-step-number">3</span>
+                            <div class="setup-field">
+                                <strong>External ID</strong>
+                                <div class="copy-row">
+                                    <code id="setup-external-id">—</code>
+                                    <button
+                                        type="button"
+                                        class="secondary-btn tiny"
+                                        data-copy-target="setup-external-id"
+                                    >
+                                        Copy
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="setup-step">
+                            <span class="setup-step-number">4</span>
+                            <div>
+                                <strong>Trust relationship</strong>
+                                <p>
+                                    The role must trust the CloudSentinel principal and
+                                    require the External ID above.
+                                </p>
+                                <pre id="setup-trust-policy" class="setup-code">—</pre>
+                                <button
+                                    id="copy-trust-policy"
+                                    type="button"
+                                    class="secondary-btn tiny"
+                                >
+                                    Copy Trust Policy
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="setup-actions">
+                            <button
+                                id="test-account-connection"
+                                type="button"
+                                class="primary-btn"
+                            >
+                                Test Connection
+                            </button>
+                            <span
+                                id="account-connection-result"
+                                class="connection-result"
+                            ></span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
                 <div class="panel">
 
                     <div class="panel-header">
@@ -1263,6 +1372,7 @@
                                     <th>Region</th>
                                     <th>Status</th>
                                     <th>Created</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
 

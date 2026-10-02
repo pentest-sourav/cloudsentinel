@@ -64,9 +64,18 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      # Production: set this to the IAM role/user ARN that CloudSentinel
+      # uses to assume customer AWS audit roles.
+      # Local development falls back to the mounted AWS identity.
+      CLOUDSENTINEL_AWS_PRINCIPAL_ARN: ${CLOUDSENTINEL_AWS_PRINCIPAL_ARN:-}
 
     ports:
       - "8000:8000"
+
+    # Local development only.
+    # Production should use the CloudSentinel runtime IAM role.
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
 
     depends_on:
       postgres:
@@ -100,6 +109,12 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      CLOUDSENTINEL_AWS_PRINCIPAL_ARN: ${CLOUDSENTINEL_AWS_PRINCIPAL_ARN:-}
+
+    # Local development only.
+    # Production should use the CloudSentinel runtime IAM role.
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
 
     depends_on:
       postgres:

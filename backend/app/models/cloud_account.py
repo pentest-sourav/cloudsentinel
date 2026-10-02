@@ -50,14 +50,33 @@ class CloudAccount(Base):
         nullable=True,
     )
 
+    # New accounts are deliberately not scan-eligible until the
+    # customer trust relationship has been verified.
     status: Mapped[str] = mapped_column(
-        String(20),
+        String(30),
         nullable=False,
-        default="active",
+        default="pending_connection",
+    )
+
+    last_connection_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    last_connection_error: Mapped[str | None] = mapped_column(
+        String(4000),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )

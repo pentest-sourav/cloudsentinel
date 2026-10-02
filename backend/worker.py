@@ -6,6 +6,7 @@ from backend.app.core.database import SessionLocal
 from backend.app.models.cloud_account import CloudAccount
 from backend.app.services.aws_scan_service import run_aws_scan
 from backend.app.services.cloud_account_service import get_cloud_account
+from backend.app.services.cloud_account_status import SCAN_ELIGIBLE_ACCOUNT_STATUSES
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_runner import ScanRunner
 from backend.app.services.scan_service import (
@@ -194,7 +195,7 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
                 return
 
-            if cloud_account.status != "active":
+            if cloud_account.status not in SCAN_ELIGIBLE_ACCOUNT_STATUSES:
                 logger.error(
                     "Cloud account %s is not active",
                     cloud_account.id,
@@ -203,7 +204,7 @@ class ScanWorker:
                 self._fail_scan(
                     db=db,
                     scan=scan,
-                    message="Cloud account is not active.",
+                    message="Cloud account is not connected.",
                 )
                 self.queue.acknowledge(message_id)
                 return

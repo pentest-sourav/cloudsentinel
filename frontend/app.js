@@ -6,6 +6,7 @@ const state = {
 
     scans: [],
     accounts: [],
+    accountSetupId: null,
 
     currentScanId: null,
     currentScan: null,
@@ -275,6 +276,35 @@ function initializeTheme() {
 
 initializeTheme();
 
+document.addEventListener("click", (event) => {
+    const copyButton =
+        event.target.closest("[data-copy-target]");
+
+    if (copyButton) {
+        const target =
+            $(copyButton.dataset.copyTarget);
+
+        if (target) {
+            copyText(
+                target.textContent.trim()
+            );
+        }
+
+        return;
+    }
+
+    if (
+        event.target.closest("#copy-trust-policy")
+    ) {
+        copyText(
+            $("setup-trust-policy")
+                .textContent
+        );
+    }
+});
+
+
+
 
 /* ============================================================
    API
@@ -314,6 +344,16 @@ async function apiFetch(path, options = {}) {
         throw new Error(
             "Your session has expired. Please sign in again."
         );
+    }
+
+    // Some successful endpoints intentionally return 204 No Content.
+    // Only callers that explicitly opt in use this path, so normal
+    // JSON API behavior (including login/register) remains unchanged.
+    if (
+        options.expectEmptyResponse === true &&
+        (response.status === 204 || response.status === 205)
+    ) {
+        return null;
     }
 
     const contentType =
@@ -679,6 +719,7 @@ async function loadAccounts() {
     return state.accounts;
 }
 
+
 function renderAccounts() {
     const body =
         $("accounts-body");
@@ -686,7 +727,7 @@ function renderAccounts() {
     if (!state.accounts.length) {
         body.innerHTML = `
             <tr>
-                <td colspan="6">
+                <td colspan="7">
                     <div class="empty-state">
                         <div class="empty-icon">
                             ☁
@@ -715,43 +756,52 @@ function renderAccounts() {
 
                 <td>
                     <strong>
-                        ${escapeHtml(
-                            account.name
-                        )}
+                        ${escapeHtml(account.name)}
                     </strong>
                 </td>
 
                 <td>
-                    ${escapeHtml(
-                        account.provider ||
-                        "aws"
-                    )}
+                    ${escapeHtml(account.provider || "aws")}
                 </td>
 
                 <td class="mono">
                     ${escapeHtml(
-                        account.external_account_id ||
-                        "—"
+                        account.external_account_id || "—"
                     )}
                 </td>
 
                 <td>
-                    ${escapeHtml(
-                        account.region ||
-                        "—"
-                    )}
+                    ${escapeHtml(account.region || "—")}
                 </td>
 
                 <td>
-                    ${statusBadge(
-                        account.status
-                    )}
+                    ${statusBadge(account.status)}
                 </td>
 
                 <td>
-                    ${formatDate(
-                        account.created_at
-                    )}
+                    ${formatDate(account.created_at)}
+                </td>
+
+                <td>
+                    <div class="account-actions">
+                        <button
+                            type="button"
+                            class="secondary-btn tiny"
+                            onclick="openAccountSetup(${account.id})"
+                        >
+                            Setup
+                        </button>
+
+                        <button
+                            type="button"
+                            class="secondary-btn tiny danger-action"
+                            onclick="deleteAccount(${account.id}, '${escapeHtml(
+                                account.name
+                            ).replace(/'/g, "\\'")}')"
+                        >
+                            Delete
+                        </button>
+                    </div>
                 </td>
 
             </tr>
@@ -760,11 +810,13 @@ function renderAccounts() {
             .join("");
 }
 
+
 async function deleteAccount(accountId, accountName) {
     const confirmed = window.confirm(
         `Delete AWS account "${accountName}"?\n\n` +
-        "The account configuration will be removed. " +
-        "Existing scan history will be preserved."
+        "This permanently removes the account connection " +
+        "and all scans and findings associated with it. " +
+        "This action cannot be undone."
     );
 
     if (!confirmed) {
@@ -776,13 +828,18 @@ async function deleteAccount(accountId, accountName) {
             `/cloud-accounts/${accountId}`,
             {
                 method: "DELETE",
+                expectEmptyResponse: true,
             }
         );
 
-        await loadAccounts();
+        if (state.accountSetupId === accountId) {
+            closeAccountSetup();
+        }
+
+        await refreshDashboard();
 
         showToast(
-            "AWS account deleted successfully.",
+            "AWS account and associated security history deleted.",
             "success"
         );
     } catch (error) {
@@ -790,6 +847,73 @@ async function deleteAccount(accountId, accountName) {
             error.message,
             "error"
         );
+    }
+}
+
+
+async function clearScanHistory() {
+    if (!state.scans.length) {
+        showToast(
+            "There is no scan history to clear.",
+            "info"
+        );
+        return;
+    }
+
+    const confirmed = window.confirm(
+        "Clear scan history?\n\n" +
+        "This permanently deletes all scans and findings " +
+        "in this workspace. AWS cloud accounts will not be deleted. " +
+        "This action cannot be undone."
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        setLoading(true);
+
+        await apiFetch(
+            "/scans/history",
+            {
+                method: "DELETE",
+                expectEmptyResponse: true,
+            }
+        );
+
+        state.scans = [];
+        state.findings = [];
+        state.filteredFindings = [];
+        state.currentScanId = null;
+        state.currentScan = null;
+        state.currentSummary = null;
+        state.lifecycle = null;
+        state.reportScanId = null;
+
+        renderRecentScans();
+        renderHistory();
+
+        renderLifecycle({
+            items: [],
+            counts: {
+                new: 0,
+                open: 0,
+                reopened: 0,
+                resolved: 0,
+            },
+        });
+
+        resetDashboard();
+
+        showToast(
+            "Scan history and findings cleared successfully.",
+            "success"
+        );
+    } catch (error) {
+        handleError(error);
+    } finally {
+        setLoading(false);
     }
 }
 
@@ -805,45 +929,38 @@ async function createAccount(event) {
     }
 
     try {
-        await apiFetch(
-            "/cloud-accounts",
-            {
-                method: "POST",
+        const account =
+            await apiFetch(
+                "/cloud-accounts",
+                {
+                    method: "POST",
 
-                body: JSON.stringify({
-                    name:
-                        $("account-name")
-                            .value
-                            .trim(),
+                    body: JSON.stringify({
+                        name:
+                            $("account-name")
+                                .value
+                                .trim(),
 
-                    provider: "aws",
+                        provider: "aws",
 
-                    external_account_id:
-                        $("account-id")
-                            .value
-                            .trim() ||
-                        null,
+                        external_account_id:
+                            $("account-id")
+                                .value
+                                .trim(),
 
-                    role_arn:
-                        $("role-arn")
-                            .value
-                            .trim() ||
-                        null,
+                        role_arn:
+                            $("role-arn")
+                                .value
+                                .trim(),
 
-                    external_id:
-                        $("external-id")
-                            .value
-                            .trim() ||
-                        null,
-
-                    region:
-                        $("account-region")
-                            .value
-                            .trim() ||
-                        null,
-                }),
-            }
-        );
+                        region:
+                            $("account-region")
+                                .value
+                                .trim() ||
+                            null,
+                    }),
+                }
+            );
 
         $("account-form").reset();
 
@@ -861,6 +978,8 @@ async function createAccount(event) {
             "success"
         );
 
+        await openAccountSetup(account.id);
+
     } catch (error) {
         showToast(
             error.message,
@@ -873,6 +992,187 @@ async function createAccount(event) {
         }
     }
 }
+
+
+async function openAccountSetup(accountId) {
+    try {
+        setLoading(true);
+
+        const setup =
+            await apiFetch(
+                `/cloud-accounts/${accountId}/connection`
+            );
+
+        state.accountSetupId =
+            accountId;
+
+        $("setup-principal-arn")
+            .textContent =
+            setup.principal_arn ||
+            "Configure CLOUDSENTINEL_AWS_PRINCIPAL_ARN";
+
+        $("setup-external-id")
+            .textContent =
+            setup.external_id ||
+            "—";
+
+        const trustPolicy = {
+            Version: "2012-10-17",
+            Statement: [
+                {
+                    Effect: "Allow",
+                    Principal: {
+                        AWS:
+                            setup.principal_arn ||
+                            "CLOUDSENTINEL_AWS_PRINCIPAL_ARN",
+                    },
+                    Action: "sts:AssumeRole",
+                    Condition: {
+                        StringEquals: {
+                            "sts:ExternalId":
+                                setup.external_id,
+                        },
+                    },
+                },
+            ],
+        };
+
+        $("setup-trust-policy")
+            .textContent =
+            JSON.stringify(
+                trustPolicy,
+                null,
+                2
+            );
+
+        $("account-connection-result")
+            .textContent =
+            "Not tested yet.";
+
+        $("account-connection-result")
+            .className =
+            "connection-result neutral";
+
+        $("account-setup-panel")
+            .classList
+            .remove("hidden");
+
+        $("account-setup-panel")
+            .scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+
+    } catch (error) {
+        handleError(error);
+    } finally {
+        setLoading(false);
+    }
+}
+
+
+function closeAccountSetup() {
+    state.accountSetupId = null;
+
+    $("account-setup-panel")
+        .classList
+        .add("hidden");
+}
+
+
+async function testAccountConnection() {
+    const accountId =
+        state.accountSetupId;
+
+    if (!accountId) {
+        showToast(
+            "Open an AWS account setup first.",
+            "error"
+        );
+        return;
+    }
+
+    const button =
+        $("test-account-connection");
+
+    try {
+        button.disabled = true;
+        setLoading(true);
+
+        const result =
+            await apiFetch(
+                `/cloud-accounts/${accountId}/test`,
+                {
+                    method: "POST",
+                }
+            );
+
+        const resultElement =
+            $("account-connection-result");
+
+        if (result.connected) {
+            resultElement.textContent =
+                `Connected — AWS account ${result.actual_account_id} verified.`;
+
+            resultElement.className =
+                "connection-result success";
+
+            showToast(
+                "AWS connection verified successfully.",
+                "success"
+            );
+
+            await loadAccounts();
+
+        } else {
+            resultElement.textContent =
+                result.message ||
+                "AWS connection failed.";
+
+            resultElement.className =
+                "connection-result error";
+
+            showToast(
+                result.message ||
+                "AWS connection failed.",
+                "error"
+            );
+        }
+
+    } catch (error) {
+        showToast(
+            error.message,
+            "error"
+        );
+    } finally {
+        button.disabled = false;
+        setLoading(false);
+    }
+}
+
+
+async function copyText(value) {
+    try {
+        await navigator.clipboard.writeText(value);
+
+        showToast(
+            "Copied to clipboard.",
+            "success"
+        );
+    } catch {
+        showToast(
+            "Unable to copy automatically.",
+            "error"
+        );
+    }
+}
+
+
+window.deleteAccount =
+    deleteAccount;
+
+window.openAccountSetup =
+    openAccountSetup;
 
 
 /* ============================================================
@@ -1692,6 +1992,19 @@ function renderRiskRing({
 }
 
 function resetDashboard() {
+    state.currentScanId = null;
+    state.currentScan = null;
+    state.currentSummary = null;
+    state.findings = [];
+    state.filteredFindings = [];
+    state.lifecycle = null;
+    state.reportScanId = null;
+
+    $("findings-scan-label")
+        .textContent = "No scan selected";
+
+    renderFindings();
+
     $("stat-total")
         .textContent = "0";
 
@@ -1761,6 +2074,8 @@ function resetDashboard() {
 
     $("risk-ring").style.background =
         "conic-gradient(#18283d 0deg 360deg)";
+
+    updateReportsView();
 }
 
 
@@ -3181,6 +3496,17 @@ function bindEvents() {
         );
 
 
+    /* CLEAR SCAN HISTORY */
+
+    $("clear-history-btn")
+        .addEventListener(
+            "click",
+            async () => {
+                await clearScanHistory();
+            }
+        );
+
+
     /* SCAN BUTTONS */
 
     [
@@ -3633,3 +3959,26 @@ document.addEventListener(
 );
 
 window.deleteAccount = deleteAccount;
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    const closeButton =
+        $("close-account-setup");
+
+    if (closeButton) {
+        closeButton.addEventListener(
+            "click",
+            closeAccountSetup
+        );
+    }
+
+    const testButton =
+        $("test-account-connection");
+
+    if (testButton) {
+        testButton.addEventListener(
+            "click",
+            testAccountConnection
+        );
+    }
+});

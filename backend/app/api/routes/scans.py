@@ -9,6 +9,7 @@ from backend.app.schemas.scan_history import ScanHistoryListResponse
 from backend.app.schemas.scan_summary import ScanSummaryResponse
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_service import (
+    clear_scan_history,
     create_scan,
     get_scan,
     list_scans,
@@ -32,15 +33,6 @@ def create_new_scan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if scan_data.provider != "aws":
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                f"Provider '{scan_data.provider}' is not yet "
-                "supported for scanning."
-            ),
-        )
-
     try:
         scan = create_scan(
             db=db,
@@ -48,6 +40,7 @@ def create_new_scan(
             tenant_id=current_user.tenant_id,
             cloud_account_id=scan_data.cloud_account_id,
         )
+
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -63,11 +56,13 @@ def create_new_scan(
                 provider=scan.provider,
             )
         )
+
     except Exception as exc:
         scan.status = "failed"
         scan.error_message = (
             f"Unable to enqueue scan job: {exc}"
         )[:4000]
+
         db.commit()
         db.refresh(scan)
 
@@ -75,10 +70,27 @@ def create_new_scan(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Scan queue is unavailable.",
         ) from exc
+
     finally:
         queue.close()
 
     return scan
+
+
+@router.delete(
+    "/history",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_scan_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    clear_scan_history(
+        db=db,
+        tenant_id=current_user.tenant_id,
+    )
+
+    return None
 
 
 @router.get(

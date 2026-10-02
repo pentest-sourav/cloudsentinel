@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.app.core.database import Base
 from backend.app.models.finding import Finding as FindingModel
 from backend.app.models.scan import Scan
+from backend.app.models.tenant import Tenant
 from backend.app.services.finding_service import persist_finding, create_finding
 from engine.findings.model import Finding, Severity
 
@@ -19,8 +20,18 @@ def test_persist_finding_stores_risk_data():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -69,8 +80,18 @@ def test_persist_ec2_public_exposure_stores_risk_data():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -123,8 +144,18 @@ def test_create_finding_persists_risk_data():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -175,8 +206,18 @@ def test_persist_finding_is_idempotent_for_same_logical_finding():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -231,8 +272,18 @@ def test_persist_finding_allows_different_resources():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -294,8 +345,18 @@ def test_persist_finding_allows_same_resource_for_different_rules():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -349,13 +410,24 @@ def test_persist_finding_allows_same_finding_in_different_scans():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         first_scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
 
         second_scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -401,8 +473,18 @@ def test_persist_findings_persists_multiple_findings_in_one_batch():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -462,8 +544,18 @@ def test_persist_findings_is_idempotent():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )
@@ -530,8 +622,18 @@ def test_persist_findings_handles_duplicate_engine_findings_in_same_batch():
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
+    tenant = Tenant(
+        name="Finding Persistence Test Tenant",
+        slug="finding-persistence-test-tenant",
+        status="active",
+    )
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+
     try:
         scan = Scan(
+            tenant_id=tenant.id,
             provider="aws",
             status="running",
         )

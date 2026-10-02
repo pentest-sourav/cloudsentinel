@@ -20,8 +20,10 @@ class Scan(Base):
         index=True,
     )
 
+    # Historical scans created before cloud-account onboarding may not have
+    # an account. New scans are enforced by the scan service/API.
     cloud_account_id: Mapped[int | None] = mapped_column(
-        ForeignKey("cloud_accounts.id", ondelete="CASCADE"),
+        ForeignKey("cloud_accounts.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -52,9 +54,28 @@ class Scan(Base):
         nullable=True,
     )
 
+    # Durable execution accounting. Redis retry state protects the
+    # queue; these fields protect the database-side scan lifecycle.
+    attempt_count: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+    )
+
+    max_attempts: Mapped[int] = mapped_column(
+        nullable=False,
+        default=4,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
 

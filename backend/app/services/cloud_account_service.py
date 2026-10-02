@@ -1,7 +1,20 @@
+import secrets
+
 from sqlalchemy.orm import Session
 
 from backend.app.models.cloud_account import CloudAccount
 from backend.app.schemas.cloud_account import CloudAccountCreate
+from backend.app.services.cloud_account_status import (
+    CLOUD_ACCOUNT_PENDING,
+    CLOUD_ACCOUNT_CONNECTED,
+    CLOUD_ACCOUNT_CONNECTION_FAILED,
+    LEGACY_CONNECTED_STATUS,
+    SCAN_ELIGIBLE_ACCOUNT_STATUSES,
+)
+
+
+def generate_external_id() -> str:
+    return f"cs-{secrets.token_urlsafe(32)}"
 
 
 def create_cloud_account(
@@ -9,15 +22,38 @@ def create_cloud_account(
     account_data: CloudAccountCreate,
     tenant_id: int,
 ) -> CloudAccount:
+    role_account_id = account_data.role_arn.split(":")[4]
+
+    if role_account_id != account_data.external_account_id:
+        raise ValueError(
+            "AWS IAM role ARN account ID must match the AWS account ID."
+        )
+
+    duplicate = (
+        db.query(CloudAccount)
+        .filter(
+            CloudAccount.tenant_id == tenant_id,
+            CloudAccount.provider == account_data.provider,
+            CloudAccount.external_account_id
+            == account_data.external_account_id,
+        )
+        .first()
+    )
+
+    if duplicate is not None:
+        raise ValueError(
+            "This AWS account is already connected to this tenant."
+        )
+
     account = CloudAccount(
         tenant_id=tenant_id,
         name=account_data.name,
         provider=account_data.provider,
         external_account_id=account_data.external_account_id,
         role_arn=account_data.role_arn,
-        external_id=account_data.external_id,
+        external_id=generate_external_id(),
         region=account_data.region,
-        status="active",
+        status=CLOUD_ACCOUNT_PENDING,
     )
 
     db.add(account)
@@ -54,6 +90,29 @@ def get_cloud_account(
     )
 
 
+def clear_cloud_account_workspace(
+    db: Session,
+    tenant_id: int,
+) -> int:
+    accounts = (
+        db.query(CloudAccount)
+        .filter(CloudAccount.tenant_id == tenant_id)
+        .all()
+    )
+
+    deleted_accounts = 0
+
+    for account in accounts:
+        # Keep historical scans when an account is removed. Their
+        # cloud_account_id becomes NULL through the FK.
+        db.delete(account)
+        deleted_accounts += 1
+
+    db.commit()
+
+    return deleted_accounts
+
+
 def delete_cloud_account(
     db: Session,
     account_id: int,
@@ -68,8 +127,10 @@ def delete_cloud_account(
     if account is None:
         return False
 
-    # Preserve historical scans/findings while removing the
-    # cloud-account configuration itself.
+    # Preserve historical scan records when an account configuration
+    # is removed. The scan remains tenant-owned history, but its
+    # cloud-account association is cleared because the account no
+    # longer exists.
     from backend.app.models.scan import Scan
 
     (

@@ -7,6 +7,7 @@ from backend.app.core.database import Base, get_db
 from backend.app.core.security import hash_password
 from backend.app.main import app
 from backend.app.models.scan import Scan
+from backend.app.models.cloud_account import CloudAccount
 from backend.app.models.tenant import Tenant
 from backend.app.models.user import User
 from backend.app.services.scan_queue import ScanJob
@@ -65,13 +66,22 @@ def create_test_user(db, email="scan-owner@example.com"):
     return user
 
 
-def get_token(client, email="scan-owner@example.com"):
+def get_token(
+    client,
+    email="scan-owner@example.com",
+    tenant_name=None,
+):
+    payload = {
+        "email": email,
+        "password": PASSWORD,
+    }
+
+    if tenant_name is not None:
+        payload["tenant_name"] = tenant_name
+
     response = client.post(
         "/api/v1/auth/login",
-        json={
-            "email": email,
-            "password": PASSWORD,
-        },
+        json=payload,
     )
 
     assert response.status_code == 200
@@ -113,10 +123,38 @@ def test_aws_scan_api_enqueues_scan(monkeypatch):
 
         token = get_token(client)
 
+        db = SessionLocal()
+        user = (
+            db.query(User)
+            .filter(User.email == "scan-owner@example.com")
+            .first()
+        )
+        assert user is not None
+
+        account = CloudAccount(
+            tenant_id=user.tenant_id,
+            name="Test AWS Account",
+            provider="aws",
+            external_account_id="123456789012",
+            role_arn=(
+                "arn:aws:iam::123456789012:"
+                "role/CloudSentinelReadOnly"
+            ),
+            external_id="cs-test-external-id",
+            status="connected",
+        )
+        db.add(account)
+        db.commit()
+        db.refresh(account)
+        db.close()
+
         response = client.post(
             "/api/v1/scans",
             headers=auth_headers(token),
-            json={"provider": "aws"},
+            json={
+                "provider": "aws",
+                "cloud_account_id": account.id,
+            },
         )
 
         assert response.status_code == 201
@@ -182,10 +220,38 @@ def test_scan_api_returns_scan_status(monkeypatch):
 
         token = get_token(client)
 
+        db = SessionLocal()
+        user = (
+            db.query(User)
+            .filter(User.email == "scan-owner@example.com")
+            .first()
+        )
+        assert user is not None
+
+        account = CloudAccount(
+            tenant_id=user.tenant_id,
+            name="Test AWS Account",
+            provider="aws",
+            external_account_id="123456789012",
+            role_arn=(
+                "arn:aws:iam::123456789012:"
+                "role/CloudSentinelReadOnly"
+            ),
+            external_id="cs-test-external-id",
+            status="connected",
+        )
+        db.add(account)
+        db.commit()
+        db.refresh(account)
+        db.close()
+
         create_response = client.post(
             "/api/v1/scans",
             headers=auth_headers(token),
-            json={"provider": "aws"},
+            json={
+                "provider": "aws",
+                "cloud_account_id": account.id,
+            },
         )
 
         assert create_response.status_code == 201
@@ -214,6 +280,7 @@ def test_scan_api_returns_scan_status(monkeypatch):
 
 def test_scan_api_isolates_scans_between_tenants(monkeypatch):
     from backend.app.core.database import SessionLocal
+    from backend.app.models.scan import Scan
     from backend.app.models.tenant import Tenant
     from backend.app.models.user import User
 
@@ -223,18 +290,23 @@ def test_scan_api_isolates_scans_between_tenants(monkeypatch):
 
     suffix = uuid4().hex[:12]
 
+    tenant_a_slug = f"tenant-a-scan-isolation-{suffix}"
+    tenant_b_slug = f"tenant-b-scan-isolation-{suffix}"
+
     tenant_a = Tenant(
         name="Tenant A",
-        slug=f"tenant-a-scan-isolation-{suffix}",
+        slug=tenant_a_slug,
         status="active",
     )
     tenant_b = Tenant(
         name="Tenant B",
-        slug=f"tenant-b-scan-isolation-{suffix}",
+        slug=tenant_b_slug,
         status="active",
     )
+
     db.add_all([tenant_a, tenant_b])
     db.commit()
+
     db.refresh(tenant_a)
     db.refresh(tenant_b)
 
@@ -259,6 +331,34 @@ def test_scan_api_isolates_scans_between_tenants(monkeypatch):
     db.add_all([user_a, user_b])
     db.commit()
 
+    from backend.app.models.cloud_account import CloudAccount
+
+    account_a = CloudAccount(
+        tenant_id=tenant_a.id,
+        name="Tenant A AWS Account",
+        provider="aws",
+        external_account_id="123456789012",
+        role_arn="arn:aws:iam::123456789012:role/CloudSentinelReadOnly",
+        external_id="cs-test-tenant-a",
+        region="ap-south-1",
+        status="connected",
+    )
+
+    account_b = CloudAccount(
+        tenant_id=tenant_b.id,
+        name="Tenant B AWS Account",
+        provider="aws",
+        external_account_id="123456789013",
+        role_arn="arn:aws:iam::123456789013:role/CloudSentinelReadOnly",
+        external_id="cs-test-tenant-b",
+        region="ap-south-1",
+        status="connected",
+    )
+
+    db.add_all([account_a, account_b])
+    db.commit()
+    db.refresh(account_a)
+    db.refresh(account_b)
     db.close()
 
     client = TestClient(app)
@@ -266,10 +366,12 @@ def test_scan_api_isolates_scans_between_tenants(monkeypatch):
     token_a = get_token(
         client,
         email="tenant-a-scan@example.com",
+        tenant_name=tenant_a_slug,
     )
     token_b = get_token(
         client,
         email="tenant-b-scan@example.com",
+        tenant_name=tenant_b_slug,
     )
 
     monkeypatch.setattr(
@@ -279,7 +381,10 @@ def test_scan_api_isolates_scans_between_tenants(monkeypatch):
 
     response = client.post(
         "/api/v1/scans",
-        json={"provider": "aws"},
+        json={
+            "provider": "aws",
+            "cloud_account_id": account_a.id,
+        },
         headers={"Authorization": f"Bearer {token_a}"},
     )
 
@@ -308,7 +413,6 @@ def test_scan_api_isolates_scans_between_tenants(monkeypatch):
     )
 
     assert other_tenant_summary.status_code == 404
-
 
 
 def test_scan_api_returns_404_for_unknown_scan():
@@ -371,10 +475,7 @@ def test_scan_api_rejects_unsupported_provider():
             json={"provider": "azure"},
         )
 
-        assert response.status_code == 501
-        assert response.json()["detail"] == (
-            "Provider 'azure' is not yet supported for scanning."
-        )
+        assert response.status_code == 422
 
     finally:
         app.dependency_overrides.clear()

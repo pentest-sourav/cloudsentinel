@@ -51,9 +51,12 @@ def get_execution_errors(
 def clear_execution_errors(
     db: Session,
     scan_id: int,
+    *,
+    commit: bool = True,
 ) -> None:
     db.query(ScanExecutionError).filter(
         ScanExecutionError.scan_id == scan_id
     ).delete(synchronize_session=False)
 
-    db.commit()
+    if commit:
+        db.commit()

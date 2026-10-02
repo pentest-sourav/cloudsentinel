@@ -5,12 +5,16 @@ from pydantic import BaseModel
 
 class ScanHistoryResponse(BaseModel):
     id: int
+    cloud_account_id: int | None
     provider: str
     status: str
 
     started_at: datetime | None
     completed_at: datetime | None
     error_message: str | None
+
+    attempt_count: int
+    max_attempts: int
 
     total_findings: int
     critical_count: int

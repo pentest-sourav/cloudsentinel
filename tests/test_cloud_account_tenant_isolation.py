@@ -35,11 +35,14 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.test_session_factory = TestSession
 
     with TestClient(app) as test_client:
         yield test_client
 
     app.dependency_overrides.clear()
+    if hasattr(app.state, "test_session_factory"):
+        delattr(app.state, "test_session_factory")
     engine.dispose()
 
 
@@ -88,7 +91,32 @@ def create_account(client, token, name, provider="aws"):
     )
 
     assert response.status_code == 201
-    return response.json()
+
+    payload = response.json()
+
+    # This helper is used by scan lifecycle/isolation tests.
+    # Simulate a successfully connected customer account without
+    # changing production account-creation semantics.
+    session_factory = app.state.test_session_factory
+    db = session_factory()
+
+    try:
+        from backend.app.models.cloud_account import CloudAccount
+
+        account = (
+            db.query(CloudAccount)
+            .filter(CloudAccount.id == payload["id"])
+            .first()
+        )
+
+        assert account is not None
+
+        account.status = "connected"
+        db.commit()
+    finally:
+        db.close()
+
+    return payload
 
 
 def test_cloud_accounts_are_isolated_between_tenants(client):
@@ -312,7 +340,7 @@ def test_cloud_account_connection_configuration_is_available_in_detail(client):
 
 
 
-def test_cloud_account_delete_removes_configuration_and_preserves_scans(client):
+def test_cloud_account_delete_removes_configuration_and_preserves_history(client):
     register_user(
         client,
         "delete-owner@example.com",
@@ -330,9 +358,6 @@ def test_cloud_account_delete_removes_configuration_and_preserves_scans(client):
         "Delete Test AWS Account",
     )
 
-    # Create a scan record through the existing scan API so that
-    # deletion must preserve the historical scan while detaching
-    # the removed cloud-account configuration.
     scan_response = client.post(
         "/api/v1/scans",
         headers=auth_headers(token),
@@ -365,9 +390,121 @@ def test_cloud_account_delete_removes_configuration_and_preserves_scans(client):
         headers=auth_headers(token),
     )
 
+    # Account configuration is deleted, but historical scan records
+    # remain available. The account association is cleared.
     assert scan_detail.status_code == 200
-    assert scan_detail.json()["id"] == scan_id
-    assert scan_detail.json().get("cloud_account_id") is None
+    scan_data = scan_detail.json()
+    assert scan_data["id"] == scan_id
+    assert scan_data["cloud_account_id"] is None
+
+    history_response = client.get(
+        "/api/v1/scans",
+        headers=auth_headers(token),
+    )
+
+    assert history_response.status_code == 200
+    assert history_response.json()["total"] == 1
+    assert history_response.json()["items"][0]["id"] == scan_id
+    assert history_response.json()["items"][0]["cloud_account_id"] is None
+
+
+
+
+
+def test_clear_scan_history_is_tenant_scoped_and_preserves_accounts(client):
+    register_user(
+        client,
+        "history-tenant-a@example.com",
+        "History Tenant A",
+    )
+
+    register_user(
+        client,
+        "history-tenant-b@example.com",
+        "History Tenant B",
+    )
+
+    token_a = login_user(
+        client,
+        "history-tenant-a@example.com",
+    )
+
+    token_b = login_user(
+        client,
+        "history-tenant-b@example.com",
+    )
+
+    account_a = create_account(
+        client,
+        token_a,
+        "History Tenant A AWS",
+    )
+
+    account_b = create_account(
+        client,
+        token_b,
+        "History Tenant B AWS",
+    )
+
+    scan_a = client.post(
+        "/api/v1/scans",
+        headers=auth_headers(token_a),
+        json={
+            "provider": "aws",
+            "cloud_account_id": account_a["id"],
+        },
+    )
+
+    scan_b = client.post(
+        "/api/v1/scans",
+        headers=auth_headers(token_b),
+        json={
+            "provider": "aws",
+            "cloud_account_id": account_b["id"],
+        },
+    )
+
+    assert scan_a.status_code in {201, 202}
+    assert scan_b.status_code in {201, 202}
+
+    clear_response = client.delete(
+        "/api/v1/scans/history",
+        headers=auth_headers(token_a),
+    )
+
+    assert clear_response.status_code == 204
+    assert clear_response.content == b""
+
+    tenant_a_history = client.get(
+        "/api/v1/scans",
+        headers=auth_headers(token_a),
+    )
+
+    assert tenant_a_history.status_code == 200
+    assert tenant_a_history.json()["total"] == 0
+
+    tenant_b_history = client.get(
+        "/api/v1/scans",
+        headers=auth_headers(token_b),
+    )
+
+    assert tenant_b_history.status_code == 200
+    assert tenant_b_history.json()["total"] == 1
+
+    tenant_a_account = client.get(
+        f"/api/v1/cloud-accounts/{account_a['id']}",
+        headers=auth_headers(token_a),
+    )
+
+    assert tenant_a_account.status_code == 200
+
+    tenant_b_account = client.get(
+        f"/api/v1/cloud-accounts/{account_b['id']}",
+        headers=auth_headers(token_b),
+    )
+
+    assert tenant_b_account.status_code == 200
+
 
 
 def test_cloud_account_delete_is_tenant_isolated(client):
