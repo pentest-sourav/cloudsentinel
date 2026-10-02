@@ -250,6 +250,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-035", "network_interface_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-037",
@@ -263,6 +264,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-037", "elastic_ip_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-038",
@@ -276,6 +278,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-038", "instance_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-039",
@@ -289,6 +292,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-039", "internet_gateway_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-040",
@@ -302,6 +306,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-040", "nat_gateway_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-041",
@@ -315,6 +320,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-041", "network_acl_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-042",
@@ -328,6 +334,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-042", "route_table_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-043",
@@ -341,6 +348,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-043", "security_group_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-044",
@@ -354,6 +362,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-044", "subnet_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-045",
@@ -367,6 +376,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-045", "volume_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-046",
@@ -380,6 +390,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-046", "vpc_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-048",
@@ -393,6 +404,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-048", "vpc_flow_log_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-049",
@@ -406,6 +418,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-049", "vpc_peering_connection_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-050",
@@ -419,6 +432,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-050", "vpn_gateway_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-052",
@@ -432,6 +446,7 @@ EC2_RULES = RuleRegistry(
             ],
             _tagging_check("CS-AWS-EC2-052", "transit_gateway_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             "CS-AWS-EC2-020",
@@ -524,6 +539,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-033", "transit_gateway_attachment_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -534,6 +550,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-034", "transit_gateway_route_table_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -544,6 +561,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-036", "customer_gateway_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -554,6 +572,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-047", "vpc_endpoint_service_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -564,6 +583,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-174", "dhcp_options_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -574,6 +594,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-175", "launch_template_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -584,6 +605,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-176", "prefix_list_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -594,6 +616,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-177", "traffic_mirror_session_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -604,6 +627,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-178", "traffic_mirror_filter_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
         RuleDefinition(
@@ -614,6 +638,7 @@ EC2_RULES = RuleRegistry(
             ["resource_id", "resource_type", "tags"],
             _tagging_check("CS-AWS-EC2-179", "traffic_mirror_target_tagging"),
             build_ec2_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
 
     ]
