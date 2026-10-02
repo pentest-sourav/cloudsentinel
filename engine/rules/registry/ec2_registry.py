@@ -1,3 +1,5 @@
+from functools import partial
+
 from engine.rules.aws.ec2.ebs_default_encryption import (
     build_ebs_default_encryption_finding,
     check_ebs_default_encryption,
@@ -46,8 +48,23 @@ from engine.rules.aws.ec2.unused_elastic_ip import (
     build_unused_elastic_ip_finding,
     check_unused_elastic_ip,
 )
+from engine.rules.aws.ec2.tagging import (
+    build_ec2_tagging_finding,
+    check_ec2_tagging,
+)
 from engine.rules.model import RuleDefinition
 from engine.rules.registry.base import RuleRegistry
+
+
+def _tagging_check(
+    rule_id: str,
+    title: str,
+):
+    return partial(
+        check_ec2_tagging,
+        rule_id=rule_id,
+        title=title,
+    )
 
 
 EC2_RULES = RuleRegistry(
@@ -197,6 +214,203 @@ EC2_RULES = RuleRegistry(
             ],
             check_snapshot_block_public_access,
             build_snapshot_block_public_access_finding,
+        ),
+
+
+        RuleDefinition(
+            "CS-AWS-EC2-035",
+            "network_interface_tagging",
+            "ec2_network_interface_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-035", "network_interface_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-037",
+            "elastic_ip_tagging",
+            "ec2_elastic_ip_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-037", "elastic_ip_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-038",
+            "instance_tagging",
+            "ec2_instance_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-038", "instance_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-039",
+            "internet_gateway_tagging",
+            "ec2_internet_gateway_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-039", "internet_gateway_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-040",
+            "nat_gateway_tagging",
+            "ec2_nat_gateway_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-040", "nat_gateway_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-041",
+            "network_acl_tagging",
+            "ec2_network_acl_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-041", "network_acl_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-042",
+            "route_table_tagging",
+            "ec2_route_table_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-042", "route_table_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-043",
+            "security_group_tagging",
+            "ec2_security_group_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-043", "security_group_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-044",
+            "subnet_tagging",
+            "ec2_subnet_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-044", "subnet_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-045",
+            "volume_tagging",
+            "ec2_volume_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-045", "volume_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-046",
+            "vpc_tagging",
+            "ec2_vpc_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-046", "vpc_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-048",
+            "vpc_flow_log_tagging",
+            "ec2_flow_log_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-048", "vpc_flow_log_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-049",
+            "vpc_peering_connection_tagging",
+            "ec2_vpc_peering_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-049", "vpc_peering_connection_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-050",
+            "vpn_gateway_tagging",
+            "ec2_vpn_gateway_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-050", "vpn_gateway_tagging"),
+            build_ec2_tagging_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-052",
+            "transit_gateway_tagging",
+            "ec2_transit_gateway_tagging",
+            "multiple",
+            [
+                "resource_id",
+                "resource_type",
+                "tags",
+            ],
+            _tagging_check("CS-AWS-EC2-052", "transit_gateway_tagging"),
+            build_ec2_tagging_finding,
         ),
     ]
 )

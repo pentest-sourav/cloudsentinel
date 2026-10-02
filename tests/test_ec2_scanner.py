@@ -41,10 +41,18 @@ def test_ec2_scanner_returns_security_group_findings():
 
     findings = scanner.scan()
 
-    assert len(findings) == 1
-    assert findings[0].rule_id == "CS-AWS-EC2-001"
-    assert findings[0].severity.value == "high"
-    assert findings[0].resource_id == "sg-001"
+    security_group_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-EC2-001"
+    ]
+
+    assert len(security_group_findings) == 1
+
+    finding = security_group_findings[0]
+
+    assert finding.severity.value == "high"
+    assert finding.resource_id == "sg-001"
 
 
 def test_ec2_scanner_ignores_private_security_group_rules():
@@ -84,7 +92,13 @@ def test_ec2_scanner_ignores_private_security_group_rules():
 
     findings = scanner.scan()
 
-    assert findings == []
+    security_group_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-EC2-001"
+    ]
+
+    assert security_group_findings == []
 
 
 def test_ec2_scanner_handles_multiple_security_groups():
@@ -140,20 +154,17 @@ def test_ec2_scanner_handles_multiple_security_groups():
 
     findings = scanner.scan()
 
-    assert len(findings) == 2
-
-    finding_rule_ids = {
-        finding.rule_id
+    security_group_findings = [
+        finding
         for finding in findings
-    }
+        if finding.rule_id == "CS-AWS-EC2-001"
+    ]
 
-    assert finding_rule_ids == {
-        "CS-AWS-EC2-001",
-    }
+    assert len(security_group_findings) == 2
 
     finding_resource_ids = {
         finding.resource_id
-        for finding in findings
+        for finding in security_group_findings
     }
 
     assert finding_resource_ids == {
@@ -209,6 +220,12 @@ def test_ec2_scanner_ignores_unrelated_security_group_rules():
 
     findings = scanner.scan()
 
-    assert len(findings) == 1
-    assert findings[0].resource_id == "sg-mixed"
-    assert findings[0].rule_id == "CS-AWS-EC2-001"
+    security_group_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-EC2-001"
+    ]
+
+    assert len(security_group_findings) == 1
+    assert security_group_findings[0].resource_id == "sg-mixed"
+    assert security_group_findings[0].rule_id == "CS-AWS-EC2-001"

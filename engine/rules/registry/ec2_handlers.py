@@ -64,14 +64,142 @@ def collect_ec2_snapshot_block_public_access(
     return collector.collect_snapshot_block_public_access()
 
 
+def _ec2_tagging_collector(
+    collector: EC2DataCollector,
+):
+    from scanner.aws.collectors.ec2_tagging import (
+        EC2TaggingDataCollector,
+    )
+
+    return EC2TaggingDataCollector(
+        collector.service
+    )
+
+
+def collect_ec2_instance_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_instances()
+
+
+def collect_ec2_network_interface_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_network_interfaces()
+
+
+def collect_ec2_security_group_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_security_groups()
+
+
+def collect_ec2_volume_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_volumes()
+
+
+def collect_ec2_elastic_ip_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_elastic_ips()
+
+
+def collect_ec2_vpc_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_vpcs()
+
+
+def collect_ec2_subnet_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_subnets()
+
+
+def collect_ec2_internet_gateway_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_internet_gateways()
+
+
+def collect_ec2_nat_gateway_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_nat_gateways()
+
+
+def collect_ec2_network_acl_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_network_acls()
+
+
+def collect_ec2_route_table_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_route_tables()
+
+
+def collect_ec2_flow_log_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_flow_logs()
+
+
+def collect_ec2_vpc_peering_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_vpc_peering_connections()
+
+
+def collect_ec2_vpn_gateway_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_vpn_gateways()
+
+
+def collect_ec2_transit_gateway_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(
+        collector
+    ).collect_transit_gateways()
+
+
 EC2_DATA_SOURCE_HANDLERS = {
-    "ec2_security_group_rules": (
-        collect_ec2_security_group_rules
-    ),
+    "ec2_security_group_rules": collect_ec2_security_group_rules,
     "ec2_instances": collect_ec2_instances,
-    "ec2_extended_instances": (
-        collect_ec2_extended_instances
-    ),
+    "ec2_extended_instances": collect_ec2_extended_instances,
     "ec2_ebs_volumes": collect_ec2_ebs_volumes,
     "ec2_snapshots": collect_ec2_snapshots,
     "ec2_ebs_default_encryption": (
@@ -83,5 +211,42 @@ EC2_DATA_SOURCE_HANDLERS = {
     ),
     "ec2_snapshot_block_public_access": (
         collect_ec2_snapshot_block_public_access
+    ),
+    "ec2_instance_tagging": collect_ec2_instance_tagging,
+    "ec2_network_interface_tagging": (
+        collect_ec2_network_interface_tagging
+    ),
+    "ec2_security_group_tagging": (
+        collect_ec2_security_group_tagging
+    ),
+    "ec2_volume_tagging": collect_ec2_volume_tagging,
+    "ec2_elastic_ip_tagging": (
+        collect_ec2_elastic_ip_tagging
+    ),
+    "ec2_vpc_tagging": collect_ec2_vpc_tagging,
+    "ec2_subnet_tagging": collect_ec2_subnet_tagging,
+    "ec2_internet_gateway_tagging": (
+        collect_ec2_internet_gateway_tagging
+    ),
+    "ec2_nat_gateway_tagging": (
+        collect_ec2_nat_gateway_tagging
+    ),
+    "ec2_network_acl_tagging": (
+        collect_ec2_network_acl_tagging
+    ),
+    "ec2_route_table_tagging": (
+        collect_ec2_route_table_tagging
+    ),
+    "ec2_flow_log_tagging": (
+        collect_ec2_flow_log_tagging
+    ),
+    "ec2_vpc_peering_tagging": (
+        collect_ec2_vpc_peering_tagging
+    ),
+    "ec2_vpn_gateway_tagging": (
+        collect_ec2_vpn_gateway_tagging
+    ),
+    "ec2_transit_gateway_tagging": (
+        collect_ec2_transit_gateway_tagging
     ),
 }

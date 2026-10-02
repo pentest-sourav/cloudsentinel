@@ -33,7 +33,58 @@ class EC2Service:
         for index in range(0, len(items), size):
             yield items[index:index + size]
 
-    def describe_instances(self) -> list[dict[str, Any]]:
+    def _describe_tagging_resources(
+        self,
+        operation: str,
+        result_key: str,
+    ) -> list[dict[str, Any]]:
+        try:
+            paginator = self.ec2_client.get_paginator(
+                operation
+            )
+
+            resources: list[dict[str, Any]] = []
+
+            for page in paginator.paginate():
+                entries = page.get(
+                    result_key,
+                    [],
+                )
+
+                if isinstance(entries, list):
+                    resources.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
+
+            return resources
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"{operation} discovery failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during {operation} discovery: "
+                f"{exc}"
+            ) from exc
+
+    def describe_instances(
+        self,
+    ) -> list[dict[str, Any]]:
         try:
             paginator = self.ec2_client.get_paginator(
                 "describe_instances"
@@ -46,18 +97,29 @@ class EC2Service:
                     "Reservations",
                     [],
                 ):
-                    instances.extend(
-                        reservation.get(
-                            "Instances",
-                            [],
-                        )
+                    if not isinstance(reservation, dict):
+                        continue
+
+                    entries = reservation.get(
+                        "Instances",
+                        [],
                     )
+
+                    if isinstance(entries, list):
+                        instances.extend(
+                            entry
+                            for entry in entries
+                            if isinstance(entry, dict)
+                        )
 
             return instances
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -103,7 +165,10 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -131,18 +196,26 @@ class EC2Service:
             security_groups: list[dict[str, Any]] = []
 
             for page in paginator.paginate():
-                security_groups.extend(
-                    page.get(
-                        "SecurityGroups",
-                        [],
-                    )
+                entries = page.get(
+                    "SecurityGroups",
+                    [],
                 )
+
+                if isinstance(entries, list):
+                    security_groups.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
 
             return security_groups
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -188,7 +261,10 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -205,6 +281,14 @@ class EC2Service:
                 f"{exc}"
             ) from exc
 
+    def describe_all_volumes(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_volumes",
+            "Volumes",
+        )
+
     def describe_snapshots(
         self,
     ) -> list[dict[str, Any]]:
@@ -218,18 +302,26 @@ class EC2Service:
             for page in paginator.paginate(
                 OwnerIds=["self"],
             ):
-                snapshots.extend(
-                    page.get(
-                        "Snapshots",
-                        [],
-                    )
+                entries = page.get(
+                    "Snapshots",
+                    [],
                 )
+
+                if isinstance(entries, list):
+                    snapshots.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
 
             return snapshots
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -246,7 +338,9 @@ class EC2Service:
                 f"{exc}"
             ) from exc
 
-    def get_ebs_encryption_by_default(self) -> bool:
+    def get_ebs_encryption_by_default(
+        self,
+    ) -> bool:
         try:
             response = (
                 self.ec2_client
@@ -262,7 +356,10 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -301,7 +398,10 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -329,18 +429,26 @@ class EC2Service:
             launch_templates: list[dict[str, Any]] = []
 
             for page in paginator.paginate():
-                launch_templates.extend(
-                    page.get(
-                        "LaunchTemplates",
-                        [],
-                    )
+                entries = page.get(
+                    "LaunchTemplates",
+                    [],
                 )
+
+                if isinstance(entries, list):
+                    launch_templates.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
 
             return launch_templates
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -375,18 +483,26 @@ class EC2Service:
                 LaunchTemplateId=launch_template_id,
                 Versions=["$Default"],
             ):
-                versions.extend(
-                    page.get(
-                        "LaunchTemplateVersions",
-                        [],
-                    )
+                entries = page.get(
+                    "LaunchTemplateVersions",
+                    [],
                 )
+
+                if isinstance(entries, list):
+                    versions.extend(
+                        entry
+                        for entry in entries
+                        if isinstance(entry, dict)
+                    )
 
             return versions
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -419,7 +535,10 @@ class EC2Service:
 
         except ClientError as exc:
             error = exc.response.get("Error", {})
-            code = error.get("Code", "UnknownError")
+            code = error.get(
+                "Code",
+                "UnknownError",
+            )
             message = error.get(
                 "Message",
                 "AWS request failed",
@@ -435,3 +554,91 @@ class EC2Service:
                 "AWS SDK error during EBS snapshot Block Public "
                 f"Access discovery: {exc}"
             ) from exc
+
+    def describe_network_interfaces(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_network_interfaces",
+            "NetworkInterfaces",
+        )
+
+    def describe_vpcs(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_vpcs",
+            "Vpcs",
+        )
+
+    def describe_subnets(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_subnets",
+            "Subnets",
+        )
+
+    def describe_internet_gateways(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_internet_gateways",
+            "InternetGateways",
+        )
+
+    def describe_nat_gateways(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_nat_gateways",
+            "NatGateways",
+        )
+
+    def describe_network_acls(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_network_acls",
+            "NetworkAcls",
+        )
+
+    def describe_route_tables(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_route_tables",
+            "RouteTables",
+        )
+
+    def describe_flow_logs(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_flow_logs",
+            "FlowLogs",
+        )
+
+    def describe_vpc_peering_connections(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_vpc_peering_connections",
+            "VpcPeeringConnections",
+        )
+
+    def describe_vpn_gateways(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_vpn_gateways",
+            "VpnGateways",
+        )
+
+    def describe_transit_gateways(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_transit_gateways",
+            "TransitGateways",
+        )

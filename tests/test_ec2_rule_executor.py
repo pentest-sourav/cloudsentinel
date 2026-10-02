@@ -50,9 +50,15 @@ def test_ec2_security_group_rule_executes_through_registry():
         collector=collector,
     )
 
-    assert len(findings) == 1
+    security_group_findings = [
+        finding
+        for finding in findings
+        if finding.rule_id == "CS-AWS-EC2-001"
+    ]
 
-    finding = findings[0]
+    assert len(security_group_findings) == 1
+
+    finding = security_group_findings[0]
 
     assert finding.rule_id == "CS-AWS-EC2-001"
     assert finding.title == "SSH Port Exposed to the Internet"

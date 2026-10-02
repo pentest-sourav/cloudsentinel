@@ -413,3 +413,195 @@ class EC2DataCollector:
                 ),
             }
         ]
+
+
+def _collect_ec2_tagging_records(
+    resources: list[dict[str, Any]],
+    id_key: str,
+    resource_type: str,
+) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+
+    for resource in resources:
+        if not isinstance(resource, dict):
+            continue
+
+        resource_id = resource.get(id_key)
+
+        if not resource_id:
+            continue
+
+        normalized.append(
+            {
+                "resource_id": resource_id,
+                "resource_type": resource_type,
+                "tags": resource.get("Tags", []),
+            }
+        )
+
+    return normalized
+
+
+def _collect_ec2_tagging(
+    collector: EC2DataCollector,
+    resources: list[dict[str, Any]],
+    id_key: str,
+    resource_type: str,
+) -> list[dict[str, Any]]:
+    return _collect_ec2_tagging_records(
+        resources,
+        id_key,
+        resource_type,
+    )
+
+
+def collect_ec2_instance_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _collect_ec2_tagging(
+        collector,
+        collector._get_instances(),
+        "InstanceId",
+        "ec2_instance",
+    )
+
+
+def collect_ec2_volume_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    volumes: list[dict[str, Any]] = []
+
+    instances = collector._get_instances()
+
+    volume_ids: set[str] = set()
+
+    for instance in instances:
+        for mapping in instance.get("BlockDeviceMappings", []):
+            ebs = mapping.get("Ebs", {})
+
+            if not isinstance(ebs, dict):
+                continue
+
+            volume_id = ebs.get("VolumeId")
+
+            if volume_id:
+                volume_ids.add(volume_id)
+
+    if volume_ids:
+        volumes = collector.service.describe_volumes(
+            sorted(volume_ids)
+        )
+
+    return _collect_ec2_tagging(
+        collector,
+        volumes,
+        "VolumeId",
+        "ebs_volume",
+    )
+
+
+def collect_ec2_security_group_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _collect_ec2_tagging(
+        collector,
+        collector._get_security_groups(),
+        "GroupId",
+        "ec2_security_group",
+    )
+
+
+def collect_ec2_eip_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    addresses = collector.service.describe_addresses()
+
+    if not isinstance(addresses, list):
+        addresses = []
+
+    return _collect_ec2_tagging(
+        collector,
+        addresses,
+        "AllocationId",
+        "elastic_ip",
+    )
+
+
+def collect_ec2_eni_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    # ENIs are collected by VPCDataCollector because the VPC
+    # service already owns describe_network_interfaces().
+    return []
+
+
+def _ec2_tagging_records(
+    resources: list[dict[str, Any]],
+    id_key: str,
+    resource_type: str,
+) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+
+    for resource in resources:
+        if not isinstance(resource, dict):
+            continue
+
+        resource_id = resource.get(id_key)
+
+        if not resource_id:
+            continue
+
+        tags = resource.get("Tags", [])
+
+        if not isinstance(tags, (list, dict)):
+            tags = []
+
+        normalized.append(
+            {
+                "resource_id": resource_id,
+                "resource_type": resource_type,
+                "tags": tags,
+            }
+        )
+
+    return normalized
+
+
+def collect_ec2_instance_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_records(
+        collector._get_instances(),
+        "InstanceId",
+        "ec2_instance",
+    )
+
+
+def collect_ec2_volume_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    volumes = collector.service.describe_all_volumes()
+
+    if not isinstance(volumes, list):
+        return []
+
+    return _ec2_tagging_records(
+        volumes,
+        "VolumeId",
+        "ebs_volume",
+    )
+
+
+def collect_ec2_eip_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    addresses = collector.service.describe_addresses()
+
+    if not isinstance(addresses, list):
+        return []
+
+    return _ec2_tagging_records(
+        addresses,
+        "AllocationId",
+        "elastic_ip",
+    )
