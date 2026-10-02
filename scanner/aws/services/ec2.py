@@ -642,3 +642,84 @@ class EC2Service:
             "describe_transit_gateways",
             "TransitGateways",
         )
+
+
+    def describe_vpn_connections(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_vpn_connections",
+            "VpnConnections",
+        )
+
+    def describe_transit_gateway_attachments(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_transit_gateway_attachments",
+            "TransitGatewayAttachments",
+        )
+
+    def describe_transit_gateway_route_tables(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_transit_gateway_route_tables",
+            "TransitGatewayRouteTables",
+        )
+
+    def describe_customer_gateways(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_customer_gateways",
+            "CustomerGateways",
+        )
+
+    def describe_vpc_endpoint_services(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_vpc_endpoint_service_configurations",
+            "ServiceConfigurations",
+        )
+
+    def describe_dhcp_options(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_dhcp_options",
+            "DhcpOptions",
+        )
+
+    def describe_prefix_lists(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_prefix_lists",
+            "PrefixLists",
+        )
+
+    def describe_traffic_mirror_sessions(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_traffic_mirror_sessions",
+            "TrafficMirrorSessions",
+        )
+
+    def describe_traffic_mirror_filters(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_traffic_mirror_filters",
+            "TrafficMirrorFilters",
+        )
+
+    def describe_traffic_mirror_targets(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._describe_tagging_resources(
+            "describe_traffic_mirror_targets",
+            "TrafficMirrorTargets",
+        )

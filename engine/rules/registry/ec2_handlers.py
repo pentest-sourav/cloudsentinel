@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Any
 
 from scanner.aws.collectors.ec2 import EC2DataCollector
@@ -196,6 +197,102 @@ def collect_ec2_transit_gateway_tagging(
     ).collect_transit_gateways()
 
 
+# ---------------------------------------------------------------------------
+# Extended EC2 Security Hub collectors
+# ---------------------------------------------------------------------------
+
+def collect_ec2_vpn_connections(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_vpn_connections()
+
+
+def collect_ec2_transit_gateway_options(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_transit_gateway_options()
+
+
+def collect_ec2_launch_template_network_interfaces(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_launch_template_network_interfaces()
+
+
+def collect_ec2_launch_template_imdsv2(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_launch_template_imdsv2()
+
+
+def collect_ec2_remote_admin_rules(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    # EC2.53 / EC2.54 use the same normalized security-group rule
+    # source as the existing EC2 security-group exposure control.
+    return collect_ec2_security_group_rules(collector)
+
+
+def collect_ec2_transit_gateway_attachment_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_transit_gateway_attachments()
+
+
+def collect_ec2_transit_gateway_route_table_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_transit_gateway_route_tables()
+
+
+def collect_ec2_customer_gateway_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_customer_gateways()
+
+
+def collect_ec2_vpc_endpoint_service_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_vpc_endpoint_services()
+
+
+def collect_ec2_dhcp_options_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_dhcp_options()
+
+
+def collect_ec2_launch_template_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_launch_templates()
+
+
+def collect_ec2_prefix_list_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_prefix_lists()
+
+
+def collect_ec2_traffic_mirror_session_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_traffic_mirror_sessions()
+
+
+def collect_ec2_traffic_mirror_filter_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_traffic_mirror_filters()
+
+
+def collect_ec2_traffic_mirror_target_tagging(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    return _ec2_tagging_collector(collector).collect_traffic_mirror_targets()
+
+
 EC2_DATA_SOURCE_HANDLERS = {
     "ec2_security_group_rules": collect_ec2_security_group_rules,
     "ec2_instances": collect_ec2_instances,
@@ -212,6 +309,40 @@ EC2_DATA_SOURCE_HANDLERS = {
     "ec2_snapshot_block_public_access": (
         collect_ec2_snapshot_block_public_access
     ),
+
+    "ec2_vpn_connections": collect_ec2_vpn_connections,
+    "ec2_transit_gateway_options": collect_ec2_transit_gateway_options,
+    "ec2_launch_template_network_interfaces": (
+        collect_ec2_launch_template_network_interfaces
+    ),
+    "ec2_launch_template_imdsv2": collect_ec2_launch_template_imdsv2,
+    "ec2_remote_admin_rules": collect_ec2_remote_admin_rules,
+
+    "ec2_transit_gateway_attachment_tagging": (
+        collect_ec2_transit_gateway_attachment_tagging
+    ),
+    "ec2_transit_gateway_route_table_tagging": (
+        collect_ec2_transit_gateway_route_table_tagging
+    ),
+    "ec2_customer_gateway_tagging": (
+        collect_ec2_customer_gateway_tagging
+    ),
+    "ec2_vpc_endpoint_service_tagging": (
+        collect_ec2_vpc_endpoint_service_tagging
+    ),
+    "ec2_dhcp_options_tagging": collect_ec2_dhcp_options_tagging,
+    "ec2_launch_template_tagging": collect_ec2_launch_template_tagging,
+    "ec2_prefix_list_tagging": collect_ec2_prefix_list_tagging,
+    "ec2_traffic_mirror_session_tagging": (
+        collect_ec2_traffic_mirror_session_tagging
+    ),
+    "ec2_traffic_mirror_filter_tagging": (
+        collect_ec2_traffic_mirror_filter_tagging
+    ),
+    "ec2_traffic_mirror_target_tagging": (
+        collect_ec2_traffic_mirror_target_tagging
+    ),
+
     "ec2_instance_tagging": collect_ec2_instance_tagging,
     "ec2_network_interface_tagging": (
         collect_ec2_network_interface_tagging

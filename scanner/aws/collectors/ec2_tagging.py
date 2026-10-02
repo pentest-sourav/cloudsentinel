@@ -176,3 +176,94 @@ class EC2TaggingDataCollector:
             "TransitGatewayId",
             "transit_gateway",
         )
+
+
+    def collect_transit_gateway_attachments(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_transit_gateway_attachments(),
+            "TransitGatewayAttachmentId",
+            "transit_gateway_attachment",
+        )
+
+    def collect_transit_gateway_route_tables(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_transit_gateway_route_tables(),
+            "TransitGatewayRouteTableId",
+            "transit_gateway_route_table",
+        )
+
+    def collect_customer_gateways(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_customer_gateways(),
+            "CustomerGatewayId",
+            "customer_gateway",
+        )
+
+    def collect_vpc_endpoint_services(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_vpc_endpoint_services(),
+            "ServiceId",
+            "vpc_endpoint_service",
+        )
+
+    def collect_dhcp_options(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_dhcp_options(),
+            "DhcpOptionsId",
+            "dhcp_options",
+        )
+
+    def collect_prefix_lists(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_prefix_lists(),
+            "PrefixListId",
+            "prefix_list",
+        )
+
+    def collect_traffic_mirror_sessions(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_traffic_mirror_sessions(),
+            "TrafficMirrorSessionId",
+            "traffic_mirror_session",
+        )
+
+    def collect_traffic_mirror_filters(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_traffic_mirror_filters(),
+            "TrafficMirrorFilterId",
+            "traffic_mirror_filter",
+        )
+
+    def collect_traffic_mirror_targets(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_traffic_mirror_targets(),
+            "TrafficMirrorTargetId",
+            "traffic_mirror_target",
+        )
+
+    def collect_launch_templates(
+        self,
+    ) -> list[dict[str, Any]]:
+        return self._normalize(
+            self.service.describe_launch_templates(),
+            "LaunchTemplateId",
+            "ec2_launch_template",
+        )

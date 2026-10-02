@@ -186,6 +186,201 @@ class EC2DataCollector:
 
         return collected_volumes
 
+    def collect_vpn_connections(
+        self,
+    ) -> list[dict[str, Any]]:
+        connections = self.service.describe_vpn_connections()
+        if not isinstance(connections, list):
+            return []
+
+        results: list[dict[str, Any]] = []
+
+        for connection in connections:
+            if not isinstance(connection, dict):
+                continue
+
+            vpn_id = connection.get("VpnConnectionId")
+            if not vpn_id:
+                continue
+
+            telemetry = connection.get("VgwTelemetry", [])
+            if not isinstance(telemetry, list):
+                telemetry = []
+
+            tunnel_states = [
+                {
+                    "outside_ip": item.get("OutsideIpAddress"),
+                    "status": item.get("Status"),
+                    "status_message": item.get("StatusMessage"),
+                }
+                for item in telemetry
+                if isinstance(item, dict)
+            ]
+
+            options = connection.get("Options", {})
+            if not isinstance(options, dict):
+                options = {}
+
+            ike_versions = options.get("IkeVersions", [])
+            if not isinstance(ike_versions, list):
+                ike_versions = []
+
+            ike_values = [
+                item.get("Value")
+                for item in ike_versions
+                if isinstance(item, dict)
+            ]
+
+            results.append(
+                {
+                    "vpn_connection_id": vpn_id,
+                    "state": connection.get("State"),
+                    "tunnel_states": tunnel_states,
+                    "ike_versions": ike_values,
+                    "options": options,
+                }
+            )
+
+        return results
+
+    def collect_transit_gateway_options(
+        self,
+    ) -> list[dict[str, Any]]:
+        gateways = self.service.describe_transit_gateways()
+        if not isinstance(gateways, list):
+            return []
+
+        results: list[dict[str, Any]] = []
+
+        for gateway in gateways:
+            if not isinstance(gateway, dict):
+                continue
+
+            gateway_id = gateway.get("TransitGatewayId")
+            if not gateway_id:
+                continue
+
+            options = gateway.get("Options", {})
+            if not isinstance(options, dict):
+                options = {}
+
+            results.append(
+                {
+                    "transit_gateway_id": gateway_id,
+                    "auto_accept_shared_attachments": (
+                        options.get("AutoAcceptSharedAttachments")
+                    ),
+                    "default_route_table_association": (
+                        options.get("DefaultRouteTableAssociation")
+                    ),
+                    "default_route_table_propagation": (
+                        options.get("DefaultRouteTablePropagation")
+                    ),
+                }
+            )
+
+        return results
+
+    def collect_launch_template_network_interfaces(
+        self,
+    ) -> list[dict[str, Any]]:
+        launch_templates = self.service.describe_launch_templates()
+        if not isinstance(launch_templates, list):
+            return []
+
+        results: list[dict[str, Any]] = []
+
+        for template in launch_templates:
+            if not isinstance(template, dict):
+                continue
+
+            template_id = template.get("LaunchTemplateId")
+            if not template_id:
+                continue
+
+            versions = self.service.describe_default_launch_template_versions(
+                template_id
+            )
+
+            for version in versions:
+                if not isinstance(version, dict):
+                    continue
+
+                data = version.get("LaunchTemplateData", {})
+                if not isinstance(data, dict):
+                    continue
+
+                network_interfaces = data.get("NetworkInterfaces", [])
+                if not isinstance(network_interfaces, list):
+                    continue
+
+                for index, interface in enumerate(network_interfaces):
+                    if not isinstance(interface, dict):
+                        continue
+
+                    results.append(
+                        {
+                            "launch_template_id": template_id,
+                            "launch_template_name": template.get(
+                                "LaunchTemplateName"
+                            ),
+                            "version_number": version.get("VersionNumber"),
+                            "network_interface_index": index,
+                            "associate_public_ip_address": interface.get(
+                                "AssociatePublicIpAddress"
+                            ),
+                        }
+                    )
+
+        return results
+
+    def collect_launch_template_imdsv2(
+        self,
+    ) -> list[dict[str, Any]]:
+        launch_templates = self.service.describe_launch_templates()
+        if not isinstance(launch_templates, list):
+            return []
+
+        results: list[dict[str, Any]] = []
+
+        for template in launch_templates:
+            if not isinstance(template, dict):
+                continue
+
+            template_id = template.get("LaunchTemplateId")
+            if not template_id:
+                continue
+
+            versions = self.service.describe_default_launch_template_versions(
+                template_id
+            )
+
+            for version in versions:
+                if not isinstance(version, dict):
+                    continue
+
+                data = version.get("LaunchTemplateData", {})
+                if not isinstance(data, dict):
+                    continue
+
+                metadata_options = data.get("MetadataOptions", {})
+                if not isinstance(metadata_options, dict):
+                    metadata_options = {}
+
+                results.append(
+                    {
+                        "launch_template_id": template_id,
+                        "launch_template_name": template.get(
+                            "LaunchTemplateName"
+                        ),
+                        "version_number": version.get("VersionNumber"),
+                        "http_tokens": metadata_options.get("HttpTokens"),
+                        "http_endpoint": metadata_options.get("HttpEndpoint"),
+                    }
+                )
+
+        return results
+
     def collect_security_groups(
         self,
     ) -> list[dict[str, Any]]:
@@ -604,4 +799,210 @@ def collect_ec2_eip_tagging(
         addresses,
         "AllocationId",
         "elastic_ip",
+    )
+
+
+def collect_ec2_vpn_connections(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    connections = collector.service.describe_vpn_connections()
+    results: list[dict[str, Any]] = []
+
+    for connection in connections:
+        if not isinstance(connection, dict):
+            continue
+
+        vpn_id = connection.get("VpnConnectionId")
+        if not vpn_id:
+            continue
+
+        telemetry = connection.get("VgwTelemetry", [])
+        if not isinstance(telemetry, list):
+            telemetry = []
+
+        tunnel_states = [
+            {
+                "outside_ip": item.get("OutsideIpAddress"),
+                "status": item.get("Status"),
+                "status_message": item.get("StatusMessage"),
+            }
+            for item in telemetry
+            if isinstance(item, dict)
+        ]
+
+        options = connection.get("Options", {})
+        if not isinstance(options, dict):
+            options = {}
+
+        ike_versions = options.get("IkeVersions", [])
+        if not isinstance(ike_versions, list):
+            ike_versions = []
+
+        ike_values = [
+            item.get("Value")
+            for item in ike_versions
+            if isinstance(item, dict)
+        ]
+
+        results.append(
+            {
+                "vpn_connection_id": vpn_id,
+                "state": connection.get("State"),
+                "tunnel_states": tunnel_states,
+                "ike_versions": ike_values,
+                "options": options,
+            }
+        )
+
+    return results
+
+
+def collect_ec2_transit_gateway_options(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    gateways = collector.service.describe_transit_gateways()
+    results: list[dict[str, Any]] = []
+
+    for gateway in gateways:
+        if not isinstance(gateway, dict):
+            continue
+
+        gateway_id = gateway.get("TransitGatewayId")
+        if not gateway_id:
+            continue
+
+        options = gateway.get("Options", {})
+        if not isinstance(options, dict):
+            options = {}
+
+        results.append(
+            {
+                "transit_gateway_id": gateway_id,
+                "auto_accept_shared_attachments": (
+                    options.get("AutoAcceptSharedAttachments")
+                ),
+                "default_route_table_association": (
+                    options.get("DefaultRouteTableAssociation")
+                ),
+                "default_route_table_propagation": (
+                    options.get("DefaultRouteTablePropagation")
+                ),
+            }
+        )
+
+    return results
+
+
+def collect_ec2_launch_template_network_interfaces(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    launch_templates = collector.service.describe_launch_templates()
+    results: list[dict[str, Any]] = []
+
+    for template in launch_templates:
+        if not isinstance(template, dict):
+            continue
+
+        template_id = template.get("LaunchTemplateId")
+        if not template_id:
+            continue
+
+        versions = collector.service.describe_default_launch_template_versions(
+            template_id
+        )
+
+        for version in versions:
+            if not isinstance(version, dict):
+                continue
+
+            data = version.get("LaunchTemplateData", {})
+            if not isinstance(data, dict):
+                continue
+
+            network_interfaces = data.get("NetworkInterfaces", [])
+            if not isinstance(network_interfaces, list):
+                continue
+
+            for index, interface in enumerate(network_interfaces):
+                if not isinstance(interface, dict):
+                    continue
+
+                results.append(
+                    {
+                        "launch_template_id": template_id,
+                        "launch_template_name": template.get(
+                            "LaunchTemplateName"
+                        ),
+                        "version_number": version.get("VersionNumber"),
+                        "network_interface_index": index,
+                        "associate_public_ip_address": interface.get(
+                            "AssociatePublicIpAddress"
+                        ),
+                    }
+                )
+
+    return results
+
+
+def collect_ec2_launch_template_imdsv2(
+    collector: EC2DataCollector,
+) -> list[dict[str, Any]]:
+    launch_templates = collector.service.describe_launch_templates()
+    results: list[dict[str, Any]] = []
+
+    for template in launch_templates:
+        if not isinstance(template, dict):
+            continue
+
+        template_id = template.get("LaunchTemplateId")
+        if not template_id:
+            continue
+
+        versions = collector.service.describe_default_launch_template_versions(
+            template_id
+        )
+
+        for version in versions:
+            if not isinstance(version, dict):
+                continue
+
+            data = version.get("LaunchTemplateData", {})
+            if not isinstance(data, dict):
+                continue
+
+            metadata_options = data.get("MetadataOptions", {})
+            if not isinstance(metadata_options, dict):
+                metadata_options = {}
+
+            results.append(
+                {
+                    "launch_template_id": template_id,
+                    "launch_template_name": template.get(
+                        "LaunchTemplateName"
+                    ),
+                    "version_number": version.get("VersionNumber"),
+                    "http_tokens": metadata_options.get("HttpTokens"),
+                    "http_endpoint": metadata_options.get("HttpEndpoint"),
+                }
+            )
+
+    return results
+
+
+def collect_ec2_tagging_resource(
+    collector: EC2DataCollector,
+    service_method: str,
+    id_key: str,
+    resource_type: str,
+) -> list[dict[str, Any]]:
+    method = getattr(collector.service, service_method)
+    resources = method()
+
+    if not isinstance(resources, list):
+        return []
+
+    return _ec2_tagging_records(
+        resources,
+        id_key,
+        resource_type,
     )

@@ -52,6 +52,27 @@ from engine.rules.aws.ec2.tagging import (
     build_ec2_tagging_finding,
     check_ec2_tagging,
 )
+from engine.rules.aws.ec2.vpn_tunnels import (
+    build_vpn_tunnels_finding,
+    check_vpn_tunnels,
+)
+from engine.rules.aws.ec2.transit_gateway_auto_accept import (
+    build_transit_gateway_auto_accept_finding,
+    check_transit_gateway_auto_accept,
+)
+from engine.rules.aws.ec2.launch_template_public_ip import (
+    build_launch_template_public_ip_finding,
+    check_launch_template_public_ip,
+)
+from engine.rules.aws.ec2.launch_template_imdsv2 import (
+    build_launch_template_imdsv2_finding,
+    check_launch_template_imdsv2,
+)
+from engine.rules.aws.ec2.remote_admin_exposure import (
+    build_remote_admin_exposure_finding,
+    check_remote_admin_exposure,
+)
+
 from engine.rules.model import RuleDefinition
 from engine.rules.registry.base import RuleRegistry
 
@@ -412,5 +433,188 @@ EC2_RULES = RuleRegistry(
             _tagging_check("CS-AWS-EC2-052", "transit_gateway_tagging"),
             build_ec2_tagging_finding,
         ),
+        RuleDefinition(
+            "CS-AWS-EC2-020",
+            "vpn_tunnels",
+            "ec2_vpn_connections",
+            "multiple",
+            ["vpn_connection_id", "tunnel_states"],
+            check_vpn_tunnels,
+            build_vpn_tunnels_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-023",
+            "transit_gateway_auto_accept",
+            "ec2_transit_gateway_options",
+            "multiple",
+            [
+                "transit_gateway_id",
+                "auto_accept_shared_attachments",
+            ],
+            check_transit_gateway_auto_accept,
+            build_transit_gateway_auto_accept_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-025",
+            "launch_template_public_ip",
+            "ec2_launch_template_network_interfaces",
+            "multiple",
+            [
+                "launch_template_id",
+                "launch_template_name",
+                "version_number",
+                "network_interface_index",
+                "associate_public_ip_address",
+            ],
+            check_launch_template_public_ip,
+            build_launch_template_public_ip_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-053",
+            "remote_admin_ipv4_exposure",
+            "ec2_remote_admin_rules",
+            "multiple",
+            ["security_group_id", "rule"],
+            lambda security_group_id, rule: (
+                check_remote_admin_exposure(
+                    security_group_id,
+                    rule,
+                )
+                if rule.is_all_ipv4
+                else None
+            ),
+            build_remote_admin_exposure_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-054",
+            "remote_admin_ipv6_exposure",
+            "ec2_remote_admin_rules",
+            "multiple",
+            ["security_group_id", "rule"],
+            lambda security_group_id, rule: (
+                check_remote_admin_exposure(
+                    security_group_id,
+                    rule,
+                )
+                if rule.is_all_ipv6
+                else None
+            ),
+            build_remote_admin_exposure_finding,
+        ),
+        RuleDefinition(
+            "CS-AWS-EC2-170",
+            "launch_template_imdsv2",
+            "ec2_launch_template_imdsv2",
+            "multiple",
+            [
+                "launch_template_id",
+                "launch_template_name",
+                "version_number",
+                "http_tokens",
+            ],
+            check_launch_template_imdsv2,
+            build_launch_template_imdsv2_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-033",
+            "transit_gateway_attachment_tagging",
+            "ec2_transit_gateway_attachment_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-033", "transit_gateway_attachment_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-034",
+            "transit_gateway_route_table_tagging",
+            "ec2_transit_gateway_route_table_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-034", "transit_gateway_route_table_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-036",
+            "customer_gateway_tagging",
+            "ec2_customer_gateway_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-036", "customer_gateway_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-047",
+            "vpc_endpoint_service_tagging",
+            "ec2_vpc_endpoint_service_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-047", "vpc_endpoint_service_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-174",
+            "dhcp_options_tagging",
+            "ec2_dhcp_options_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-174", "dhcp_options_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-175",
+            "launch_template_tagging",
+            "ec2_launch_template_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-175", "launch_template_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-176",
+            "prefix_list_tagging",
+            "ec2_prefix_list_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-176", "prefix_list_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-177",
+            "traffic_mirror_session_tagging",
+            "ec2_traffic_mirror_session_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-177", "traffic_mirror_session_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-178",
+            "traffic_mirror_filter_tagging",
+            "ec2_traffic_mirror_filter_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-178", "traffic_mirror_filter_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
+        RuleDefinition(
+            "CS-AWS-EC2-179",
+            "traffic_mirror_target_tagging",
+            "ec2_traffic_mirror_target_tagging",
+            "multiple",
+            ["resource_id", "resource_type", "tags"],
+            _tagging_check("CS-AWS-EC2-179", "traffic_mirror_target_tagging"),
+            build_ec2_tagging_finding,
+        ),
+
     ]
 )
