@@ -14,6 +14,7 @@ class RuleExecutor:
     - collecting required configuration data
     - executing the rule check
     - building a Finding when the check fails
+    - applying optional per-rule parameter overrides
 
     Cloud/provider-specific collection logic remains outside
     this layer.
@@ -22,8 +23,10 @@ class RuleExecutor:
     def __init__(
         self,
         handlers: dict[str, Callable[..., Any]],
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ):
         self.handlers = handlers
+        self.rule_parameters = rule_parameters or {}
 
     def execute_rule(
         self,
@@ -69,8 +72,8 @@ class RuleExecutor:
 
         return findings
 
-    @staticmethod
     def _evaluate_single(
+        self,
         rule: RuleDefinition,
         collected_data: dict[str, Any],
     ) -> Finding | None:
@@ -78,6 +81,18 @@ class RuleExecutor:
             argument: collected_data[argument]
             for argument in rule.check_arguments
         }
+
+        parameters = dict(rule.parameters)
+
+        configured_parameters = self.rule_parameters.get(
+            rule.rule_id,
+            {},
+        )
+
+        if isinstance(configured_parameters, dict):
+            parameters.update(configured_parameters)
+
+        check_data.update(parameters)
 
         result = rule.check(**check_data)
 

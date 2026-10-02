@@ -2,7 +2,10 @@ from dataclasses import dataclass
 
 from engine.findings.model import Finding, Severity
 
-from engine.rules.aws.eks.common import has_non_system_tags
+from engine.rules.aws.eks.common import (
+    has_required_tag_keys,
+    normalize_required_tag_keys,
+)
 
 
 @dataclass(frozen=True)
@@ -12,6 +15,7 @@ class EKSIdentityProviderTaggingResult:
     cluster_name: str
     provider_name: str
     tags: dict
+    required_tag_keys: tuple[str, ...]
 
 
 def check_eks_identity_provider_tagging(
@@ -20,8 +24,16 @@ def check_eks_identity_provider_tagging(
     cluster_name: str,
     provider_name: str,
     tags: dict,
+    required_tag_keys: list[str] | tuple[str, ...] | None = None,
 ) -> EKSIdentityProviderTaggingResult | None:
-    if has_non_system_tags(tags):
+    normalized_required_tag_keys = normalize_required_tag_keys(
+        required_tag_keys,
+    )
+
+    if has_required_tag_keys(
+        tags,
+        normalized_required_tag_keys,
+    ):
         return None
 
     return EKSIdentityProviderTaggingResult(
@@ -30,6 +42,7 @@ def check_eks_identity_provider_tagging(
         cluster_name=cluster_name,
         provider_name=provider_name,
         tags=tags,
+        required_tag_keys=normalized_required_tag_keys,
     )
 
 
@@ -45,16 +58,19 @@ def build_eks_identity_provider_tagging_finding(
         resource_id=result.resource_id,
         description=(
             "The EKS identity provider configuration does not "
-            "have a non-system tag."
+            "satisfy the configured required tagging policy."
         ),
         evidence={
             "identity_provider_arn": result.resource_arn,
             "cluster_name": result.cluster_name,
             "provider_name": result.provider_name,
             "tags": result.tags,
+            "required_tag_keys": list(
+                result.required_tag_keys
+            ),
         },
         remediation=(
-            "Add at least one meaningful non-system tag to "
+            "Add the required non-system tag keys to "
             "the EKS identity provider configuration."
         ),
         compliance=[

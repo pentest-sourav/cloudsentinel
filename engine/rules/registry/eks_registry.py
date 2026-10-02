@@ -70,6 +70,9 @@ EKS_RULES = RuleRegistry(
                 "tags",
             ],
             check=check_eks_cluster_tagging,
+            parameters={
+                "required_tag_keys": [],
+            },
             build_finding=(
                 build_eks_cluster_tagging_finding
             ),
@@ -87,6 +90,9 @@ EKS_RULES = RuleRegistry(
                 "tags",
             ],
             check=check_eks_identity_provider_tagging,
+            parameters={
+                "required_tag_keys": [],
+            },
             build_finding=(
                 build_eks_identity_provider_tagging_finding
             ),

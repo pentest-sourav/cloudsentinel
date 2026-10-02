@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Literal
 
 
@@ -14,3 +14,4 @@ class RuleDefinition:
     check_arguments: list[str]
     check: Callable[..., Any]
     build_finding: Callable[..., Any]
+    parameters: dict[str, Any] = field(default_factory=dict)

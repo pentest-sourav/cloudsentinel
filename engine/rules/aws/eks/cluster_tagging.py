@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from engine.findings.model import Finding, Severity
 
-from engine.rules.aws.eks.common import has_non_system_tags
+from engine.rules.aws.eks.common import has_required_tag_keys
 
 
 @dataclass(frozen=True)
@@ -10,20 +10,34 @@ class EKSClusterTaggingResult:
     resource_id: str
     resource_arn: str
     tags: dict
+    required_tag_keys: tuple[str, ...]
 
 
 def check_eks_cluster_tagging(
     resource_id: str,
     resource_arn: str,
     tags: dict,
+    required_tag_keys: list[str] | tuple[str, ...] | None = None,
 ) -> EKSClusterTaggingResult | None:
-    if has_non_system_tags(tags):
+    from engine.rules.aws.eks.common import (
+        normalize_required_tag_keys,
+    )
+
+    normalized_required_tag_keys = normalize_required_tag_keys(
+        required_tag_keys,
+    )
+
+    if has_required_tag_keys(
+        tags,
+        normalized_required_tag_keys,
+    ):
         return None
 
     return EKSClusterTaggingResult(
         resource_id=resource_id,
         resource_arn=resource_arn,
         tags=tags,
+        required_tag_keys=normalized_required_tag_keys,
     )
 
 
@@ -38,14 +52,18 @@ def build_eks_cluster_tagging_finding(
         resource_type="eks_cluster",
         resource_id=result.resource_id,
         description=(
-            "The EKS cluster does not have a non-system tag."
+            "The EKS cluster does not satisfy the configured "
+            "required tagging policy."
         ),
         evidence={
             "cluster_arn": result.resource_arn,
             "tags": result.tags,
+            "required_tag_keys": list(
+                result.required_tag_keys
+            ),
         },
         remediation=(
-            "Add at least one meaningful non-system tag to "
+            "Add the required non-system tag keys to "
             "the EKS cluster."
         ),
         compliance=[
