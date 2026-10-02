@@ -15,6 +15,52 @@ class BatchResourceResult:
     evidence: dict
 
 
+def _normalize_required_tag_keys(
+    required_tag_keys: list[str] | None,
+) -> list[str]:
+    if not isinstance(required_tag_keys, list):
+        return []
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for key in required_tag_keys:
+        if not isinstance(key, str):
+            continue
+
+        key = key.strip()
+
+        if not key or key.lower().startswith("aws:"):
+            continue
+
+        if key not in seen:
+            seen.add(key)
+            normalized.append(key)
+
+    return normalized
+
+
+def _missing_required_tag_keys(
+    tags: dict[str, str] | None,
+    required_tag_keys: list[str],
+) -> list[str]:
+    if not required_tag_keys:
+        return []
+
+    present_keys = {
+        key
+        for key in (tags or {})
+        if isinstance(key, str)
+        and not key.lower().startswith("aws:")
+    }
+
+    return [
+        key
+        for key in required_tag_keys
+        if key not in present_keys
+    ]
+
+
 def _check_tags(
     *,
     resource_name: str,
@@ -23,6 +69,8 @@ def _check_tags(
     control_id: str,
     tag_data_available: bool,
     has_non_system_tags: bool,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | None = None,
     evidence: dict | None = None,
 ) -> BatchResourceResult | None:
     if not resource_name or not resource_arn:
@@ -31,7 +79,19 @@ def _check_tags(
     if not tag_data_available:
         return None
 
-    if has_non_system_tags:
+    normalized_required = _normalize_required_tag_keys(
+        required_tag_keys
+    )
+
+    missing_required = _missing_required_tag_keys(
+        tags,
+        normalized_required,
+    )
+
+    if normalized_required:
+        if not missing_required:
+            return None
+    elif has_non_system_tags:
         return None
 
     return BatchResourceResult(
@@ -39,9 +99,15 @@ def _check_tags(
         resource_arn=resource_arn,
         resource_type=resource_type,
         control_id=control_id,
-        reason="missing_non_system_tags",
+        reason=(
+            "missing_required_tag_keys"
+            if normalized_required
+            else "missing_non_system_tags"
+        ),
         evidence={
-            "has_non_system_tags": False,
+            "has_non_system_tags": has_non_system_tags,
+            "required_tag_keys": normalized_required,
+            "missing_tag_keys": missing_required,
             **(evidence or {}),
         },
     )
@@ -67,7 +133,7 @@ def _finding(
         description=(
             f"AWS Batch resource "
             f"{result.resource_name} does not have "
-            f"any non-system tags required by "
+            f"the required tags for "
             f"Security Hub {result.control_id}."
         ),
         evidence={
@@ -79,11 +145,9 @@ def _finding(
         },
         remediation=(
             "Add the required organizational tags to "
-            "the AWS Batch resource. CloudSentinel "
-            "evaluates baseline presence of at least "
-            "one non-system tag; Security Hub can "
-            "additionally enforce configured "
-            "requiredKeyTags."
+            "the AWS Batch resource. When requiredTagKeys "
+            "is configured, all configured keys must be "
+            "present using case-sensitive matching."
         ),
         compliance=[
             f"AWS Security Hub {result.control_id}",
@@ -97,6 +161,8 @@ def check_batch_job_queue_tags(
     resource_type: str,
     tag_data_available: bool,
     has_non_system_tags: bool,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | None = None,
 ) -> BatchResourceResult | None:
     return _check_tags(
         resource_name=resource_name,
@@ -105,6 +171,8 @@ def check_batch_job_queue_tags(
         control_id="Batch.1",
         tag_data_available=tag_data_available,
         has_non_system_tags=has_non_system_tags,
+        tags=tags,
+        required_tag_keys=required_tag_keys,
     )
 
 
@@ -120,6 +188,8 @@ def check_batch_scheduling_policy_tags(
     resource_type: str,
     tag_data_available: bool,
     has_non_system_tags: bool,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | None = None,
 ) -> BatchResourceResult | None:
     return _check_tags(
         resource_name=resource_name,
@@ -128,6 +198,8 @@ def check_batch_scheduling_policy_tags(
         control_id="Batch.2",
         tag_data_available=tag_data_available,
         has_non_system_tags=has_non_system_tags,
+        tags=tags,
+        required_tag_keys=required_tag_keys,
     )
 
 
@@ -143,6 +215,8 @@ def check_batch_compute_environment_tags(
     resource_type: str,
     tag_data_available: bool,
     has_non_system_tags: bool,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | None = None,
 ) -> BatchResourceResult | None:
     return _check_tags(
         resource_name=resource_name,
@@ -151,6 +225,8 @@ def check_batch_compute_environment_tags(
         control_id="Batch.3",
         tag_data_available=tag_data_available,
         has_non_system_tags=has_non_system_tags,
+        tags=tags,
+        required_tag_keys=required_tag_keys,
     )
 
 
@@ -167,6 +243,8 @@ def check_batch_compute_resource_tags(
     tag_data_available: bool,
     has_non_system_tags: bool,
     compute_resource_type: str | None = None,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | None = None,
 ) -> BatchResourceResult | None:
     return _check_tags(
         resource_name=resource_name,
@@ -175,6 +253,8 @@ def check_batch_compute_resource_tags(
         control_id="Batch.4",
         tag_data_available=tag_data_available,
         has_non_system_tags=has_non_system_tags,
+        tags=tags,
+        required_tag_keys=required_tag_keys,
         evidence={
             "compute_resource_type": compute_resource_type,
         },

@@ -25,7 +25,12 @@ BATCH_RULES = RuleRegistry(
                 "resource_type",
                 "tag_data_available",
                 "has_non_system_tags",
+                "tags",
+                "required_tag_keys",
             ],
+            parameters={
+                "required_tag_keys": [],
+            },
             check=check_batch_job_queue_tags,
             build_finding=(
                 build_batch_job_queue_tags_finding
@@ -42,7 +47,12 @@ BATCH_RULES = RuleRegistry(
                 "resource_type",
                 "tag_data_available",
                 "has_non_system_tags",
+                "tags",
+                "required_tag_keys",
             ],
+            parameters={
+                "required_tag_keys": [],
+            },
             check=check_batch_scheduling_policy_tags,
             build_finding=(
                 build_batch_scheduling_policy_tags_finding
@@ -59,7 +69,12 @@ BATCH_RULES = RuleRegistry(
                 "resource_type",
                 "tag_data_available",
                 "has_non_system_tags",
+                "tags",
+                "required_tag_keys",
             ],
+            parameters={
+                "required_tag_keys": [],
+            },
             check=check_batch_compute_environment_tags,
             build_finding=(
                 build_batch_compute_environment_tags_finding
@@ -77,7 +92,12 @@ BATCH_RULES = RuleRegistry(
                 "tag_data_available",
                 "has_non_system_tags",
                 "compute_resource_type",
+                "tags",
+                "required_tag_keys",
             ],
+            parameters={
+                "required_tag_keys": [],
+            },
             check=check_batch_compute_resource_tags,
             build_finding=(
                 build_batch_compute_resource_tags_finding

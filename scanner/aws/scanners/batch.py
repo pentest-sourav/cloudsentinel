@@ -13,11 +13,16 @@ from scanner.aws.services.batch import BatchService
 class BatchScanner:
     """Runs registered AWS Batch security rules."""
 
-    def __init__(self, service: BatchService):
+    def __init__(
+        self,
+        service: BatchService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = BatchDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=BATCH_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

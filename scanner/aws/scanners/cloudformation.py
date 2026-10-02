@@ -17,11 +17,16 @@ from scanner.aws.services.cloudformation import (
 class CloudFormationScanner:
     """Runs registered AWS CloudFormation security rules."""
 
-    def __init__(self, service: CloudFormationService):
+    def __init__(
+        self,
+        service: CloudFormationService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = CloudFormationDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=CLOUDFORMATION_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

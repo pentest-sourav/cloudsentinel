@@ -197,7 +197,11 @@ CLOUDTRAIL_RULES = RuleRegistry(
                 "trail_arn",
                 "name",
                 "tags",
+                "required_tag_keys",
             ],
+            parameters={
+                "required_tag_keys": [],
+            },
             check=check_cloudtrail_tagging,
             build_finding=build_cloudtrail_tagging_finding,
         ),

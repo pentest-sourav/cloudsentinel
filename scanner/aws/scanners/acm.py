@@ -14,11 +14,16 @@ class ACMScanner:
     Runs registered ACM security rules.
     """
 
-    def __init__(self, service: ACMService):
+    def __init__(
+        self,
+        service: ACMService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = ACMDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=ACM_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

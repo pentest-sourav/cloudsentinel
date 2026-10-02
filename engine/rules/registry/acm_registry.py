@@ -62,8 +62,12 @@ ACM_RULES = RuleRegistry(
                 "resource_id",
                 "resource_arn",
                 "tags",
+                "required_tag_keys",
             ],
             check=check_acm_tagging,
+            parameters={
+                "required_tag_keys": [],
+            },
             build_finding=(
                 build_acm_tagging_finding
             ),

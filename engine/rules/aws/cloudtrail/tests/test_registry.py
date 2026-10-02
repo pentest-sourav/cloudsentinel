@@ -179,6 +179,7 @@ def test_cloudtrail_registry_tagging_rule_has_expected_arguments():
         "trail_arn",
         "name",
         "tags",
+        "required_tag_keys",
     ]
 
     assert callable(rule.check)

@@ -11,6 +11,52 @@ class CloudFormationStackResult:
     evidence: dict
 
 
+def _normalize_required_tag_keys(
+    required_tag_keys: list[str] | None,
+) -> list[str]:
+    if not isinstance(required_tag_keys, list):
+        return []
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+
+    for key in required_tag_keys:
+        if not isinstance(key, str):
+            continue
+
+        key = key.strip()
+
+        if not key or key.lower().startswith("aws:"):
+            continue
+
+        if key not in seen:
+            seen.add(key)
+            normalized.append(key)
+
+    return normalized
+
+
+def _missing_required_tag_keys(
+    tags: dict[str, str] | None,
+    required_tag_keys: list[str],
+) -> list[str]:
+    if not required_tag_keys:
+        return []
+
+    present_keys = {
+        key
+        for key in (tags or {})
+        if isinstance(key, str)
+        and not key.lower().startswith("aws:")
+    }
+
+    return [
+        key
+        for key in required_tag_keys
+        if key not in present_keys
+    ]
+
+
 def _finding(
     result: CloudFormationStackResult,
     rule_id: str,
@@ -48,6 +94,8 @@ def check_cloudformation_stack_tags(
     stack_id: str,
     tag_data_available: bool,
     has_non_system_tags: bool,
+    tags: dict[str, str] | None = None,
+    required_tag_keys: list[str] | None = None,
 ) -> CloudFormationStackResult | None:
     if not stack_name or not stack_id:
         return None
@@ -55,15 +103,33 @@ def check_cloudformation_stack_tags(
     if not tag_data_available:
         return None
 
-    if has_non_system_tags:
+    normalized_required = _normalize_required_tag_keys(
+        required_tag_keys
+    )
+
+    missing_required = _missing_required_tag_keys(
+        tags,
+        normalized_required,
+    )
+
+    if normalized_required:
+        if not missing_required:
+            return None
+    elif has_non_system_tags:
         return None
 
     return CloudFormationStackResult(
         stack_name=stack_name,
         stack_id=stack_id,
-        reason="missing_non_system_tags",
+        reason=(
+            "missing_required_tag_keys"
+            if normalized_required
+            else "missing_non_system_tags"
+        ),
         evidence={
-            "has_non_system_tags": False,
+            "has_non_system_tags": has_non_system_tags,
+            "required_tag_keys": normalized_required,
+            "missing_tag_keys": missing_required,
         },
     )
 
@@ -71,6 +137,29 @@ def check_cloudformation_stack_tags(
 def build_cloudformation_stack_tags_finding(
     result: CloudFormationStackResult,
 ) -> Finding:
+    required = result.evidence.get(
+        "required_tag_keys",
+        [],
+    )
+
+    missing = result.evidence.get(
+        "missing_tag_keys",
+        [],
+    )
+
+    if required:
+        remediation = (
+            "Add the missing required tag keys to the "
+            "CloudFormation stack: "
+            + ", ".join(missing)
+        )
+    else:
+        remediation = (
+            "Add the required organizational tags to the "
+            "CloudFormation stack. CloudSentinel evaluates "
+            "baseline presence of at least one non-system tag."
+        )
+
     return _finding(
         result,
         "CS-AWS-CLOUDFORMATION-002",
@@ -78,15 +167,10 @@ def build_cloudformation_stack_tags_finding(
         Severity.LOW,
         (
             f"CloudFormation stack {result.stack_name} "
-            "does not have any non-system tags."
+            "does not satisfy the configured tagging "
+            "requirements."
         ),
-        (
-            "Add the required organizational tags to the "
-            "CloudFormation stack. CloudSentinel evaluates "
-            "baseline presence of at least one non-system tag; "
-            "Security Hub CloudFormation.2 can additionally "
-            "enforce configured requiredTagKeys."
-        ),
+        remediation,
     )
 
 

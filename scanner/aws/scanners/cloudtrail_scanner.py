@@ -20,8 +20,12 @@ class CloudTrailScanner:
             handlers=CLOUDTRAIL_DATA_SOURCE_HANDLERS
         )
 
-    def scan(self) -> list:
+    def scan(
+        self,
+        rule_parameters: dict[str, dict] | None = None,
+    ) -> list:
         return self.executor.execute_registry(
             registry=CLOUDTRAIL_RULES,
             collector=self.collector,
+            rule_parameters=rule_parameters,
         )

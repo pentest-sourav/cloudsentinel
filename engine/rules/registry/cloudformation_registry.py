@@ -22,8 +22,11 @@ CLOUDFORMATION_RULES = RuleRegistry(
                 "stack_id",
                 "tag_data_available",
                 "has_non_system_tags",
+                "tags",
+                "required_tag_keys",
             ],
             check=check_cloudformation_stack_tags,
+            parameters={"required_tag_keys": []},
             build_finding=build_cloudformation_stack_tags_finding,
         ),
         RuleDefinition(
