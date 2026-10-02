@@ -84,6 +84,9 @@ EFS_RULES = RuleRegistry(
                 "has_non_system_tags",
             ],
             check=check_efs_access_point_tags,
+            parameters={
+                "required_tag_keys": [],
+            },
             build_finding=(
                 build_efs_access_point_tags_finding
             ),

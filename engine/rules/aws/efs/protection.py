@@ -228,9 +228,44 @@ def check_efs_access_point_tags(
     resource_id: str,
     tags: list[dict[str, str]],
     has_non_system_tags: bool,
+    required_tag_keys: list[str] | None = None,
 ) -> EFSResult | None:
     if not resource_id:
         return None
+
+    configured_keys = (
+        required_tag_keys
+        if isinstance(required_tag_keys, list)
+        else []
+    )
+
+    present_keys = {
+        tag.get("Key")
+        for tag in tags
+        if isinstance(tag, dict)
+        and isinstance(tag.get("Key"), str)
+    }
+
+    if configured_keys:
+        missing_keys = [
+            key
+            for key in configured_keys
+            if key not in present_keys
+        ]
+
+        if not missing_keys:
+            return None
+
+        return EFSResult(
+            resource_id=resource_id,
+            resource_type="efs_access_point",
+            details={
+                "tags": tags,
+                "has_non_system_tags": has_non_system_tags,
+                "required_tag_keys": configured_keys,
+                "missing_tag_keys": missing_keys,
+            },
+        )
 
     if has_non_system_tags:
         return None
@@ -241,6 +276,8 @@ def check_efs_access_point_tags(
         details={
             "tags": tags,
             "has_non_system_tags": False,
+            "required_tag_keys": [],
+            "missing_tag_keys": [],
         },
     )
 
