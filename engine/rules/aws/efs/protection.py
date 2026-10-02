@@ -222,3 +222,54 @@ def build_efs_access_point_user_identity_finding(
             "PCI DSS v4.0.1/7.3.1",
         ],
     )
+
+
+def check_efs_access_point_tags(
+    resource_id: str,
+    tags: list[dict[str, str]],
+    has_non_system_tags: bool,
+) -> EFSResult | None:
+    if not resource_id:
+        return None
+
+    if has_non_system_tags:
+        return None
+
+    return EFSResult(
+        resource_id=resource_id,
+        resource_type="efs_access_point",
+        details={
+            "tags": tags,
+            "has_non_system_tags": False,
+        },
+    )
+
+
+def build_efs_access_point_tags_finding(
+    result: EFSResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-EFS-005",
+        title="EFS access point is not tagged",
+        severity=Severity.LOW,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The EFS access point {result.resource_id} "
+            "does not have any non-system tags."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Add the required organizational tags to "
+            "the EFS access point. If your organization "
+            "uses required tag keys, ensure all required "
+            "keys are present."
+        ),
+        compliance=[
+            "AWS Security Hub EFS.5",
+        ],
+    )

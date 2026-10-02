@@ -168,6 +168,16 @@ class EFSDataCollector:
             if not isinstance(posix_user, dict):
                 posix_user = {}
 
+            raw_tags = self._normalize_tags(
+                access_point.get("Tags")
+            )
+
+            tags = [
+                tag
+                for tag in raw_tags
+                if not tag["Key"].startswith("aws:")
+            ]
+
             normalized.append(
                 {
                     "resource_id": access_point_id,
@@ -189,6 +199,8 @@ class EFSDataCollector:
                     "secondary_gids": posix_user.get(
                         "SecondaryGids"
                     ),
+                    "tags": tags,
+                    "has_non_system_tags": bool(tags),
                 }
             )
 

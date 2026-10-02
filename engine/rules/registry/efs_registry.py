@@ -1,9 +1,11 @@
 from engine.rules.aws.efs.protection import (
     build_efs_access_point_root_directory_finding,
+    build_efs_access_point_tags_finding,
     build_efs_access_point_user_identity_finding,
     build_efs_automatic_backups_finding,
     build_efs_encryption_finding,
     check_efs_access_point_root_directory,
+    check_efs_access_point_tags,
     check_efs_access_point_user_identity,
     check_efs_automatic_backups,
     check_efs_encryption,
@@ -67,6 +69,21 @@ EFS_RULES = RuleRegistry(
             check=check_efs_access_point_user_identity,
             build_finding=(
                 build_efs_access_point_user_identity_finding
+            ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-EFS-005",
+            name="efs_access_point_tagging",
+            data_source="efs_access_points",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "tags",
+                "has_non_system_tags",
+            ],
+            check=check_efs_access_point_tags,
+            build_finding=(
+                build_efs_access_point_tags_finding
             ),
         ),
     ]

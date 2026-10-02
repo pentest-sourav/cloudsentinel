@@ -40,4 +40,5 @@ def test_efs_scanner_executes_registered_rules():
         "CS-AWS-EFS-002",
         "CS-AWS-EFS-003",
         "CS-AWS-EFS-004",
+        "CS-AWS-EFS-005",
     }

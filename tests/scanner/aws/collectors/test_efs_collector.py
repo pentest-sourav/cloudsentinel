@@ -79,6 +79,16 @@ def test_collect_access_points_normalizes_root_and_posix_user():
                 "Gid": 1000,
                 "SecondaryGids": [1001],
             },
+            "Tags": [
+                {
+                    "Key": "Environment",
+                    "Value": "Production",
+                },
+                {
+                    "Key": "aws:createdBy",
+                    "Value": "system",
+                },
+            ],
         },
     ]
 
@@ -98,6 +108,49 @@ def test_collect_access_points_normalizes_root_and_posix_user():
             "posix_uid": 1000,
             "posix_gid": 1000,
             "secondary_gids": [1001],
+            "tags": [
+                {
+                    "Key": "Environment",
+                    "Value": "Production",
+                },
+            ],
+            "has_non_system_tags": True,
+        },
+    ]
+
+
+def test_collect_access_points_detects_missing_non_system_tags():
+    service = Mock()
+
+    service.list_access_points.return_value = [
+        {
+            "AccessPointId": "ap-456",
+            "Tags": [
+                {
+                    "Key": "aws:createdBy",
+                    "Value": "system",
+                },
+            ],
+        },
+    ]
+
+    collector = EFSDataCollector(service)
+
+    result = collector.collect_access_points()
+
+    assert result == [
+        {
+            "resource_id": "ap-456",
+            "resource_type": "efs_access_point",
+            "resource_arn": None,
+            "file_system_id": None,
+            "root_directory_path": None,
+            "root_directory_creation_info": None,
+            "posix_uid": None,
+            "posix_gid": None,
+            "secondary_gids": None,
+            "tags": [],
+            "has_non_system_tags": False,
         },
     ]
 

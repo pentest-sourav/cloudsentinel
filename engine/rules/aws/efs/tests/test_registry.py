@@ -15,6 +15,7 @@ def test_efs_registry_contains_expected_rules():
         "CS-AWS-EFS-002",
         "CS-AWS-EFS-003",
         "CS-AWS-EFS-004",
+        "CS-AWS-EFS-005",
     ]
 
 
