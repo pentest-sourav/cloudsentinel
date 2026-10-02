@@ -48,18 +48,45 @@ class BatchService:
 
     def describe_job_queues(self) -> list[dict[str, Any]]:
         try:
-            response = self.batch_client.describe_job_queues()
+            job_queues: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            items = response.get(
-                "jobQueues",
-                [],
-            )
+            while True:
+                request: dict[str, Any] = {
+                    "maxResults": 100,
+                }
 
-            return [
-                item
-                for item in items
-                if isinstance(item, dict)
-            ]
+                if next_token:
+                    request["nextToken"] = next_token
+
+                response = self.batch_client.describe_job_queues(
+                    **request
+                )
+
+                items = response.get(
+                    "jobQueues",
+                    [],
+                )
+
+                if isinstance(items, list):
+                    job_queues.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                token = response.get("nextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
+
+            return job_queues
 
         except (ClientError, BotoCoreError) as exc:
             self._raise_api_error(
@@ -146,21 +173,48 @@ class BatchService:
         self,
     ) -> list[dict[str, Any]]:
         try:
-            response = (
-                self.batch_client
-                .describe_compute_environments()
-            )
+            compute_environments: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            items = response.get(
-                "computeEnvironments",
-                [],
-            )
+            while True:
+                request: dict[str, Any] = {
+                    "maxResults": 100,
+                }
 
-            return [
-                item
-                for item in items
-                if isinstance(item, dict)
-            ]
+                if next_token:
+                    request["nextToken"] = next_token
+
+                response = (
+                    self.batch_client
+                    .describe_compute_environments(
+                        **request
+                    )
+                )
+
+                items = response.get(
+                    "computeEnvironments",
+                    [],
+                )
+
+                if isinstance(items, list):
+                    compute_environments.extend(
+                        item
+                        for item in items
+                        if isinstance(item, dict)
+                    )
+
+                token = response.get("nextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
+
+            return compute_environments
 
         except (ClientError, BotoCoreError) as exc:
             self._raise_api_error(

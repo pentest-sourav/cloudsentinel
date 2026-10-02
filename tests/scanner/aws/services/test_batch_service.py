@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 from botocore.exceptions import ClientError
@@ -20,17 +20,27 @@ def _client_error(
     )
 
 
-def test_describe_job_queues():
+def test_describe_job_queues_paginates():
     session = Mock()
     client = Mock()
 
-    client.describe_job_queues.return_value = {
-        "jobQueues": [
-            {
-                "jobQueueArn": "arn:queue",
-            }
-        ]
-    }
+    client.describe_job_queues.side_effect = [
+        {
+            "jobQueues": [
+                {
+                    "jobQueueArn": "arn:queue1",
+                }
+            ],
+            "nextToken": "page-2",
+        },
+        {
+            "jobQueues": [
+                {
+                    "jobQueueArn": "arn:queue2",
+                }
+            ],
+        },
+    ]
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
@@ -42,8 +52,19 @@ def test_describe_job_queues():
 
     assert service.describe_job_queues() == [
         {
-            "jobQueueArn": "arn:queue",
-        }
+            "jobQueueArn": "arn:queue1",
+        },
+        {
+            "jobQueueArn": "arn:queue2",
+        },
+    ]
+
+    assert client.describe_job_queues.call_args_list == [
+        call(maxResults=100),
+        call(
+            maxResults=100,
+            nextToken="page-2",
+        ),
     ]
 
 
@@ -128,17 +149,27 @@ def test_describe_scheduling_policies():
     )
 
 
-def test_describe_compute_environments():
+def test_describe_compute_environments_paginates():
     session = Mock()
     client = Mock()
 
-    client.describe_compute_environments.return_value = {
-        "computeEnvironments": [
-            {
-                "computeEnvironmentArn": "arn:env",
-            }
-        ]
-    }
+    client.describe_compute_environments.side_effect = [
+        {
+            "computeEnvironments": [
+                {
+                    "computeEnvironmentArn": "arn:env1",
+                }
+            ],
+            "nextToken": "page-2",
+        },
+        {
+            "computeEnvironments": [
+                {
+                    "computeEnvironmentArn": "arn:env2",
+                }
+            ],
+        },
+    ]
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
@@ -150,9 +181,63 @@ def test_describe_compute_environments():
 
     assert service.describe_compute_environments() == [
         {
-            "computeEnvironmentArn": "arn:env",
-        }
+            "computeEnvironmentArn": "arn:env1",
+        },
+        {
+            "computeEnvironmentArn": "arn:env2",
+        },
     ]
+
+    assert client.describe_compute_environments.call_args_list == [
+        call(maxResults=100),
+        call(
+            maxResults=100,
+            nextToken="page-2",
+        ),
+    ]
+
+
+def test_describe_job_queues_stops_on_repeated_next_token():
+    session = Mock()
+    client = Mock()
+
+    client.describe_job_queues.side_effect = [
+        {
+            "jobQueues": [
+                {
+                    "jobQueueArn": "arn:queue",
+                }
+            ],
+            "nextToken": "same-token",
+        },
+        {
+            "jobQueues": [
+                {
+                    "jobQueueArn": "arn:queue2",
+                }
+            ],
+            "nextToken": "same-token",
+        },
+    ]
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(
+            "scanner.aws.services.batch.create_aws_client",
+            lambda *_: client,
+        )
+
+        service = BatchService(session)
+
+    assert service.describe_job_queues() == [
+        {
+            "jobQueueArn": "arn:queue",
+        },
+        {
+            "jobQueueArn": "arn:queue2",
+        },
+    ]
+
+    assert client.describe_job_queues.call_count == 2
 
 
 def test_list_tags_for_resource():
