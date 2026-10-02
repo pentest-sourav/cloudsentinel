@@ -9,8 +9,17 @@ def check_api_gateway_execution_logging(
     api_protocol_type: str,
     logging_level: str | None,
     resource: dict,
+    required_logging_level: str | None = None,
 ) -> dict | None:
-    if logging_level in {"ERROR", "INFO"}:
+    allowed_levels = {"ERROR", "INFO"}
+
+    if required_logging_level is not None:
+        if (
+            logging_level == required_logging_level
+            and logging_level in allowed_levels
+        ):
+            return None
+    elif logging_level in allowed_levels:
         return None
 
     return {
@@ -19,6 +28,7 @@ def check_api_gateway_execution_logging(
             "resource_arn": resource_arn,
             "api_protocol_type": api_protocol_type,
             "logging_level": logging_level,
+            "required_logging_level": required_logging_level,
         },
     }
 
@@ -37,11 +47,11 @@ def build_api_gateway_execution_logging_finding(
         result=result,
         description=(
             "The API Gateway REST or WebSocket stage does not "
-            "have execution logging configured at ERROR or INFO."
+            "satisfy the configured execution logging requirement."
         ),
         remediation=(
             "Configure API Gateway execution logging with "
-            "logging level ERROR or INFO."
+            "the required logging level."
         ),
         compliance="AWS Security Hub APIGateway.1",
     )

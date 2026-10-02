@@ -54,6 +54,9 @@ APIGATEWAY_RULES = RuleRegistry(
                 "resource",
             ],
             check=check_api_gateway_execution_logging,
+            parameters={
+                "required_logging_level": None,
+            },
             build_finding=(
                 build_api_gateway_execution_logging_finding
             ),
@@ -130,6 +133,9 @@ APIGATEWAY_RULES = RuleRegistry(
                 "resource",
             ],
             check=check_api_gateway_route_authorization,
+            parameters={
+                "required_authorization_type": None,
+            },
             build_finding=(
                 build_api_gateway_route_authorization_finding
             ),
