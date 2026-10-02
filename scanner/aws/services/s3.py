@@ -11,17 +11,34 @@ class S3Service:
         self.s3_client = create_aws_client(session, "s3")
 
     def list_buckets(self) -> list[dict[str, Any]]:
-        response = self.s3_client.list_buckets()
+        buckets: list[dict[str, Any]] = []
+        continuation_token: str | None = None
 
-        buckets = []
+        while True:
+            request: dict[str, Any] = {}
 
-        for bucket in response.get("Buckets", []):
-            buckets.append(
-                {
-                    "name": bucket["Name"],
-                    "creation_date": bucket.get("CreationDate"),
-                }
-            )
+            if continuation_token:
+                request["ContinuationToken"] = continuation_token
+
+            response = self.s3_client.list_buckets(**request)
+
+            for bucket in response.get("Buckets", []):
+                buckets.append(
+                    {
+                        "name": bucket["Name"],
+                        "creation_date": bucket.get("CreationDate"),
+                    }
+                )
+
+            next_token = response.get("ContinuationToken")
+
+            if not isinstance(next_token, str) or not next_token:
+                break
+
+            if next_token == continuation_token:
+                break
+
+            continuation_token = next_token
 
         return buckets
 

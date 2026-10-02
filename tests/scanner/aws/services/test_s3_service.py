@@ -6,22 +6,33 @@ from botocore.exceptions import ClientError
 from scanner.aws.services.s3 import S3Service
 
 
-def test_list_buckets():
+def test_list_buckets_handles_multiple_pages():
     fake_session = Mock(spec=boto3.Session)
     fake_s3 = Mock()
 
-    fake_s3.list_buckets.return_value = {
-        "Buckets": [
-            {
-                "Name": "cloudsentinel-test-bucket",
-                "CreationDate": "2026-09-16T10:00:00Z",
-            },
-            {
-                "Name": "cloudsentinel-logs",
-                "CreationDate": "2026-09-15T10:00:00Z",
-            },
-        ]
-    }
+    fake_s3.list_buckets.side_effect = [
+        {
+            "Buckets": [
+                {
+                    "Name": "cloudsentinel-test-bucket",
+                    "CreationDate": "2026-09-16T10:00:00Z",
+                },
+                {
+                    "Name": "cloudsentinel-logs",
+                    "CreationDate": "2026-09-15T10:00:00Z",
+                },
+            ],
+            "ContinuationToken": "page-2",
+        },
+        {
+            "Buckets": [
+                {
+                    "Name": "cloudsentinel-archive",
+                    "CreationDate": "2026-09-14T10:00:00Z",
+                },
+            ],
+        },
+    ]
 
     fake_session.client.return_value = fake_s3
 
@@ -29,7 +40,7 @@ def test_list_buckets():
 
     buckets = service.list_buckets()
 
-    assert len(buckets) == 2
+    assert len(buckets) == 3
 
     assert buckets[0]["name"] == "cloudsentinel-test-bucket"
     assert buckets[0]["creation_date"] == "2026-09-16T10:00:00Z"
@@ -37,7 +48,14 @@ def test_list_buckets():
     assert buckets[1]["name"] == "cloudsentinel-logs"
     assert buckets[1]["creation_date"] == "2026-09-15T10:00:00Z"
 
-    fake_s3.list_buckets.assert_called_once()
+    assert buckets[2]["name"] == "cloudsentinel-archive"
+    assert buckets[2]["creation_date"] == "2026-09-14T10:00:00Z"
+
+    assert fake_s3.list_buckets.call_count == 2
+    fake_s3.list_buckets.assert_any_call()
+    fake_s3.list_buckets.assert_any_call(
+        ContinuationToken="page-2"
+    )
 
 
 def test_get_public_access_block():

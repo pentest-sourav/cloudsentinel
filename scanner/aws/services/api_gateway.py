@@ -306,20 +306,43 @@ class APIGatewayService:
         api_id: str,
     ) -> list[dict[str, Any]]:
         try:
-            response = self.apigatewayv2_client.get_stages(
-                ApiId=api_id,
-            )
+            stages: list[dict[str, Any]] = []
+            next_token: str | None = None
 
-            stages = response.get("Items", [])
+            while True:
+                kwargs: dict[str, Any] = {
+                    "ApiId": api_id,
+                    "MaxResults": "100",
+                }
 
-            if not isinstance(stages, list):
-                return []
+                if next_token:
+                    kwargs["NextToken"] = next_token
 
-            return [
-                stage
-                for stage in stages
-                if isinstance(stage, dict)
-            ]
+                response = self.apigatewayv2_client.get_stages(
+                    **kwargs
+                )
+
+                items = response.get("Items", [])
+
+                if isinstance(items, list):
+                    stages.extend(
+                        stage
+                        for stage in items
+                        if isinstance(stage, dict)
+                    )
+
+                token = response.get("NextToken")
+
+                if (
+                    not isinstance(token, str)
+                    or not token
+                    or token == next_token
+                ):
+                    break
+
+                next_token = token
+
+            return stages
 
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(
