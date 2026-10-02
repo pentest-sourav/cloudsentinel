@@ -761,3 +761,201 @@ class VPCDataCollector:
                 )
 
         return normalized
+
+
+def _vpc_tagging_records(
+    resources: list[dict[str, Any]],
+    id_key: str,
+    resource_type: str,
+) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+
+    for resource in resources:
+        if not isinstance(resource, dict):
+            continue
+
+        resource_id = resource.get(id_key)
+
+        if not resource_id:
+            continue
+
+        tags = resource.get("Tags", [])
+
+        if not isinstance(tags, (list, dict)):
+            tags = []
+
+        normalized.append(
+            {
+                "resource_id": resource_id,
+                "resource_type": resource_type,
+                "tags": tags,
+            }
+        )
+
+    return normalized
+
+
+def collect_ec2_eni_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    return _vpc_tagging_records(
+        collector._get_network_interfaces(),
+        "NetworkInterfaceId",
+        "network_interface",
+    )
+
+
+def collect_ec2_igw_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    return _vpc_tagging_records(
+        collector._get_internet_gateways(),
+        "InternetGatewayId",
+        "internet_gateway",
+    )
+
+
+def collect_ec2_nat_gateway_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    resources = collector.service.describe_nat_gateways()
+
+    if not isinstance(resources, list):
+        return []
+
+    return _vpc_tagging_records(
+        resources,
+        "NatGatewayId",
+        "nat_gateway",
+    )
+
+
+def collect_ec2_nacl_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    return _vpc_tagging_records(
+        collector._get_network_acls(),
+        "NetworkAclId",
+        "network_acl",
+    )
+
+
+def collect_ec2_route_table_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    resources = collector.service.describe_route_tables()
+
+    if not isinstance(resources, list):
+        return []
+
+    return _vpc_tagging_records(
+        resources,
+        "RouteTableId",
+        "route_table",
+    )
+
+
+def collect_ec2_security_group_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    resources = collector.service.describe_default_security_groups()
+
+    # Do not use only default SGs for EC2.43.
+    # Fetching all SGs is required.
+    resources = collector.service.ec2_client.get_paginator(
+        "describe_security_groups"
+    ).paginate()
+
+    groups: list[dict[str, Any]] = []
+
+    for page in resources:
+        groups.extend(
+            page.get("SecurityGroups", [])
+        )
+
+    return _vpc_tagging_records(
+        groups,
+        "GroupId",
+        "security_group",
+    )
+
+
+def collect_ec2_subnet_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    return _vpc_tagging_records(
+        collector._get_subnets(),
+        "SubnetId",
+        "subnet",
+    )
+
+
+def collect_ec2_vpc_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    return _vpc_tagging_records(
+        collector._get_vpcs(),
+        "VpcId",
+        "vpc",
+    )
+
+
+def collect_ec2_flow_log_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    return _vpc_tagging_records(
+        collector._get_flow_logs(),
+        "FlowLogId",
+        "vpc_flow_log",
+    )
+
+
+def collect_ec2_vpc_peering_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    resources = (
+        collector.service
+        .describe_vpc_peering_connections()
+    )
+
+    if not isinstance(resources, list):
+        return []
+
+    return _vpc_tagging_records(
+        resources,
+        "VpcPeeringConnectionId",
+        "vpc_peering_connection",
+    )
+
+
+def collect_ec2_vpn_gateway_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    resources = collector.service.describe_vpn_gateways()
+
+    if not isinstance(resources, list):
+        return []
+
+    return _vpc_tagging_records(
+        resources,
+        "VpnGatewayId",
+        "vpn_gateway",
+    )
+
+
+def collect_ec2_transit_gateway_tagging(
+    collector: VPCDataCollector,
+) -> list[dict[str, Any]]:
+    resources = (
+        collector.service
+        .describe_transit_gateways()
+    )
+
+    if not isinstance(resources, list):
+        return []
+
+    return _vpc_tagging_records(
+        resources,
+        "TransitGatewayId",
+        "transit_gateway",
+    )

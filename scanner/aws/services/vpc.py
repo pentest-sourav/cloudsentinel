@@ -436,3 +436,115 @@ class VPCService:
                 f"AWS SDK error during Network ACL discovery: "
                 f"{exc}"
             ) from exc
+
+
+def _describe_vpc_tagging_resources(
+    self,
+    operation_name: str,
+    result_key: str,
+    error_name: str,
+    **kwargs: Any,
+) -> list[dict[str, Any]]:
+    try:
+        paginator = self.ec2_client.get_paginator(
+            operation_name
+        )
+
+        resources: list[dict[str, Any]] = []
+
+        for page in paginator.paginate(**kwargs):
+            entries = page.get(result_key, [])
+
+            if isinstance(entries, list):
+                resources.extend(
+                    entry
+                    for entry in entries
+                    if isinstance(entry, dict)
+                )
+
+        return resources
+
+    except ClientError as exc:
+        error = exc.response.get("Error", {})
+        code = error.get("Code", "UnknownError")
+        message = error.get(
+            "Message",
+            "AWS request failed",
+        )
+
+        raise RuntimeError(
+            f"{error_name} discovery failed: "
+            f"{code}: {message}"
+        ) from exc
+
+    except BotoCoreError as exc:
+        raise RuntimeError(
+            f"AWS SDK error during {error_name} discovery: "
+            f"{exc}"
+        ) from exc
+
+
+def describe_nat_gateways(
+    self,
+) -> list[dict[str, Any]]:
+    return _describe_vpc_tagging_resources(
+        self,
+        "describe_nat_gateways",
+        "NatGateways",
+        "NAT gateway",
+    )
+
+
+def describe_route_tables(
+    self,
+) -> list[dict[str, Any]]:
+    return _describe_vpc_tagging_resources(
+        self,
+        "describe_route_tables",
+        "RouteTables",
+        "route table",
+    )
+
+
+def describe_vpc_peering_connections(
+    self,
+) -> list[dict[str, Any]]:
+    return _describe_vpc_tagging_resources(
+        self,
+        "describe_vpc_peering_connections",
+        "VpcPeeringConnections",
+        "VPC peering connection",
+    )
+
+
+def describe_vpn_gateways(
+    self,
+) -> list[dict[str, Any]]:
+    return _describe_vpc_tagging_resources(
+        self,
+        "describe_vpn_gateways",
+        "VpnGateways",
+        "VPN gateway",
+    )
+
+
+def describe_transit_gateways(
+    self,
+) -> list[dict[str, Any]]:
+    return _describe_vpc_tagging_resources(
+        self,
+        "describe_transit_gateways",
+        "TransitGateways",
+        "transit gateway",
+    )
+
+
+VPCService.describe_nat_gateways = describe_nat_gateways
+VPCService.describe_route_tables = describe_route_tables
+VPCService.describe_vpc_peering_connections = (
+    describe_vpc_peering_connections
+)
+VPCService.describe_vpn_gateways = describe_vpn_gateways
+VPCService.describe_transit_gateways = (
+    describe_transit_gateways
+)

@@ -195,3 +195,107 @@ VPC_DATA_SOURCE_HANDLERS = {
     ),
     "vpn_ikev2_coverage": collect_vpn_ikev2_coverage,
 }
+
+
+def collect_ec2_eni_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_eni_tagging()
+
+
+def collect_ec2_igw_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_igw_tagging()
+
+
+def collect_ec2_nat_gateway_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_nat_gateway_tagging()
+
+
+def collect_ec2_nacl_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_nacl_tagging()
+
+
+def collect_ec2_route_table_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_route_table_tagging()
+
+
+def collect_ec2_security_group_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_security_group_tagging()
+
+
+def collect_ec2_subnet_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_subnet_tagging()
+
+
+def collect_ec2_vpc_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_vpc_tagging()
+
+
+def collect_ec2_flow_log_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_flow_log_tagging()
+
+
+def collect_ec2_vpc_peering_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_vpc_peering_tagging()
+
+
+def collect_ec2_vpn_gateway_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_vpn_gateway_tagging()
+
+
+def collect_ec2_transit_gateway_tagging(
+    collector: VPCDataCollector,
+) -> list[dict]:
+    return collector.collect_ec2_transit_gateway_tagging()
+
+
+VPC_DATA_SOURCE_HANDLERS.update(
+    {
+        "ec2_eni_tagging": collect_ec2_eni_tagging,
+        "ec2_igw_tagging": collect_ec2_igw_tagging,
+        "ec2_nat_gateway_tagging": (
+            collect_ec2_nat_gateway_tagging
+        ),
+        "ec2_nacl_tagging": collect_ec2_nacl_tagging,
+        "ec2_route_table_tagging": (
+            collect_ec2_route_table_tagging
+        ),
+        "ec2_security_group_tagging": (
+            collect_ec2_security_group_tagging
+        ),
+        "ec2_subnet_tagging": collect_ec2_subnet_tagging,
+        "ec2_vpc_tagging": collect_ec2_vpc_tagging,
+        "ec2_flow_log_tagging": (
+            collect_ec2_flow_log_tagging
+        ),
+        "ec2_vpc_peering_tagging": (
+            collect_ec2_vpc_peering_tagging
+        ),
+        "ec2_vpn_gateway_tagging": (
+            collect_ec2_vpn_gateway_tagging
+        ),
+        "ec2_transit_gateway_tagging": (
+            collect_ec2_transit_gateway_tagging
+        ),
+    }
+)
