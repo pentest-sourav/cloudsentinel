@@ -3554,3 +3554,34 @@ html[data-theme="light"] .setup-code {
         text-align: left;
     }
 }
+
+.executive-trend-list {
+    height: 44px;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    margin-top: 13px;
+}
+
+.executive-trend-bar {
+    flex: 1;
+    min-width: 4px;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    border-radius: 3px 3px 0 0;
+    background: rgba(99, 164, 255, 0.08);
+    overflow: hidden;
+}
+
+.executive-trend-bar i {
+    width: 100%;
+    display: block;
+    border-radius: 3px 3px 0 0;
+    background: var(--primary);
+}
+
+.executive-trend-empty {
+    color: var(--text-muted);
+    font-size: 9px;
+}
