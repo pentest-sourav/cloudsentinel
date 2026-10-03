@@ -1,0 +1,159 @@
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cloudsentinel}
+      POSTGRES_USER: ${POSTGRES_USER:-cloudsentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --save
+      - "60"
+      - "1000"
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: ${CLOUDSENTINEL_IMAGE:?CLOUDSENTINEL_IMAGE must be set}
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      APP_ENVIRONMENT: production
+      SECURITY_HEADERS_HSTS_ENABLED: "true"
+      LOG_FORMAT: json
+    command: ["alembic", "upgrade", "head"]
+    networks:
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api:
+    image: ${CLOUDSENTINEL_IMAGE:?CLOUDSENTINEL_IMAGE must be set}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
+      REDIS_URL: redis://redis:6379/0
+      SCAN_QUEUE_STREAM: ${SCAN_QUEUE_STREAM:-cloudsentinel:scan_jobs}
+      SCAN_QUEUE_GROUP: ${SCAN_QUEUE_GROUP:-cloudsentinel:scan_workers}
+      SCAN_QUEUE_MAX_RETRIES: ${SCAN_QUEUE_MAX_RETRIES:-3}
+      SCAN_QUEUE_RECOVERY_IDLE_MS: ${SCAN_QUEUE_RECOVERY_IDLE_MS:-30000}
+      SCAN_QUEUE_RECOVERY_BATCH_SIZE: ${SCAN_QUEUE_RECOVERY_BATCH_SIZE:-10}
+      SCAN_QUEUE_READ_BLOCK_MS: ${SCAN_QUEUE_READ_BLOCK_MS:-5000}
+      SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH: ${SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH:-10000}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set}
+      APP_ENVIRONMENT: production
+      AUDIT_RETENTION_DAYS: ${AUDIT_RETENTION_DAYS:-365}
+      MAX_REQUEST_BODY_BYTES: ${MAX_REQUEST_BODY_BYTES:-1048576}
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-172.30.0.0/16}
+      SECURITY_HEADERS_HSTS_ENABLED: "true"
+      SECURITY_HEADERS_HSTS_MAX_AGE_SECONDS: ${SECURITY_HEADERS_HSTS_MAX_AGE_SECONDS:-31536000}
+      METRICS_ENABLED: ${METRICS_ENABLED:-false}
+      METRICS_AUTH_TOKEN: ${METRICS_AUTH_TOKEN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: json
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      RATE_LIMIT_AUTH_MAX_REQUESTS: ${RATE_LIMIT_AUTH_MAX_REQUESTS:-10}
+      RATE_LIMIT_SCAN_MAX_REQUESTS: ${RATE_LIMIT_SCAN_MAX_REQUESTS:-20}
+      RATE_LIMIT_GLOBAL_MAX_REQUESTS: ${RATE_LIMIT_GLOBAL_MAX_REQUESTS:-300}
+    networks:
+      - internal
+      - edge
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    command: ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+  worker:
+    image: ${CLOUDSENTINEL_IMAGE:?CLOUDSENTINEL_IMAGE must be set}
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
+      REDIS_URL: redis://redis:6379/0
+      SCAN_QUEUE_STREAM: ${SCAN_QUEUE_STREAM:-cloudsentinel:scan_jobs}
+      SCAN_QUEUE_GROUP: ${SCAN_QUEUE_GROUP:-cloudsentinel:scan_workers}
+      SCAN_QUEUE_MAX_RETRIES: ${SCAN_QUEUE_MAX_RETRIES:-3}
+      SCAN_QUEUE_RECOVERY_IDLE_MS: ${SCAN_QUEUE_RECOVERY_IDLE_MS:-30000}
+      SCAN_QUEUE_RECOVERY_BATCH_SIZE: ${SCAN_QUEUE_RECOVERY_BATCH_SIZE:-10}
+      SCAN_QUEUE_READ_BLOCK_MS: ${SCAN_QUEUE_READ_BLOCK_MS:-5000}
+      SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH: ${SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH:-10000}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      APP_ENVIRONMENT: production
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: json
+    networks:
+      - internal
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["python", "-m", "backend.worker"]
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    command: ["caddy", "reverse-proxy", "--from", "${CLOUDSENTINEL_DOMAIN:?CLOUDSENTINEL_DOMAIN must be set}", "--to", "api:8000"]
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  internal:
+    internal: true
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
