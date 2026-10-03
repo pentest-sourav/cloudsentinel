@@ -70,7 +70,7 @@ def test_nonexistent_s3_origin_finding():
     )
 
     assert finding.rule_id == "CS-AWS-CLOUDFRONT-015"
-    assert finding.severity == Severity.MEDIUM
+    assert finding.severity == Severity.HIGH
     assert (
         "AWS Security Hub CloudFront.12"
         in finding.compliance
