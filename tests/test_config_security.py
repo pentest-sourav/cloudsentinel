@@ -7,7 +7,7 @@ from backend.app.core.config import Settings
 def _settings(**overrides):
     values = {
         "database_url": "sqlite:///cloudsentinel.db",
-        "redis_url": "redis://localhost:6379/0",
+        "redis_url": "redis://:test-password@localhost:6379/0",
         "jwt_secret_key": "x" * 32,
         "security_headers_hsts_enabled": True,
         "log_format": "json",

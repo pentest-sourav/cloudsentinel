@@ -2,6 +2,8 @@ from backend.app.core.config import settings
 from dataclasses import dataclass, replace
 from typing import Callable
 
+from botocore.exceptions import ConnectTimeoutError, EndpointConnectionError, ReadTimeoutError
+
 from scanner.aws.provider import AWSProvider
 from scanner.aws.client_factory import create_aws_client
 
@@ -152,6 +154,12 @@ class AWSScanResult:
 
 def _classify_aws_error(error: Exception) -> str:
     """Classify common AWS execution failures for actionable scan warnings."""
+    if isinstance(
+        error,
+        (ConnectTimeoutError, EndpointConnectionError, ReadTimeoutError),
+    ):
+        return "network_timeout"
+
     code = _extract_error_code(error)
 
     if code in {
@@ -240,7 +248,7 @@ def _run_scanner(
     except Exception as exc:
         return [], ScannerExecutionError(
             service=service_name,
-            error_type=type(exc).__name__,
+            error_type=_classify_aws_error(exc),
             error_code=_extract_error_code(exc),
             message=str(exc),
             region=region,

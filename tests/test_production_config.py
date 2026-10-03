@@ -6,7 +6,7 @@ from backend.app.core.config import Settings
 def production_settings(**overrides):
     values = {
         "database_url": "postgresql+psycopg://user:pass@localhost/db",
-        "redis_url": "redis://localhost:6379/0",
+        "redis_url": "redis://:test-password@localhost:6379/0",
         "jwt_secret_key": "a" * 64,
         "app_environment": "production",
         "security_headers_hsts_enabled": True,
@@ -43,6 +43,10 @@ def test_production_configuration_accepts_secure_defaults():
         (
             {"jwt_secret_key": "short"},
             "JWT_SECRET_KEY must be at least 32 characters in production.",
+        ),
+        (
+            {"redis_url": "redis://localhost:6379/0"},
+            "REDIS_URL must include Redis authentication in production.",
         ),
     ],
 )
