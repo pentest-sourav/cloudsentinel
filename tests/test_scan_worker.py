@@ -104,7 +104,7 @@ def test_worker_acknowledges_successful_scan(monkeypatch):
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda account: lambda: executed.append(True) or [],
+        lambda account, scan_id: lambda: executed.append(True) or [],
     )
 
     worker = ScanWorker(queue=queue)
@@ -200,7 +200,7 @@ def test_worker_leaves_failed_scan_pending_for_recovery(monkeypatch):
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda account: lambda: [],
+        lambda account, scan_id: lambda: [],
     )
 
     worker = ScanWorker(queue=queue)
@@ -255,7 +255,7 @@ def test_worker_retries_recovered_failed_scan(monkeypatch):
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda account: lambda: executed.append(True) or [],
+        lambda account, scan_id: lambda: executed.append(True) or [],
     )
 
     def fake_run(self, scan, scanner):
@@ -447,7 +447,7 @@ def test_worker_run_recovers_pending_jobs_before_new_jobs(monkeypatch):
     monkeypatch.setitem(
         __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
         "aws",
-        lambda account: lambda: [],
+        lambda account, scan_id: lambda: [],
     )
 
     worker = ScanWorker(queue=queue)
