@@ -338,6 +338,7 @@ SSM_RULES = RuleRegistry(
             ],
             check=check_document_tags,
             build_finding=build_ssm5_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             rule_id="CS-AWS-SSM-005",
