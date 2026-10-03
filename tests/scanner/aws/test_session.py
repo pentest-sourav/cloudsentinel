@@ -82,49 +82,6 @@ def test_create_aws_session_retry_configuration():
     }
 
 
-def test_create_aws_session_assumes_role_without_external_id():
-    base_session = Mock(spec=boto3.Session)
-    assumed_session = Mock(spec=boto3.Session)
-    sts_client = Mock()
-
-    base_session.client.return_value = sts_client
-
-    sts_client.assume_role.return_value = {
-        "Credentials": {
-            "AccessKeyId": "ASIAEXAMPLE",
-            "SecretAccessKey": "secret-example",
-            "SessionToken": "token-example",
-        }
-    }
-
-    with patch(
-        "scanner.aws.session.boto3.Session",
-        side_effect=[base_session, assumed_session],
-    ):
-        result = create_aws_session(
-            role_arn=(
-                "arn:aws:iam::123456789012:"
-                "role/CloudSentinelAuditRole"
-            ),
-            region_name="ap-south-1",
-        )
-
-    assert result is assumed_session
-
-    base_session.client.assert_called_once_with(
-        "sts",
-        config=AWS_RETRY_CONFIG,
-    )
-
-    sts_client.assume_role.assert_called_once_with(
-        RoleArn=(
-            "arn:aws:iam::123456789012:"
-            "role/CloudSentinelAuditRole"
-        ),
-        RoleSessionName="CloudSentinelScan",
-    )
-
-
 def test_create_aws_session_requires_external_id_for_role_assumption():
     with patch("scanner.aws.session.boto3.Session"):
         try:
@@ -154,7 +111,7 @@ def test_create_aws_session_rejects_invalid_duration():
                 )
                 assert False, "Expected ValueError"
             except ValueError as exc:
-                assert "duration_seconds must be between 900 and 43200" in str(exc)
+                assert "duration_seconds must be an integer between 900 and 43200 seconds." in str(exc)
 
 
 def test_create_aws_session_rejects_blank_or_long_session_name():
@@ -240,6 +197,7 @@ def test_create_aws_session_handles_assume_role_client_error():
                     "arn:aws:iam::123456789012:"
                     "role/CloudSentinelAuditRole"
                 ),
+                external_id="cloudsentinel-external-id",
             )
             assert False, "Expected RuntimeError"
         except RuntimeError as exc:
@@ -264,6 +222,7 @@ def test_create_aws_session_handles_assume_role_boto_core_error():
                     "arn:aws:iam::123456789012:"
                     "role/CloudSentinelAuditRole"
                 ),
+                external_id="cloudsentinel-external-id",
             )
             assert False, "Expected RuntimeError"
         except RuntimeError as exc:
