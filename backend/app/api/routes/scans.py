@@ -246,3 +246,6 @@ def get_scan_summary_by_id(
         )
 
     return summary
+
+
+# live progress endpoint marker
