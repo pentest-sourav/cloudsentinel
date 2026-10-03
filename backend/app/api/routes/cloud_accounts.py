@@ -146,7 +146,6 @@ def get_cloud_account_connection(
         require_roles(
             ROLE_OWNER,
             ROLE_ADMINISTRATOR,
-            ROLE_OPERATOR,
         ),
     ),
 ):
