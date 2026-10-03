@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_current_user
@@ -30,6 +30,7 @@ router = APIRouter(
 def register(
     registration: RegisterRequest,
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
     try:
         return register_user(
