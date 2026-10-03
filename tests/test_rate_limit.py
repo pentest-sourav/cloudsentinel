@@ -36,6 +36,7 @@ def test_rate_limiter_uses_redis_window():
 
     client = Mock()
     client.time.return_value = (120, 0)
+    client.incr.return_value = 1
 
     queue = Mock()
     queue.client = client
@@ -66,6 +67,7 @@ def test_rate_limiter_falls_back_when_redis_fails():
     request.client.host = "127.0.0.1"
 
     queue = Mock()
+    queue.client.time.return_value = (120, 0)
     queue.client.incr.side_effect = ConnectionError(
         "redis unavailable"
     )
