@@ -239,78 +239,6 @@ CLOUDFRONT_RULES = RuleRegistry(
             ),
         ),
         RuleDefinition(
-            rule_id="CS-AWS-CLOUDFRONT-015",
-            name="cloudfront_nonexistent_s3_origins",
-            data_source="cloudfront_distributions",
-            collection_mode="multiple",
-            check_arguments=[
-                "resource_id",
-                "resource_type",
-                "s3_origins",
-            ],
-            check=check_cloudfront_nonexistent_s3_origins,
-            build_finding=(
-                build_cloudfront_nonexistent_s3_origins_finding
-            ),
-        ),
-ne.rules.aws.cloudfront.tagging import (
-    build_cloudfront_tagging_finding,
-    check_cloudfront_tagging,
-)
-
-from engine.rules.aws.cloudfront.protection import (
-    build_cloudfront_custom_certificate_finding,
-    build_cloudfront_custom_origin_https_finding,
-    build_cloudfront_default_root_object_finding,
-    build_cloudfront_deprecated_ssl_protocols_finding,
-    build_cloudfront_lambda_function_url_oac_finding,
-    build_cloudfront_logging_finding,
-    build_cloudfront_nonexistent_s3_origins_finding,
-    build_cloudfront_origin_failover_finding,
-    build_cloudfront_s3_oac_finding,
-    build_cloudfront_sni_finding,
-    build_cloudfront_tls_security_policy_finding,
-    build_cloudfront_trusted_key_groups_finding,
-    build_cloudfront_viewer_https_finding,
-    build_cloudfront_waf_finding,
-    check_cloudfront_custom_certificate,
-    check_cloudfront_custom_origin_https,
-    check_cloudfront_default_root_object,
-    check_cloudfront_deprecated_ssl_protocols,
-    check_cloudfront_lambda_function_url_oac,
-    check_cloudfront_logging,
-    check_cloudfront_nonexistent_s3_origins,
-    check_cloudfront_origin_failover,
-    check_cloudfront_s3_oac,
-    check_cloudfront_sni,
-    check_cloudfront_tls_security_policy,
-    check_cloudfront_trusted_key_groups,
-    check_cloudfront_viewer_https,
-    check_cloudfront_waf,
-)
-from engine.rules.model import RuleDefinition
-from engine.rules.registry.base import RuleRegistry
-
-
-CLOUDFRONT_RULES = RuleRegistry(
-    [
-        RuleDefinition(
-            rule_id="CS-AWS-CLOUDFRONT-001",
-            name="cloudfront_default_root_object",
-            data_source="cloudfront_distributions",
-            collection_mode="multiple",
-            check_arguments=[
-                "resource_id",
-                "resource_type",
-                "s3_origins",
-                "default_root_object",
-            ],
-            check=check_cloudfront_default_root_object,
-            build_finding=(
-                build_cloudfront_default_root_object_finding
-            ),
-        ),
-        RuleDefinition(
             rule_id="CS-AWS-CLOUDFRONT-002",
             name="cloudfront_viewer_https",
             data_source="cloudfront_distributions",
@@ -520,6 +448,78 @@ CLOUDFRONT_RULES = RuleRegistry(
             check=check_cloudfront_tagging,
             build_finding=build_cloudfront_tagging_finding,
             parameters={"required_tag_keys": []},
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-015",
+            name="cloudfront_nonexistent_s3_origins",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "s3_origins",
+            ],
+            check=check_cloudfront_nonexistent_s3_origins,
+            build_finding=(
+                build_cloudfront_nonexistent_s3_origins_finding
+            ),
+        ),
+ne.rules.aws.cloudfront.tagging import (
+    build_cloudfront_tagging_finding,
+    check_cloudfront_tagging,
+)
+
+from engine.rules.aws.cloudfront.protection import (
+    build_cloudfront_custom_certificate_finding,
+    build_cloudfront_custom_origin_https_finding,
+    build_cloudfront_default_root_object_finding,
+    build_cloudfront_deprecated_ssl_protocols_finding,
+    build_cloudfront_lambda_function_url_oac_finding,
+    build_cloudfront_logging_finding,
+    build_cloudfront_nonexistent_s3_origins_finding,
+    build_cloudfront_origin_failover_finding,
+    build_cloudfront_s3_oac_finding,
+    build_cloudfront_sni_finding,
+    build_cloudfront_tls_security_policy_finding,
+    build_cloudfront_trusted_key_groups_finding,
+    build_cloudfront_viewer_https_finding,
+    build_cloudfront_waf_finding,
+    check_cloudfront_custom_certificate,
+    check_cloudfront_custom_origin_https,
+    check_cloudfront_default_root_object,
+    check_cloudfront_deprecated_ssl_protocols,
+    check_cloudfront_lambda_function_url_oac,
+    check_cloudfront_logging,
+    check_cloudfront_nonexistent_s3_origins,
+    check_cloudfront_origin_failover,
+    check_cloudfront_s3_oac,
+    check_cloudfront_sni,
+    check_cloudfront_tls_security_policy,
+    check_cloudfront_trusted_key_groups,
+    check_cloudfront_viewer_https,
+    check_cloudfront_waf,
+)
+from engine.rules.model import RuleDefinition
+from engine.rules.registry.base import RuleRegistry
+
+
+CLOUDFRONT_RULES = RuleRegistry(
+    [
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-001",
+            name="cloudfront_default_root_object",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_type",
+                "s3_origins",
+                "default_root_object",
+            ],
+            check=check_cloudfront_default_root_object,
+            build_finding=(
+                build_cloudfront_default_root_object_finding
+            ),
         ),
     ]
 )
