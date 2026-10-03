@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from backend.app.services.aws_scan_service import run_aws_scan
+from botocore.exceptions import ConnectTimeoutError, EndpointConnectionError, ReadTimeoutError
 
 
 ROLE_ARN = (
@@ -1043,6 +1044,17 @@ def test_classifies_common_aws_execution_errors():
 
     assert _classify_aws_error(access_denied) == "permission_denied"
     assert _classify_aws_error(throttled) == "throttled"
+
+
+def test_classifies_network_timeout_exceptions():
+    from backend.app.services.aws_scan_service import _classify_aws_error
+
+    for error in (
+        ConnectTimeoutError(endpoint_url="https://example.com"),
+        EndpointConnectionError(endpoint_url="https://example.com"),
+        ReadTimeoutError(endpoint_url="https://example.com"),
+    ):
+        assert _classify_aws_error(error) == "network_timeout"
 
 
 def test_classifies_unknown_aws_errors_by_exception_type():
