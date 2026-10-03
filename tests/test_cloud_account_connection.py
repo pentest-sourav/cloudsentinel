@@ -239,3 +239,28 @@ def test_connection_test_uses_assume_role_and_verifies_identity():
     finally:
         app.dependency_overrides.clear()
         engine.dispose()
+
+
+def test_cloud_account_operations_write_audit_events():
+    client, engine = _client()
+    try:
+        token = _register_and_login(client)
+        account = _create_account(client, token)
+
+        from backend.app.core.database import get_db
+        from backend.app.models.audit_event import AuditEvent
+
+        db = next(app.dependency_overrides[get_db]())
+        try:
+            events = db.query(AuditEvent).order_by(AuditEvent.id.asc()).all()
+            assert any(
+                event.action == "cloud_account.create"
+                and event.status == "success"
+                for event in events
+            )
+        finally:
+            db.close()
+    finally:
+        app.dependency_overrides.clear()
+        app.state.testing = False
+        engine.dispose()
