@@ -45,7 +45,7 @@ SCANNERS: dict[str, ScannerFactory] = {
         external_id=account.external_id,
         region_name=account.region,
         expected_account_id=account.external_account_id,
-        scan_id=account.id,
+        scan_id=scan_id,
     ),
 }
 
