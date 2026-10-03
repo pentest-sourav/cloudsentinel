@@ -18,6 +18,7 @@ class SSMScanner:
     def __init__(
         self,
         service: SSMService,
+        rule_parameters=None,
     ):
         self.collector = SSMDataCollector(
             service
@@ -25,6 +26,7 @@ class SSMScanner:
 
         self.executor = RuleExecutor(
             handlers=SSM_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:
