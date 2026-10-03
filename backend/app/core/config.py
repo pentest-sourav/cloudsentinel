@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     scan_queue_recovery_batch_size: int = 10
     scan_queue_read_block_ms: int = 5_000
     scan_queue_dead_letter_max_length: int = 10_000
+    scan_queue_worker_heartbeat_seconds: int = 10
+    scan_queue_worker_stale_seconds: int = 30
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
@@ -59,6 +61,8 @@ class Settings(BaseSettings):
             self.scan_queue_recovery_batch_size,
             self.scan_queue_read_block_ms,
             self.scan_queue_dead_letter_max_length,
+            self.scan_queue_worker_heartbeat_seconds,
+            self.scan_queue_worker_stale_seconds,
         )
         if any(value <= 0 for value in queue_settings):
             raise ValueError("Scan queue settings must all be > 0")
