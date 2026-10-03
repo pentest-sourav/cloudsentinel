@@ -7,22 +7,48 @@ from engine.findings.model import Finding, Severity
 class Route53TaggingResult:
     resource_id: str
     resource_type: str
+    tags: list[dict[str, str]]
+    required_tag_keys: list[str]
 
 
 def check_route53_health_check_tagging(
     resource_id: str,
     resource_type: str,
     tags: list[dict[str, str]],
+    required_tag_keys: list[str] | None = None,
 ) -> Route53TaggingResult | None:
     if not resource_id:
         return None
 
-    if tags:
+    required = [
+        key.strip()
+        for key in (required_tag_keys or [])
+        if isinstance(key, str) and key.strip()
+        and not key.lower().startswith("aws:")
+    ]
+    actual = {
+        tag.get("Key")
+        for tag in tags
+        if isinstance(tag, dict)
+        and isinstance(tag.get("Key"), str)
+        and tag.get("Key")
+    }
+    missing = [
+        key for key in dict.fromkeys(required)
+        if key not in actual
+    ]
+
+    if required:
+        if not missing:
+            return None
+    elif tags:
         return None
 
     return Route53TaggingResult(
         resource_id=resource_id,
         resource_type=resource_type,
+        tags=tags,
+        required_tag_keys=required,
     )
 
 
@@ -45,6 +71,7 @@ def build_route53_health_check_tagging_finding(
             "resource_id": result.resource_id,
             "resource_type": result.resource_type,
             "tagged": False,
+            "required_tag_keys": result.required_tag_keys,
         },
         remediation=(
             "Add one or more meaningful non-system tags "
