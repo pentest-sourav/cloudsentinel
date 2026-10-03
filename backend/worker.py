@@ -16,6 +16,7 @@ from backend.app.services.scan_runner import ScanRunner
 from backend.app.services.scan_schedule_service import claim_due_schedules
 from backend.app.services.scan_service import (
     create_scan,
+    has_active_scan_for_account,
     SCAN_STATUS_COMPLETED,
     SCAN_STATUS_COMPLETED_WITH_WARNINGS,
     SCAN_STATUS_FAILED,
@@ -100,6 +101,10 @@ class ScanWorker:
                 schedules = claim_due_schedules(db=db, limit=20)
                 for schedule in schedules:
                     try:
+                        if has_active_scan_for_account(db=db, tenant_id=schedule.tenant_id, cloud_account_id=schedule.cloud_account_id):
+                            logger.info("Skipped scheduled scan because an account scan is already active", extra={"schedule_id": schedule.id, "cloud_account_id": schedule.cloud_account_id})
+                            continue
+
                         scan = create_scan(
                             db=db,
                             provider=schedule.provider,

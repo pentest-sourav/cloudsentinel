@@ -92,6 +92,23 @@ def create_scan(
     return scan
 
 
+def has_active_scan_for_account(
+    db: Session,
+    tenant_id: int,
+    cloud_account_id: int,
+) -> bool:
+    """Return whether an account already has a queued or running scan."""
+    return bool(
+        db.query(Scan.id)
+        .filter(
+            Scan.tenant_id == tenant_id,
+            Scan.cloud_account_id == cloud_account_id,
+            Scan.status.in_((SCAN_STATUS_PENDING, SCAN_STATUS_RUNNING)),
+        )
+        .first()
+    )
+
+
 def get_scan(
     db: Session,
     scan_id: int,

@@ -75,7 +75,7 @@ def _scan_history_scope(statement, scan: Scan):
     statement = statement.where(
         Scan.tenant_id == scan.tenant_id,
         Scan.provider == scan.provider,
-        Scan.status == "completed",
+        Scan.status.in_(( "completed", "completed_with_warnings" )),
     )
 
     if scan.cloud_account_id is None:
@@ -210,7 +210,7 @@ def _get_first_seen_scan_ids(
         .where(
             Scan.tenant_id == scan.tenant_id,
             Scan.provider == scan.provider,
-            Scan.status == "completed",
+            Scan.status.in_(( "completed", "completed_with_warnings" )),
             Scan.completed_at.is_not(None),
             tuple_(
                 Finding.provider,
