@@ -1076,3 +1076,70 @@ def build_cloudfront_trusted_key_groups_finding(
             "AWS Security Hub CloudFront.17",
         ],
     )
+
+
+# ============================================================
+# CLOUDFRONT.12
+# ============================================================
+
+def check_cloudfront_nonexistent_s3_origins(
+    resource_id: str,
+    resource_type: str,
+    s3_origins: list[dict],
+) -> CloudFrontResult | None:
+    if not resource_id or not s3_origins:
+        return None
+
+    nonexistent_origins = [
+        {
+            "origin_id": origin.get("origin_id"),
+            "domain_name": origin.get("domain_name"),
+            "s3_bucket_name": origin.get("s3_bucket_name"),
+        }
+        for origin in s3_origins
+        if origin.get("s3_bucket_exists") is False
+    ]
+
+    if not nonexistent_origins:
+        return None
+
+    return CloudFrontResult(
+        resource_id=resource_id,
+        resource_type=resource_type,
+        details={
+            "nonexistent_s3_origins": nonexistent_origins,
+        },
+    )
+
+
+def build_cloudfront_nonexistent_s3_origins_finding(
+    result: CloudFrontResult,
+) -> Finding:
+    return Finding(
+        rule_id="CS-AWS-CLOUDFRONT-015",
+        title=(
+            "CloudFront distribution points to a "
+            "non-existent S3 origin"
+        ),
+        severity=Severity.MEDIUM,
+        provider="aws",
+        resource_type=result.resource_type,
+        resource_id=result.resource_id,
+        description=(
+            f"The CloudFront distribution "
+            f"{result.resource_id} references one or more "
+            "S3 origins whose buckets do not exist."
+        ),
+        evidence={
+            "resource_id": result.resource_id,
+            **result.details,
+        },
+        remediation=(
+            "Remove the invalid S3 origin, correct the "
+            "origin configuration, or recreate the "
+            "referenced S3 bucket as appropriate."
+        ),
+        compliance=[
+            "AWS Security Hub CloudFront.12",
+        ],
+    )
