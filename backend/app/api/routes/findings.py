@@ -25,6 +25,7 @@ from backend.app.schemas.finding_suppression import (
     FindingSuppressionRequest,
     FindingSuppressionResponse,
 )
+from backend.app.schemas.remediation import RemediationQueueResponse
 from backend.app.schemas.finding_workflow import (
     FindingWorkflowRequest,
     FindingWorkflowResponse,
@@ -47,6 +48,7 @@ from backend.app.services.finding_suppression_service import (
     suppression_response,
     upsert_suppression,
 )
+from backend.app.services.remediation_service import get_remediation_queue
 from backend.app.services.finding_workflow_service import (
     delete_workflow,
     get_workflow_for_finding,
@@ -158,6 +160,42 @@ def list_scan_findings(
         )
 
     return result
+
+
+@router.get(
+    "/remediation/queue",
+    response_model=RemediationQueueResponse,
+)
+def get_remediation_queue_data(
+    cloud_account_id: int | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if cloud_account_id is not None:
+        from backend.app.models.cloud_account import CloudAccount
+
+        account = (
+            db.query(CloudAccount)
+            .filter(
+                CloudAccount.id == cloud_account_id,
+                CloudAccount.tenant_id == current_user.tenant_id,
+            )
+            .first()
+        )
+
+        if account is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cloud account not found",
+            )
+
+    return get_remediation_queue(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        cloud_account_id=cloud_account_id,
+        limit=limit,
+    )
 
 
 @router.get(

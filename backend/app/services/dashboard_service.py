@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from backend.app.models.scan import Scan
 from backend.app.services.compliance_service import get_compliance_posture
 from backend.app.services.risk_graph_service import get_risk_graph
+from backend.app.services.remediation_service import get_remediation_queue
 from backend.app.services.scan_summary_service import get_scan_summary
 from backend.app.services.posture_service import get_posture_trend
 
@@ -93,6 +94,15 @@ def get_dashboard_overview(
             "risk_trend": trend["items"],
             "compliance": None,
             "top_risks": [],
+            "remediation": {
+                "scan_id": None,
+                "scan_status": None,
+                "total_items": 0,
+                "open_items": 0,
+                "overdue_items": 0,
+                "unassigned_items": 0,
+                "items": [],
+            },
             "data_quality_notes": [
                 "No AWS scan has been run for this workspace yet.",
             ],
@@ -169,6 +179,13 @@ def get_dashboard_overview(
             "were recorded; affected controls may be incomplete."
         )
 
+    remediation = get_remediation_queue(
+        db=db,
+        tenant_id=tenant_id,
+        cloud_account_id=cloud_account_id,
+        limit=20,
+    )
+
     compliance = None
     if latest_scan.status in {
         "completed",
@@ -213,5 +230,6 @@ def get_dashboard_overview(
         "risk_trend": trend["items"],
         "compliance": compliance,
         "top_risks": top_risks,
+        "remediation": remediation,
         "data_quality_notes": notes,
     }
