@@ -3192,3 +3192,41 @@ html[data-theme="light"] .setup-code {
         width: 100%;
     }
 }
+
+
+.scan-progress-block {
+    margin: 1.25rem 0 0;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-muted);
+}
+
+.scan-progress-header,
+.scan-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+}
+
+.scan-progress-header {
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.scan-progress-meta {
+    margin-top: 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.scan-progress-meter {
+    display: block;
+    width: 100%;
+    height: 8px;
+    margin-top: 0.7rem;
+    border: 0;
+    border-radius: 999px;
+    overflow: hidden;
+}
