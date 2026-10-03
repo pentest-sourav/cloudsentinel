@@ -13,8 +13,8 @@ class FindingWorkflowRequest(BaseModel):
     @classmethod
     def validate_status(cls, value: str) -> str:
         normalized = value.strip().lower()
-        if normalized not in {"open", "acknowledged"}:
-            raise ValueError("status must be open or acknowledged.")
+        if normalized not in {"open", "acknowledged", "in_progress", "resolved", "accepted_risk"}:
+            raise ValueError("status must be open, acknowledged, in_progress, resolved, or accepted_risk.")
         return normalized
 
     @field_validator("note")
