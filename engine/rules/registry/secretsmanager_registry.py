@@ -90,6 +90,7 @@ SECRETSMANAGER_RULES = RuleRegistry(
                 "resource_arn",
                 "tags",
             ],
+            parameters={"required_tag_keys": []},
             check=check_secretsmanager_tagging,
             build_finding=(
                 build_secretsmanager_tagging_finding
