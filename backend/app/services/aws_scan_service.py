@@ -839,6 +839,7 @@ def run_aws_scan(
 
     # Reuse the base session for the configured region.
     regional_sessions = {}
+    failed_regions: set[str] = set()
 
     if region_name:
         regional_sessions[region_name] = base_session
@@ -926,6 +927,9 @@ def run_aws_scan(
 
             # Regional WAF ACLs/rule groups.
             for current_region in discovered_regions:
+                if current_region in failed_regions:
+                    continue
+
                 regional_session = regional_sessions.get(
                     current_region
                 )
@@ -943,6 +947,7 @@ def run_aws_scan(
 
                     if session_error is not None:
                         errors.append(session_error)
+                        failed_regions.add(current_region)
                         continue
 
                     regional_sessions[current_region] = regional_session
@@ -1000,6 +1005,9 @@ def run_aws_scan(
         # All remaining services are regional.
         # --------------------------------------------------------
         for current_region in discovered_regions:
+
+            if current_region in failed_regions:
+                continue
 
             regional_session = regional_sessions.get(
                 current_region
