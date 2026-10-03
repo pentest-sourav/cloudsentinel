@@ -198,7 +198,7 @@ def restore(backup_path: Path, target_url: str) -> None:
             "--no-owner",
             "--no-acl",
             "--dbname",
-            target_url,
+            libpq_url(target_url),
             str(backup_path),
         ]
     )
