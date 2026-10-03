@@ -209,6 +209,12 @@ def get_scan_by_id(
             detail="Scan not found",
         )
 
+    queue = ScanQueue()
+    try:
+        scan.progress = queue.get_progress(scan_id)
+    finally:
+        queue.close()
+
     return scan
 
 
