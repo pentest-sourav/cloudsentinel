@@ -25,6 +25,10 @@ from backend.app.schemas.finding_suppression import (
     FindingSuppressionRequest,
     FindingSuppressionResponse,
 )
+from backend.app.schemas.finding_workflow import (
+    FindingWorkflowRequest,
+    FindingWorkflowResponse,
+)
 from backend.app.services.audit_service import (
     AUDIT_FAILURE,
     AUDIT_SUCCESS,
@@ -42,6 +46,12 @@ from backend.app.services.finding_suppression_service import (
     get_suppression_for_finding,
     suppression_response,
     upsert_suppression,
+)
+from backend.app.services.finding_workflow_service import (
+    delete_workflow,
+    get_workflow_for_finding,
+    upsert_workflow,
+    workflow_response,
 )
 
 
@@ -305,6 +315,156 @@ def unsuppress_finding(
         resource_id=finding_id,
     )
 
+    return None
+
+
+@router.get(
+    "/{finding_id}/workflow",
+    response_model=FindingWorkflowResponse,
+)
+def get_finding_workflow(
+    finding_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    finding = _get_tenant_finding(
+        db=db,
+        finding_id=finding_id,
+        tenant_id=current_user.tenant_id,
+    )
+    if finding is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Finding not found",
+        )
+
+    workflow = get_workflow_for_finding(
+        db=db,
+        finding=finding,
+        tenant_id=current_user.tenant_id,
+    )
+    return workflow_response(finding=finding, workflow=workflow)
+
+
+@router.post(
+    "/{finding_id}/workflow",
+    response_model=FindingWorkflowResponse,
+)
+def update_finding_workflow(
+    finding_id: int,
+    payload: FindingWorkflowRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            ROLE_OWNER,
+            ROLE_ADMINISTRATOR,
+            ROLE_OPERATOR,
+        )
+    ),
+):
+    finding = _get_tenant_finding(
+        db=db,
+        finding_id=finding_id,
+        tenant_id=current_user.tenant_id,
+    )
+    if finding is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Finding not found",
+        )
+
+    try:
+        workflow = upsert_workflow(
+            db=db,
+            finding=finding,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            status=payload.status,
+            assignee_user_id=payload.assignee_user_id,
+            due_at=payload.due_at,
+            note=payload.note,
+        )
+    except ValueError as exc:
+        record_audit_event(
+            db=db,
+            action="finding.workflow.update",
+            status=AUDIT_FAILURE,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            resource_type="finding",
+            resource_id=finding_id,
+            metadata={"reason": str(exc)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    record_audit_event(
+        db=db,
+        action="finding.workflow.update",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="finding",
+        resource_id=finding_id,
+        metadata={
+            "workflow_id": workflow.id,
+            "fingerprint": workflow.fingerprint,
+            "status": workflow.status,
+            "assignee_user_id": workflow.assignee_user_id,
+            "due_at": workflow.due_at.isoformat() if workflow.due_at else None,
+        },
+    )
+
+    return workflow_response(finding=finding, workflow=workflow)
+
+
+@router.delete(
+    "/{finding_id}/workflow",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def clear_finding_workflow(
+    finding_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            ROLE_OWNER,
+            ROLE_ADMINISTRATOR,
+            ROLE_OPERATOR,
+        )
+    ),
+):
+    finding = _get_tenant_finding(
+        db=db,
+        finding_id=finding_id,
+        tenant_id=current_user.tenant_id,
+    )
+    if finding is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Finding not found",
+        )
+
+    if not delete_workflow(
+        db=db,
+        finding=finding,
+        tenant_id=current_user.tenant_id,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Finding has no workflow state",
+        )
+
+    record_audit_event(
+        db=db,
+        action="finding.workflow.delete",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="finding",
+        resource_id=finding_id,
+    )
     return None
 
 
