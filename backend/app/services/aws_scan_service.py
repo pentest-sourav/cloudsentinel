@@ -1,3 +1,4 @@
+from backend.app.core.config import settings
 from dataclasses import dataclass, replace
 from typing import Callable
 
