@@ -25,8 +25,25 @@ def _validate_endpoint(url: str) -> str:
     if parsed.scheme != "https" or not parsed.hostname:
         raise ValueError("Alert endpoints must use HTTPS.")
     host = parsed.hostname
+    if parsed.username or parsed.password:
+        raise ValueError("Alert endpoints must not contain embedded credentials.")
+    if parsed.port not in (None, 443):
+        raise ValueError("Alert endpoints must use HTTPS port 443.")
     if host.lower() in {"localhost", "localhost.localdomain"}:
         raise ValueError("Local alert endpoints are not allowed.")
+    try:
+        literal_address = ipaddress.ip_address(host)
+    except ValueError:
+        literal_address = None
+    if literal_address is not None and (
+        literal_address.is_private
+        or literal_address.is_loopback
+        or literal_address.is_link_local
+        or literal_address.is_reserved
+        or literal_address.is_multicast
+        or literal_address.is_unspecified
+    ):
+        raise ValueError("Private or non-routable alert endpoints are not allowed.")
 
     addresses = []
     try:
@@ -227,7 +244,14 @@ def dispatch_scan_alerts(db: Session, *, scan_id: int, tenant_id: int) -> dict:
             last_error = None
             for attempt in range(1, 4):
                 try:
-                    with httpx.Client(timeout=httpx.Timeout(5.0, connect=2.0), follow_redirects=False) as client:
+                    # Re-resolve immediately before every delivery attempt.
+                    # Policy creation/update validation alone is insufficient
+                    # because DNS records can change after persistence.
+                    _validate_endpoint(policy.endpoint_url)
+                    with httpx.Client(
+                        timeout=httpx.Timeout(5.0, connect=2.0),
+                        follow_redirects=False,
+                    ) as client:
                         response = client.post(policy.endpoint_url, content=body, headers=headers)
                     if 200 <= response.status_code < 300:
                         delivery.status = "delivered"
