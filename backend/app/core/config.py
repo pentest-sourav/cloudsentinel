@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     max_request_body_bytes: int = 1_048_576
     trusted_proxy_ips: str = ""
     metrics_enabled: bool = False
+    metrics_auth_token: str = ""
 
     rate_limit_window_seconds: int = 60
     rate_limit_auth_max_requests: int = 10
@@ -42,6 +43,15 @@ class Settings(BaseSettings):
         if self.audit_retention_days <= 0:
             raise ValueError("AUDIT_RETENTION_DAYS must be > 0")
 
+        rate_limits = (
+            self.rate_limit_window_seconds,
+            self.rate_limit_auth_max_requests,
+            self.rate_limit_scan_max_requests,
+            self.rate_limit_global_max_requests,
+        )
+        if any(value <= 0 for value in rate_limits):
+            raise ValueError("Rate limit settings must all be > 0")
+
         if "*" in self.cors_allowed_origins:
             raise ValueError(
                 "Wildcard CORS origins are not allowed."
@@ -51,6 +61,11 @@ class Settings(BaseSettings):
             if len(self.jwt_secret_key) < 32:
                 raise ValueError(
                     "JWT_SECRET_KEY must be at least 32 characters in production."
+                )
+            if self.metrics_enabled and len(self.metrics_auth_token) < 32:
+                raise ValueError(
+                    "METRICS_AUTH_TOKEN must be at least 32 characters "
+                    "when metrics are enabled in production."
                 )
 
         return self
