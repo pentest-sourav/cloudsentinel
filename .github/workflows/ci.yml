@@ -96,6 +96,7 @@ jobs:
           CLOUDSENTINEL_IMAGE: cloudsentinel-ci:${{ github.sha }}
           CLOUDSENTINEL_DOMAIN: example.com
           POSTGRES_PASSWORD: ci-compose-password
+          REDIS_PASSWORD: ci-compose-redis-password
           JWT_SECRET_KEY: ci-compose-production-secret-012345678901234567890123
           CORS_ALLOWED_ORIGINS: https://example.com
         run: docker compose -f deploy/docker-compose.prod.yml config --quiet
