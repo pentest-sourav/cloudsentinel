@@ -129,7 +129,7 @@ services:
     # Local development only.
     # Production should use the CloudSentinel runtime IAM role.
     volumes:
-      - ${HOME}/.aws:/root/.aws:ro
+      - ${HOME}/.aws:/home/cloudsentinel/.aws:ro
 
     depends_on:
       postgres:
