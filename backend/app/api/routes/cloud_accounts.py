@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from backend.app.api.authorization import (
@@ -30,6 +30,11 @@ from backend.app.services.cloud_account_service import (
     get_cloud_account,
     get_cloud_accounts,
 )
+from backend.app.services.audit_service import (
+    AUDIT_FAILURE,
+    AUDIT_SUCCESS,
+    safe_record_audit_event,
+)
 
 
 router = APIRouter(
@@ -45,19 +50,46 @@ router = APIRouter(
 )
 def add_cloud_account(
     account_data: CloudAccountCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR),
     ),
 ):
     try:
-        return create_cloud_account(
+        account = create_cloud_account(
             db=db,
             account_data=account_data,
             tenant_id=current_user.tenant_id,
         )
+        safe_record_audit_event(
+            db=db,
+            action="cloud_account.create",
+            status=AUDIT_SUCCESS,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            resource_type="cloud_account",
+            resource_id=account.id,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+            metadata={
+                "provider": account.provider,
+                "external_account_id": account.external_account_id,
+            },
+        )
+        return account
 
     except ValueError as exc:
+        safe_record_audit_event(
+            db=db,
+            action="cloud_account.create",
+            status=AUDIT_FAILURE,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+            metadata={"reason": str(exc)[:200]},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -135,6 +167,7 @@ def get_cloud_account_connection(
 )
 def test_cloud_account_connection(
     account_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(
@@ -168,6 +201,19 @@ def test_cloud_account_connection(
             message=str(exc),
         )
 
+        safe_record_audit_event(
+            db=db,
+            action="cloud_account.connection_test",
+            status=AUDIT_FAILURE,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            resource_type="cloud_account",
+            resource_id=account.id,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+            metadata={"error": str(exc)[:200]},
+        )
+
         return CloudAccountConnectionTestResponse(
             account_id=account.id,
             status=account.status,
@@ -182,6 +228,18 @@ def test_cloud_account_connection(
     mark_connection_success(
         db=db,
         account=account,
+    )
+
+    safe_record_audit_event(
+        db=db,
+        action="cloud_account.connection_test",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="cloud_account",
+        resource_id=account.id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
     )
 
     return CloudAccountConnectionTestResponse(
@@ -202,6 +260,7 @@ def test_cloud_account_connection(
 )
 def remove_cloud_account(
     account_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR),
@@ -214,9 +273,32 @@ def remove_cloud_account(
     )
 
     if not deleted:
+        safe_record_audit_event(
+            db=db,
+            action="cloud_account.delete",
+            status=AUDIT_FAILURE,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            resource_type="cloud_account",
+            resource_id=account_id,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cloud account not found",
         )
+
+    safe_record_audit_event(
+        db=db,
+        action="cloud_account.delete",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="cloud_account",
+        resource_id=account_id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
+    )
 
     return None
