@@ -2,6 +2,8 @@ services:
   postgres:
     image: postgres:17
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-cloudsentinel}
       POSTGRES_USER: ${POSTGRES_USER:-cloudsentinel}
@@ -19,6 +21,8 @@ services:
   redis:
     image: redis:8-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command:
       - redis-server
       - --appendonly
@@ -39,6 +43,10 @@ services:
   migrate:
     image: ${CLOUDSENTINEL_IMAGE:?CLOUDSENTINEL_IMAGE must be set}
     restart: "no"
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
       REDIS_URL: redis://redis:6379/0
@@ -58,6 +66,14 @@ services:
   api:
     image: ${CLOUDSENTINEL_IMAGE:?CLOUDSENTINEL_IMAGE must be set}
     restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     stop_grace_period: 30s
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
@@ -107,6 +123,14 @@ services:
   worker:
     image: ${CLOUDSENTINEL_IMAGE:?CLOUDSENTINEL_IMAGE must be set}
     restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     stop_grace_period: 30s
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
@@ -138,6 +162,16 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
     ports:
       - "80:80"
       - "443:443"
