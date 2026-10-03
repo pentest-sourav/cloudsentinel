@@ -168,7 +168,8 @@ def test_alert_dispatch_is_idempotent_and_does_not_alert_medium(env, monkeypatch
             def __enter__(self): return self
             def __exit__(self, *args): pass
             def post(self, *args, **kwargs):
-                calls.append(kwargs["json"]["event"])
+                import json
+                calls.append(json.loads(kwargs["content"])["event"])
                 return Response()
 
         monkeypatch.setattr(
