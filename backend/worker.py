@@ -94,7 +94,7 @@ class ScanWorker:
         )
 
     def _schedule_loop(self, stop_event: threading.Event) -> None:
-        while not stop_event.wait(10):
+        while not stop_event.wait(max(1, settings.scan_scheduler_poll_seconds)):
             db = SessionLocal()
             try:
                 schedules = claim_due_schedules(db=db, limit=20)
