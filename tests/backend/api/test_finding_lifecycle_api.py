@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -83,6 +85,11 @@ def create_scan(db, tenant, *, status="completed"):
         tenant_id=tenant.id,
         provider="aws",
         status=status,
+        completed_at=(
+            datetime.now(timezone.utc)
+            if status in {"completed", "completed_with_warnings"}
+            else None
+        ),
     )
 
     db.add(scan)
@@ -333,6 +340,73 @@ def test_missing_scan_returns_404(test_context):
 
         assert response.status_code == 404
         assert response.json()["detail"] == "Scan not found"
+
+    finally:
+        db.close()
+
+
+def test_completed_with_warnings_scan_returns_lifecycle(test_context):
+    client, SessionLocal = test_context
+
+    db = SessionLocal()
+
+    try:
+        tenant = create_tenant(
+            db,
+            "lifecycle-warning-tenant",
+        )
+
+        user = create_user(
+            db,
+            tenant,
+            "warning@example.com",
+        )
+
+        previous_scan = create_scan(
+            db,
+            tenant,
+            status="completed",
+        )
+        create_finding(
+            db,
+            previous_scan,
+            "TEST-WARNING-001",
+        )
+
+        warning_scan = create_scan(
+            db,
+            tenant,
+            status="completed_with_warnings",
+        )
+        create_finding(
+            db,
+            warning_scan,
+            "TEST-WARNING-001",
+        )
+
+        token = login(
+            client,
+            user.email,
+        )
+
+        response = client.get(
+            f"/api/v1/findings/scan/{warning_scan.id}/lifecycle",
+            headers={
+                "Authorization": f"Bearer {token}",
+            },
+        )
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["scan_id"] == warning_scan.id
+        assert data["previous_scan_id"] == previous_scan.id
+        assert data["new"] == 0
+        assert data["open"] == 1
+        assert data["reopened"] == 0
+        assert data["resolved"] == 0
+        assert data["items"][0]["status"] == "open"
 
     finally:
         db.close()
