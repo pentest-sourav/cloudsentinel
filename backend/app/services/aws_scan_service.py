@@ -252,6 +252,30 @@ def _resolve_s3_bucket_regions(
 
     s3_client = create_aws_client(session, "s3")
     region_cache: dict[str, str] = {}
+
+    def _bucket_region_from_response(response) -> str | None:
+        if not isinstance(response, dict):
+            return None
+
+        bucket_region = response.get("BucketRegion")
+
+        if isinstance(bucket_region, str) and bucket_region:
+            return bucket_region
+
+        metadata = response.get("ResponseMetadata", {})
+
+        if isinstance(metadata, dict):
+            headers = metadata.get("HTTPHeaders", {})
+
+            if isinstance(headers, dict):
+                header_region = headers.get(
+                    "x-amz-bucket-region"
+                )
+
+                if isinstance(header_region, str) and header_region:
+                    return header_region
+
+        return None
     resolved: list = []
 
     for finding in findings:
@@ -267,22 +291,23 @@ def _resolve_s3_bucket_regions(
 
         if bucket_name not in region_cache:
             try:
-                response = s3_client.get_bucket_location(
+                response = s3_client.head_bucket(
                     Bucket=bucket_name,
                 )
-                location = response.get("LocationConstraint")
+                bucket_region = (
+                    _bucket_region_from_response(response)
+                    or "unknown"
+                )
 
-                if location in (None, ""):
-                    bucket_region = "us-east-1"
-                elif location == "EU":
-                    bucket_region = "eu-west-1"
-                elif isinstance(location, str):
-                    bucket_region = location
-                else:
-                    bucket_region = "unknown"
-
-            except Exception:
-                bucket_region = "unknown"
+            except Exception as exc:
+                # S3 can return a redirect when the request reaches
+                # a different endpoint from the bucket's home region.
+                # The response still identifies the bucket region.
+                response = getattr(exc, "response", None)
+                bucket_region = (
+                    _bucket_region_from_response(response)
+                    or "unknown"
+                )
 
             region_cache[bucket_name] = bucket_region
 

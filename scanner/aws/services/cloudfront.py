@@ -6,6 +6,8 @@ from scanner.aws.client_factory import create_aws_client
 
 
 class CloudFrontService:
+    CLOUDFRONT_REGION = "us-east-1"
+
     """
     Read-only Amazon CloudFront discovery service.
 
@@ -17,6 +19,7 @@ class CloudFrontService:
         self.cloudfront_client = create_aws_client(
             session,
             "cloudfront",
+            region_name=self.CLOUDFRONT_REGION,
         )
         self.s3_client = create_aws_client(
             session,
@@ -179,6 +182,17 @@ class CloudFrontService:
                 "NotFound",
             }:
                 return False
+
+            # A redirect means S3 located the bucket at a different
+            # endpoint/region. The bucket therefore exists; callers
+            # only need the existence signal here.
+            if code in {
+                "301",
+                "307",
+                "PermanentRedirect",
+                "TemporaryRedirect",
+            }:
+                return True
 
             raise RuntimeError(
                 "S3 bucket existence check failed for "
