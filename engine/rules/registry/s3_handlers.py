@@ -16,4 +16,5 @@ S3_DATA_SOURCE_HANDLERS: dict[
     "s3_logging": S3DataCollector.collect_logging,
     "s3_object_lock": S3DataCollector.collect_object_lock,
     "s3_ownership": S3DataCollector.collect_ownership,
+    "s3_lifecycle": S3DataCollector.collect_lifecycle,
 }
