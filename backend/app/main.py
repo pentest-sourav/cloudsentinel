@@ -18,7 +18,7 @@ from sqlalchemy import text
 
 
 def _is_test_request(request: Request) -> bool:
-    return request.headers.get("x-cloudsentinel-test") == "1"
+    return bool(getattr(request.app.state, "testing", False))
 
 
 app = FastAPI(
