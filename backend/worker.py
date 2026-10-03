@@ -395,8 +395,32 @@ class ScanWorker:
         finally:
             db.close()
 
+    def _worker_heartbeat(
+        self,
+        stop_event: threading.Event,
+    ) -> None:
+        interval = max(1, settings.scan_queue_worker_heartbeat_seconds)
+        while not stop_event.wait(interval):
+            try:
+                self.queue.heartbeat_worker(
+                    ttl_seconds=settings.scan_queue_worker_stale_seconds,
+                )
+            except Exception:
+                logger.exception("Failed to publish worker heartbeat")
+
     def run(self) -> None:
         self.queue.ensure_group()
+        self.queue.heartbeat_worker(
+            ttl_seconds=settings.scan_queue_worker_stale_seconds,
+        )
+        heartbeat_stop = threading.Event()
+        heartbeat = threading.Thread(
+            target=self._worker_heartbeat,
+            args=(heartbeat_stop,),
+            name="worker-heartbeat",
+            daemon=True,
+        )
+        heartbeat.start()
 
         logger.info(
             "CloudSentinel worker started "
@@ -436,6 +460,8 @@ class ScanWorker:
                     job=job,
                 )
 
+        heartbeat_stop.set()
+        heartbeat.join(timeout=2)
         self.queue.close()
 
         logger.info("CloudSentinel worker stopped")
