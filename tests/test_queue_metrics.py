@@ -7,6 +7,10 @@ class FakeRedis:
         assert group
         return {"pending": 7}
 
+    def scan_iter(self, match, count=100):
+        assert match
+        return iter(["worker-1", "worker-2"])
+
     def xlen(self, stream):
         if stream.endswith(":dlq"):
             return 2
@@ -21,4 +25,5 @@ def test_scan_queue_metrics():
         "stream_length": 11,
         "pending_count": 7,
         "dead_letter_length": 2,
+        "active_workers": 2,
     }

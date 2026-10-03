@@ -25,9 +25,6 @@ class FakeDB:
     def rollback(self):
         self.rollback_called = True
 
-    def defer_recovery(self, message_id):
-        self.deferred.append(message_id)
-
     def close(self):
         self.closed = True
 
@@ -48,6 +45,12 @@ class FakeQueue:
 
     def acknowledge(self, message_id):
         self.acknowledged.append(message_id)
+
+    def defer_recovery(self, message_id):
+        self.deferred.append(message_id)
+
+    def heartbeat_worker(self, ttl_seconds=None):
+        pass
 
     def recover_pending(self, min_idle_ms, count):
         return self.recovered

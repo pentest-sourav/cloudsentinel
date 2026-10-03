@@ -196,6 +196,8 @@ See the project documentation for the current onboarding details.
 - asynchronous Redis-backed scan queue
 - worker-based execution
 - retry/recovery handling
+- per-tenant bounded scan concurrency
+- persistent recurring scan schedules (15 minutes to 7 days)
 - scan history
 - scan summaries
 - finding lifecycle support
@@ -325,7 +327,7 @@ GitHub Actions also runs compilation and the full pytest suite on pushes and pul
 
 ## Project Status
 
-CloudSentinel is an active open-source project with a launchable self-hosted web console and an AWS-first security assessment workflow.
+CloudSentinel is an active open-source project with a launchable self-hosted web console and an AWS-first security assessment workflow. Scheduled CSPM assessments and tenant-safe scan capacity controls are included for continuous monitoring workflows.
 
 ### Implemented
 
@@ -361,7 +363,7 @@ CloudSentinel should currently be presented as:
 
 Azure is being developed as the next provider.
 
-The project is not positioned as a drop-in replacement for mature commercial CSPM products, and no claim of complete AWS Security Hub coverage is made without explicit validation against the current AWS catalogue.
+CloudSentinel is evidence-driven and does not generate synthetic security findings. A finding is persisted from scanner/collector evidence returned by the target AWS account; failed or permission-denied checks are surfaced as execution errors/warnings rather than silently treated as secure. AWS coverage remains explicitly scoped to the implemented and tested controls, and the project does not claim complete AWS Security Hub coverage without validation against the current AWS catalogue.
 
 ---
 

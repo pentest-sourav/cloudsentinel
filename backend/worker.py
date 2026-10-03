@@ -13,7 +13,9 @@ from backend.app.services.cloud_account_service import get_cloud_account
 from backend.app.services.cloud_account_status import SCAN_ELIGIBLE_ACCOUNT_STATUSES
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_runner import ScanRunner
+from backend.app.services.scan_schedule_service import claim_due_schedules
 from backend.app.services.scan_service import (
+    create_scan,
     SCAN_STATUS_COMPLETED,
     SCAN_STATUS_COMPLETED_WITH_WARNINGS,
     SCAN_STATUS_FAILED,
@@ -90,6 +92,48 @@ class ScanWorker:
             scan_id=scan_id,
             progress_callback=lambda **data: self.queue.set_progress(scan_id, **data),
         )
+
+    def _schedule_loop(self, stop_event: threading.Event) -> None:
+        while not stop_event.wait(max(1, settings.scan_scheduler_poll_seconds)):
+            db = SessionLocal()
+            try:
+                schedules = claim_due_schedules(db=db, limit=20)
+                for schedule in schedules:
+                    try:
+                        scan = create_scan(
+                            db=db,
+                            provider=schedule.provider,
+                            tenant_id=schedule.tenant_id,
+                            cloud_account_id=schedule.cloud_account_id,
+                        )
+                        schedule.last_scan_id = scan.id
+                        db.commit()
+                        try:
+                            self.queue.enqueue(ScanJob(scan_id=scan.id, provider=scan.provider))
+                        except Exception as exc:
+                            failed_db = SessionLocal()
+                            try:
+                                failed_scan = get_scan(db=failed_db, scan_id=scan.id)
+                                if failed_scan is not None:
+                                    fail_scan(db=failed_db, scan=failed_scan, error_message=f"Scheduled scan could not be queued: {exc}")
+                            finally:
+                                failed_db.close()
+                            raise
+                        logger.info(
+                            "Enqueued scheduled scan",
+                            extra={"schedule_id": schedule.id, "scan_id": scan.id},
+                        )
+                    except Exception as exc:
+                        db.rollback()
+                        logger.exception(
+                            "Failed to enqueue scheduled scan schedule_id=%s",
+                            schedule.id,
+                        )
+            except Exception:
+                db.rollback()
+                logger.exception("Scheduled scan poll failed")
+            finally:
+                db.close()
 
     def stop(self, *_args) -> None:
         logger.info("Shutdown signal received")
@@ -429,6 +473,14 @@ class ScanWorker:
             daemon=True,
         )
         heartbeat.start()
+        schedule_stop = threading.Event()
+        schedule_thread = threading.Thread(
+            target=self._schedule_loop,
+            args=(schedule_stop,),
+            name="scan-scheduler",
+            daemon=True,
+        )
+        schedule_thread.start()
 
         logger.info(
             "CloudSentinel worker started "
@@ -470,6 +522,8 @@ class ScanWorker:
 
         heartbeat_stop.set()
         heartbeat.join(timeout=2)
+        schedule_stop.set()
+        schedule_thread.join(timeout=2)
         self.queue.close()
 
         logger.info("CloudSentinel worker stopped")
