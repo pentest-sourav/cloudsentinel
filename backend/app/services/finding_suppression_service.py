@@ -13,7 +13,10 @@ def _is_active(suppression: FindingSuppression | None) -> bool:
         return False
     if suppression.expires_at is None:
         return True
-    return suppression.expires_at > datetime.now(timezone.utc)
+    expires_at = suppression.expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    return expires_at > datetime.now(timezone.utc)
 
 
 def get_suppression_for_finding(
