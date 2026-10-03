@@ -45,14 +45,18 @@ def get_scan(db, scan_id: int):
 ScannerFactory = Callable[[CloudAccount, int], Callable[[], list]]
 
 
-SCANNERS: dict[str, ScannerFactory] = {
-    "aws": lambda account, scan_id: lambda: run_aws_scan(
+def _default_aws_scanner(account: CloudAccount, scan_id: int):
+    return lambda: run_aws_scan(
         role_arn=account.role_arn,
         external_id=account.external_id,
         region_name=account.region,
         expected_account_id=account.external_account_id,
         scan_id=scan_id,
-    ),
+    )
+
+
+SCANNERS: dict[str, ScannerFactory] = {
+    "aws": _default_aws_scanner,
 }
 
 
@@ -310,11 +314,17 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
                 return
 
-            scanner = partial(
-                self._run_aws_scan,
-                cloud_account,
-                scan.id,
-            )
+            if scanner_factory is _default_aws_scanner:
+                scanner = partial(
+                    self._run_aws_scan,
+                    cloud_account,
+                    scan.id,
+                )
+            else:
+                scanner = scanner_factory(
+                    cloud_account,
+                    scan.id,
+                )
 
             logger.info(
                 "Starting scan",
