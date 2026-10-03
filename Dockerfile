@@ -6,6 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Run the API as a non-root application user.
+RUN groupadd --system cloudsentinel     && useradd --system --gid cloudsentinel --create-home cloudsentinel
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpq5 \
@@ -24,6 +27,10 @@ COPY database ./database
 COPY frontend ./frontend
 COPY tests ./tests
 COPY pyproject.toml .
+
+RUN chown -R cloudsentinel:cloudsentinel /app
+
+USER cloudsentinel
 
 EXPOSE 8000
 
