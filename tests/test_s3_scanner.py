@@ -35,7 +35,8 @@ class FakeS3Service:
                 "Rules": [
                     {
                         "ApplyServerSideEncryptionByDefault": {
-                            "SSEAlgorithm": "AES256"
+                            "SSEAlgorithm": "aws:kms",
+                            "KMSMasterKeyID": "arn:aws:kms:ap-south-1:123456789012:key/test"
                         }
                     }
                 ]
