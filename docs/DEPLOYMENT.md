@@ -43,10 +43,12 @@ export CLOUDSENTINEL_DOMAIN=cspm.example.com
 export POSTGRES_PASSWORD='<random-password>'
 export JWT_SECRET_KEY='<random-secret-at-least-32-characters>'
 export CORS_ALLOWED_ORIGINS='https://app.example.com'
+export AWS_STS_SESSION_DURATION_SECONDS='900'
 ```
 
 Do not commit these values. Production requires explicit CORS, HSTS, JSON logging,
-and a bounded JWT lifetime.
+a bounded JWT lifetime, and an AWS STS session duration between 900 and 43200 seconds.
+The recommended default is 900 seconds (15 minutes).
 
 ## Start
 
@@ -83,7 +85,9 @@ chain.
 For AWS-hosted deployments use an EC2 instance profile, ECS task role, or EKS pod
 identity/IRSA. Grant the runtime identity only the STS permissions required to
 assume customer onboarding roles. Customer AWS accounts should trust the runtime
-identity with an external ID and a read-only role policy.
+identity with a server-generated external ID and a read-only role policy. Scan
+sessions are short-lived and use a scan-specific role session name for CloudTrail
+traceability.
 
 ## Updates and rollback
 
