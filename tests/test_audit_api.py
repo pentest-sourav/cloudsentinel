@@ -96,14 +96,14 @@ def _seed(SessionLocal):
                 resource_id="101",
                 request_id="req-101",
                 ip_address="127.0.0.1",
-                metadata={"provider": "aws"},
+                event_metadata={"provider": "aws"},
             ),
             AuditEvent(
                 tenant_id=tenant_one.id,
                 user_id=owner.id,
                 action="auth.login",
                 status="failure",
-                metadata={"reason": "invalid credentials"},
+                event_metadata={"reason": "invalid credentials"},
             ),
             AuditEvent(
                 tenant_id=tenant_two.id,
@@ -112,7 +112,7 @@ def _seed(SessionLocal):
                 status="success",
                 resource_type="scan",
                 resource_id="202",
-                metadata={"provider": "aws"},
+                event_metadata={"provider": "aws"},
             ),
         ]
     )
