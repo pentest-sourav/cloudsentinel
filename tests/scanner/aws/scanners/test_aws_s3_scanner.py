@@ -94,6 +94,15 @@ def test_s3_scanner_returns_findings_for_public_buckets():
         "Status": "Enabled",
     }
 
+    fake_service.get_bucket_lifecycle_configuration.return_value = {
+        "Rules": [
+            {
+                "ID": "retention",
+                "Status": "Enabled",
+            }
+        ]
+    }
+
     fake_service.get_bucket_logging.return_value = {
         "LoggingEnabled": {
             "TargetBucket": "log-bucket",
