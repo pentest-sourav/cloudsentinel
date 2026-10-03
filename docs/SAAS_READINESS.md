@@ -48,6 +48,7 @@ The project should be presented publicly as an **AWS-focused CSPM foundation und
 - Suspended-tenant token invalidation
 - AWS account connection testing
 - Read-only AWS scanning model
+- Configurable API rate limiting with Redis-backed enforcement
 
 ## SaaS Security Requirements
 
@@ -94,10 +95,12 @@ Destructive or account-management operations should require an appropriate role.
 
 ### API protection
 
+Current implementation includes Redis-backed, configurable rate limiting for authentication, scan creation, and mutation traffic.
+
 Before public exposure:
 
-- rate-limit authentication endpoints
-- rate-limit scan creation
+- verify rate-limit thresholds with expected traffic and proxy topology
+- enforce request-size limits
 - enforce request-size limits
 - configure production CORS explicitly
 - enable secure response headers
