@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from backend.app.services.aws_scan_service import run_aws_scan
 
@@ -96,8 +96,15 @@ def test_run_aws_scan_executes_global_and_regional_services_in_each_scope():
         (regional_session, "eu-west-1"),
     ]
 
-    create_session.assert_called_once_with(
-        role_arn=ROLE_ARN,
-        external_id=EXTERNAL_ID,
-        region_name="eu-west-1",
-    )
+    assert create_session.call_args_list == [
+        call(
+            role_arn=ROLE_ARN,
+            external_id=EXTERNAL_ID,
+            region_name="ap-south-1",
+        ),
+        call(
+            role_arn=ROLE_ARN,
+            external_id=EXTERNAL_ID,
+            region_name="eu-west-1",
+        ),
+    ]
