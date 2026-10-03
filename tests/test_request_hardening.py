@@ -67,3 +67,23 @@ def test_metrics_endpoint_exposes_request_metrics():
     assert "cloudsentinel_http_requests_total" in metrics_response.text
     assert 'method="GET"' in metrics_response.text
     assert "cloudsentinel_process_uptime_seconds" in metrics_response.text
+
+
+def test_metrics_endpoint_requires_configured_token():
+    client = TestClient(app)
+
+    with patch(
+        "backend.app.main.settings.metrics_enabled",
+        True,
+    ), patch(
+        "backend.app.main.settings.metrics_auth_token",
+        "m" * 32,
+    ):
+        unauthorized = client.get("/metrics")
+        authorized = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {'m' * 32}"},
+        )
+
+    assert unauthorized.status_code == 401
+    assert authorized.status_code == 200
