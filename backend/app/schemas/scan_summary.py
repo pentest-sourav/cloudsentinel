@@ -36,3 +36,27 @@ class ScanSummaryResponse(BaseModel):
     execution_error_count: int
     execution_errors: list[ScanExecutionErrorSummary]
     progress: ScanProgressResponse | None = None
+    risk_posture: RiskPostureSummary
+
+
+class TopRiskFinding(BaseModel):
+    finding_id: int
+    rule_id: str
+    title: str
+    severity: str
+    risk_score: float
+    risk_level: str
+    provider: str
+    region: str
+    resource_type: str
+    resource_id: str
+
+
+class RiskPostureSummary(BaseModel):
+    score: float
+    grade: str
+    average_risk_score: float
+    max_risk_score: float
+    risk_score_sum: float
+    affected_resource_count: int
+    top_risks: list[TopRiskFinding]
