@@ -29,6 +29,7 @@ from backend.app.services.cloud_account_service import (
     delete_cloud_account,
     get_cloud_account,
     get_cloud_accounts,
+    rotate_external_id,
 )
 from backend.app.services.audit_service import (
     AUDIT_FAILURE,
@@ -117,7 +118,13 @@ def list_cloud_accounts(
 def get_cloud_account_by_id(
     account_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        require_roles(
+            ROLE_OWNER,
+            ROLE_ADMINISTRATOR,
+            ROLE_OPERATOR,
+        ),
+    ),
 ):
     account = get_cloud_account(
         db=db,
@@ -154,6 +161,60 @@ def get_cloud_account_connection(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cloud account not found",
         )
+
+    return get_connection_configuration(
+        db=db,
+        account=account,
+    )
+
+
+@router.post(
+    "/{account_id}/external-id/rotate",
+    response_model=CloudAccountConnectionResponse,
+)
+def rotate_cloud_account_external_id(
+    account_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            ROLE_OWNER,
+            ROLE_ADMINISTRATOR,
+        ),
+    ),
+):
+    account = get_cloud_account(
+        db=db,
+        account_id=account_id,
+        tenant_id=current_user.tenant_id,
+    )
+
+    if account is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cloud account not found",
+        )
+
+    account = rotate_external_id(
+        db=db,
+        account=account,
+    )
+
+    safe_record_audit_event(
+        db=db,
+        action="cloud_account.external_id.rotate",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="cloud_account",
+        resource_id=account.id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
+        metadata={
+            "provider": account.provider,
+            "external_account_id": account.external_account_id,
+        },
+    )
 
     return get_connection_configuration(
         db=db,
