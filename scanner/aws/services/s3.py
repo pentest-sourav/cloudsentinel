@@ -381,3 +381,42 @@ class S3Service:
                 f"AWS SDK error while checking S3 bucket ownership controls: "
                 f"{exc}"
             ) from exc
+
+    def get_bucket_lifecycle_configuration(
+        self,
+        bucket_name: str,
+    ) -> dict[str, Any]:
+        try:
+            response = self.s3_client.get_bucket_lifecycle_configuration(
+                Bucket=bucket_name
+            )
+
+            return {
+                "Rules": response.get("Rules", []),
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+
+            if code in {
+                "NoSuchLifecycleConfiguration",
+                "NoSuchBucket",
+            }:
+                return {}
+
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+
+            raise RuntimeError(
+                f"S3 lifecycle configuration check failed: "
+                f"{code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while checking S3 lifecycle configuration: "
+                f"{exc}"
+            ) from exc
