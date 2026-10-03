@@ -309,7 +309,7 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
                 return
 
-            scanner = scanner_factory(cloud_account, scan.id)
+            scanner = self._run_aws_scan
 
             logger.info(
                 "Starting scan",
