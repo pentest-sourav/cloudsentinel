@@ -30,7 +30,6 @@ router = APIRouter(
 def register(
     registration: RegisterRequest,
     db: Session = Depends(get_db),
-    request: Request = None,
 ):
     try:
         return register_user(
