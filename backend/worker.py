@@ -3,6 +3,8 @@ import signal
 from collections.abc import Callable
 
 from backend.app.core.database import SessionLocal
+from backend.app.core.config import settings
+from backend.app.core.logging import configure_logging
 from backend.app.models.cloud_account import CloudAccount
 from backend.app.services.aws_scan_service import run_aws_scan
 from backend.app.services.cloud_account_service import get_cloud_account
@@ -18,12 +20,10 @@ from backend.app.services.scan_service import (
 )
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format=(
-        "%(asctime)s %(levelname)s "
-        "%(name)s %(message)s"
-    ),
+configure_logging(
+    service="worker",
+    level=settings.log_level,
+    log_format=settings.log_format,
 )
 
 logger = logging.getLogger("cloudsentinel.worker")
@@ -232,13 +232,14 @@ class ScanWorker:
             scanner = scanner_factory(cloud_account)
 
             logger.info(
-                "Starting scan_id=%s provider=%s "
-                "cloud_account_id=%s message_id=%s recovered=%s",
-                scan.id,
-                job.provider,
-                cloud_account.id,
-                message_id,
-                recovered,
+                "Starting scan",
+                extra={
+                    "scan_id": scan.id,
+                    "provider": job.provider,
+                    "cloud_account_id": cloud_account.id,
+                    "message_id": message_id,
+                    "recovered": recovered,
+                },
             )
 
             result = ScanRunner(db=db).run(
@@ -250,9 +251,8 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
 
                 logger.info(
-                    "Finished scan_id=%s message_id=%s",
-                    scan.id,
-                    message_id,
+                    "Finished scan",
+                    extra={"scan_id": scan.id, "message_id": message_id},
                 )
                 return
 

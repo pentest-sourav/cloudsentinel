@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     trusted_proxy_ips: str = ""
     metrics_enabled: bool = False
     metrics_auth_token: str = ""
+    log_level: str = "INFO"
+    log_format: str = "auto"
 
     rate_limit_window_seconds: int = 60
     rate_limit_auth_max_requests: int = 10
@@ -51,6 +53,14 @@ class Settings(BaseSettings):
         )
         if any(value <= 0 for value in rate_limits):
             raise ValueError("Rate limit settings must all be > 0")
+
+        if self.log_format.lower() not in {"auto", "json", "text"}:
+            raise ValueError("LOG_FORMAT must be auto, json, or text")
+
+        if self.log_level.upper() not in {
+            "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+        }:
+            raise ValueError("LOG_LEVEL must be a valid logging level")
 
         if "*" in self.cors_allowed_origins:
             raise ValueError(

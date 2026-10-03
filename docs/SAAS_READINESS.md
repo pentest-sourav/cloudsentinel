@@ -132,7 +132,7 @@ Production deployment should provide:
 - worker restart policy
 - scan retry/dead-letter handling
 - health and readiness checks
-- structured application logs
+- structured JSON application logs with request correlation
 - metrics and alerting
 - database migrations
 - controlled deployment/rollback
@@ -215,3 +215,5 @@ API request bodies are bounded by `MAX_REQUEST_BODY_BYTES`. Rate limiting only h
 Metrics are available from `/metrics` only when `METRICS_ENABLED=true`. The endpoint emits Prometheus-compatible text and intentionally uses bounded FastAPI route labels rather than raw resource URLs.
 
 The container image runs as the non-root `cloudsentinel` user, includes an HTTP healthcheck, and is scanned in CI for high/critical OS and Python-library vulnerabilities. Production deployment should still place the service behind a TLS-terminating reverse proxy and configure trusted proxy networks explicitly.
+
+Production logging supports `LOG_LEVEL` and `LOG_FORMAT=auto|json|text`. In production, `auto` selects JSON output. API request logs inherit the `X-Request-ID` correlation value, while worker logs emit structured scan and queue identifiers. Log pipelines should retain security-relevant operational events without collecting passwords, JWTs, AWS credentials, or other secrets.
