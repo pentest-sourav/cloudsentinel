@@ -93,12 +93,13 @@ class RateLimiter:
             )
 
         except (RedisError, OSError, ConnectionError):
-            # A Redis outage must not become an API outage. Authentication
-            # and scanning continue, but without a shared distributed limit.
-            return RateLimitDecision(
-                allowed=True,
-                remaining=max(limit - 1, 0),
-                retry_after=0,
+            # Authentication and scanning should remain available during a
+            # transient Redis outage. The in-process fallback still places a
+            # conservative bound on a single API instance.
+            return self._check_fallback(
+                key=key,
+                limit=limit,
+                window_seconds=window_seconds,
             )
 
         finally:
