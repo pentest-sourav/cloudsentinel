@@ -92,6 +92,7 @@ def test_run_aws_scan_executes_global_and_regional_services_in_each_scope():
 
     assert build_calls == [
         (base_session, "ap-south-1"),
+        (base_session, "ap-south-1"),
         (regional_session, "eu-west-1"),
     ]
 
