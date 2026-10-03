@@ -6,7 +6,7 @@ CloudSentinel is an open-source, production-oriented cloud security platform des
 
 > **Current focus:** AWS  
 > **Azure:** Development phase  
-> **Latest verified test baseline:** 2827 passing tests, 1 warning
+> **Latest verified test baseline:** 2838 passing tests, 1 warning
 
 ---
 
@@ -233,6 +233,8 @@ Current hardening includes:
 - tenant-scoped cloud accounts
 - tenant-scoped scans
 - tenant-scoped finding retrieval
+- role-based authorization for operational mutations
+- Redis-backed API rate limiting
 - JWT authentication
 - Argon2 password hashing
 - AWS account identity validation
