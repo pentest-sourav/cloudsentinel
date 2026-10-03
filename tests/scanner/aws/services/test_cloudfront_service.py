@@ -92,3 +92,57 @@ def test_list_distributions_wraps_client_error():
         match="AWS CloudFront distribution discovery failed",
     ):
         service.list_distributions()
+
+
+def test_check_s3_bucket_exists_returns_true():
+    service, client = make_service()
+
+    assert service.check_s3_bucket_exists(
+        "example-bucket"
+    ) is True
+
+    client.head_bucket.assert_called_once_with(
+        Bucket="example-bucket"
+    )
+
+
+def test_check_s3_bucket_exists_returns_false_for_missing_bucket():
+    service, client = make_service()
+
+    from botocore.exceptions import ClientError
+
+    client.head_bucket.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "404",
+            }
+        },
+        "HeadBucket",
+    )
+
+    assert service.check_s3_bucket_exists(
+        "missing-bucket"
+    ) is False
+
+
+def test_check_s3_bucket_exists_does_not_treat_access_denied_as_missing():
+    service, client = make_service()
+
+    from botocore.exceptions import ClientError
+
+    client.head_bucket.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "403",
+            }
+        },
+        "HeadBucket",
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="S3 bucket existence check failed",
+    ):
+        service.check_s3_bucket_exists(
+            "restricted-bucket"
+        )
