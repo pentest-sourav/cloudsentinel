@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from hashlib import sha256
 from ipaddress import ip_address, ip_network
 from time import monotonic
 
@@ -87,8 +88,17 @@ class RateLimiter:
 
         return candidates[0]
 
-    def _key(self, request: Request, scope: str) -> str:
-        return f"{self.KEY_PREFIX}:{scope}:{self._client_ip(request)}"
+    def _key(
+        self,
+        request: Request,
+        scope: str,
+        identifier: str | None = None,
+    ) -> str:
+        client_ip = self._client_ip(request)
+        if identifier is None:
+            return f"{self.KEY_PREFIX}:{scope}:{client_ip}"
+        digest = sha256(identifier.strip().lower().encode("utf-8")).hexdigest()
+        return f"{self.KEY_PREFIX}:{scope}:{client_ip}:{digest}"
 
     def check(
         self,
@@ -97,11 +107,12 @@ class RateLimiter:
         scope: str,
         limit: int,
         window_seconds: int,
+        identifier: str | None = None,
     ) -> RateLimitDecision:
         if limit <= 0 or window_seconds <= 0:
             raise ValueError("Rate limit configuration must be positive")
 
-        key = self._key(request, scope)
+        key = self._key(request, scope, identifier)
         queue = None
 
         try:
