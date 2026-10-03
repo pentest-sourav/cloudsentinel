@@ -25,6 +25,9 @@ class FakeDB:
     def rollback(self):
         self.rollback_called = True
 
+    def defer_recovery(self, message_id):
+        self.deferred.append(message_id)
+
     def close(self):
         self.closed = True
 
@@ -38,6 +41,7 @@ class FakeQueue:
         self.stream_name = "test-stream"
         self.group_name = "test-group"
         self.consumer_name = "test-consumer"
+        self.deferred = []
 
     def ensure_group(self):
         pass
@@ -473,3 +477,36 @@ def test_worker_run_recovers_pending_jobs_before_new_jobs(monkeypatch):
     assert execution_order == [7]
     assert queue.acknowledged == ["7-0"]
     assert queue.closed is True
+
+
+
+def test_worker_defers_scan_when_tenant_capacity_is_full(monkeypatch):
+    queue = FakeQueue()
+    db = FakeDB()
+    scan = FakeScan(id=9, provider="aws")
+
+    monkeypatch.setattr("backend.worker.SessionLocal", lambda: db)
+    monkeypatch.setattr("backend.worker.get_scan", lambda db, scan_id: scan)
+    patch_cloud_account(monkeypatch)
+
+    from backend.app.services.scan_service import ScanCapacityExceeded
+
+    def capacity_error(self, scan, scanner):
+        raise ScanCapacityExceeded("tenant capacity reached")
+
+    monkeypatch.setattr("backend.worker.ScanRunner.run", capacity_error)
+    monkeypatch.setitem(
+        __import__("backend.worker", fromlist=["SCANNERS"]).SCANNERS,
+        "aws",
+        lambda account, scan_id: lambda: [],
+    )
+
+    worker = ScanWorker(queue=queue)
+    worker.process_job(
+        message_id="9-0",
+        job=ScanJob(scan_id=9, provider="aws"),
+    )
+
+    assert queue.acknowledged == []
+    assert queue.deferred == ["9-0"]
+    assert db.closed is True

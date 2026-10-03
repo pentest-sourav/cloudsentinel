@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 from backend.app.models.cloud_account import CloudAccount
 from backend.app.models.finding import Finding
 from backend.app.models.scan import Scan
+from backend.app.models.tenant import Tenant
+from backend.app.core.config import settings
 from backend.app.services.cloud_account_service import (
     SCAN_ELIGIBLE_ACCOUNT_STATUSES,
 )
@@ -24,6 +26,10 @@ SCAN_STATUS_COMPLETED_WITH_WARNINGS = "completed_with_warnings"
 SCAN_STATUS_FAILED = "failed"
 
 DEFAULT_MAX_ATTEMPTS = 4
+
+
+class ScanCapacityExceeded(ValueError):
+    """Raised when a tenant has reached its concurrent scan limit."""
 
 VALID_SCAN_STATUSES = {
     SCAN_STATUS_PENDING,
@@ -127,9 +133,30 @@ def start_scan(
             f"Scan {scan.id} has exhausted its maximum attempts."
         )
 
-    # Serialize the state transition at the DB level. If another worker
-    # loaded the same Redis job concurrently, only one transaction can
-    # move the row from pending -> running.
+    # Lock the tenant before checking capacity so multiple workers cannot
+    # race past the per-tenant concurrency limit.
+    db.query(Tenant).filter(
+        Tenant.id == scan.tenant_id,
+    ).with_for_update().one()
+
+    running_count = (
+        db.query(func.count(Scan.id))
+        .filter(
+            Scan.tenant_id == scan.tenant_id,
+            Scan.status == SCAN_STATUS_RUNNING,
+        )
+        .scalar()
+        or 0
+    )
+
+    if running_count >= settings.max_concurrent_scans_per_tenant:
+        db.rollback()
+        raise ScanCapacityExceeded(
+            f"Tenant {scan.tenant_id} has reached the maximum of "
+            f"{settings.max_concurrent_scans_per_tenant} concurrent scans."
+        )
+
+    # Serialize the scan state transition at the DB level.
     locked_scan = (
         db.query(Scan)
         .filter(Scan.id == scan.id)
