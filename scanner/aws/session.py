@@ -32,6 +32,10 @@ def create_aws_session(
     AWS clients created from the returned session should use the
     centralized CloudSentinel retry policy.
 
+    Cross-account role assumption requires an external ID and requests
+    short-lived STS credentials. The duration defaults to 15 minutes and
+    is bounded to the AWS-supported 15-minute to 12-hour range.
+
     No long-lived AWS credentials are stored by this function.
     """
 
