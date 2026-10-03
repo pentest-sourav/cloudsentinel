@@ -292,7 +292,7 @@ def test_external_id_rotation_invalidates_previous_configuration():
         assert payload["external_id"].startswith("cs-")
         assert payload["status"] == "pending_connection"
         assert "update the customer IAM trust policy" in (
-            payload["last_connection_error"]
+            payload["last_connection_error"].lower()
         )
 
         refreshed = client.get(
