@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from engine.findings.model import Finding, Severity
@@ -9,7 +9,7 @@ class SQSTaggingResult:
     queue_arn: str
     tagged: bool
     tags: list[dict[str, Any]]
-    required_tag_keys: list[str]
+    required_tag_keys: list[str] = field(default_factory=list)
 
 
 def check_sqs_tagging(
