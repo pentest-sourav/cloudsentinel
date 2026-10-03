@@ -15,6 +15,7 @@ from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_runner import ScanRunner
 from backend.app.services.scan_service import (
     SCAN_STATUS_COMPLETED,
+    SCAN_STATUS_COMPLETED_WITH_WARNINGS,
     SCAN_STATUS_FAILED,
     SCAN_STATUS_PENDING,
     SCAN_STATUS_RUNNING,
@@ -355,7 +356,10 @@ class ScanWorker:
                 heartbeat_stop.set()
                 heartbeat.join(timeout=2)
 
-            if result.status == SCAN_STATUS_COMPLETED:
+            if result.status in {
+                SCAN_STATUS_COMPLETED,
+                SCAN_STATUS_COMPLETED_WITH_WARNINGS,
+            }:
                 self.queue.acknowledge(message_id)
 
                 logger.info(
