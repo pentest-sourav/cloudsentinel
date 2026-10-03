@@ -54,4 +54,5 @@ def test_datasync_registry_has_expected_arguments():
         "resource_type",
         "tag_data_available",
         "has_non_system_tags",
+        "tags",
     ]

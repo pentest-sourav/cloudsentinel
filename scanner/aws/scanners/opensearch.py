@@ -6,7 +6,6 @@ from engine.rules.registry.opensearch_handlers import (
 from engine.rules.registry.opensearch_registry import (
     OPENSEARCH_RULES,
 )
-
 from scanner.aws.collectors.opensearch import (
     OpenSearchDataCollector,
 )
@@ -19,11 +18,16 @@ class OpenSearchScanner:
     OpenSearch domains.
     """
 
-    def __init__(self, service: OpenSearchService):
+    def __init__(
+        self,
+        service: OpenSearchService,
+        rule_parameters=None,
+    ):
         self.collector = OpenSearchDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=OPENSEARCH_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

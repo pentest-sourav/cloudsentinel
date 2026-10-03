@@ -39,11 +39,15 @@ DATASYNC_RULES = RuleRegistry(
                 "resource_type",
                 "tag_data_available",
                 "has_non_system_tags",
+                "tags",
             ],
             check=check_datasync_task_tags,
             build_finding=(
                 build_datasync_task_tags_finding
             ),
+            parameters={
+                "required_tag_keys": [],
+            },
         ),
     ]
 )

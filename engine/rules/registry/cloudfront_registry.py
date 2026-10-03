@@ -1,3 +1,8 @@
+from engine.rules.aws.cloudfront.tagging import (
+    build_cloudfront_tagging_finding,
+    check_cloudfront_tagging,
+)
+
 from engine.rules.aws.cloudfront.protection import (
     build_cloudfront_custom_certificate_finding,
     build_cloudfront_custom_origin_https_finding,
@@ -230,6 +235,19 @@ CLOUDFRONT_RULES = RuleRegistry(
             build_finding=(
                 build_cloudfront_trusted_key_groups_finding
             ),
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-014",
+            name="cloudfront_tagging",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "tags",
+            ],
+            check=check_cloudfront_tagging,
+            build_finding=build_cloudfront_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
     ]
 )

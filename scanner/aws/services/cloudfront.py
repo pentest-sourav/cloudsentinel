@@ -124,3 +124,33 @@ class CloudFrontService:
                 exc,
             )
             raise AssertionError("unreachable")
+
+    def list_tags_for_resource(
+        self,
+        resource_arn: str,
+    ) -> list[dict[str, Any]]:
+        try:
+            response = (
+                self.cloudfront_client.list_tags_for_resource(
+                    Resource=resource_arn
+                )
+            )
+
+            tags = (
+                response.get("Tags", {}).get("Items", [])
+                if isinstance(response, dict)
+                else []
+            )
+
+            return [
+                tag
+                for tag in tags
+                if isinstance(tag, dict)
+            ]
+
+        except Exception as exc:
+            self._raise_api_error(
+                "resource tag discovery",
+                exc,
+            )
+            raise AssertionError("unreachable")

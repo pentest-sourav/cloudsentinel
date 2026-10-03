@@ -499,3 +499,42 @@ class CloudFrontDataCollector:
         self,
     ) -> list[dict[str, Any]]:
         return self.collect_distributions()
+
+    def collect_distributions(self) -> list[dict[str, Any]]:
+        if self._distributions is None:
+            raw_distributions = self.service.list_distributions()
+
+            normalized: list[dict[str, Any]] = []
+
+            for distribution in raw_distributions:
+                item = self._normalize_distribution(
+                    distribution
+                )
+
+                resource_arn = distribution.get("ARN")
+
+                tags: list[dict[str, Any]] = []
+
+                if isinstance(resource_arn, str) and resource_arn:
+                    list_tags = getattr(
+                        self.service,
+                        "list_tags_for_resource",
+                        None,
+                    )
+
+                    if callable(list_tags):
+                        raw_tags = list_tags(resource_arn)
+
+                        if isinstance(raw_tags, list):
+                            tags = [
+                                tag
+                                for tag in raw_tags
+                                if isinstance(tag, dict)
+                            ]
+
+                item["tags"] = tags
+                normalized.append(item)
+
+            self._distributions = normalized
+
+        return self._distributions

@@ -15,11 +15,16 @@ from scanner.aws.services.datasync import DataSyncService
 class DataSyncScanner:
     """Runs registered AWS DataSync security rules."""
 
-    def __init__(self, service: DataSyncService):
+    def __init__(
+        self,
+        service: DataSyncService,
+        rule_parameters=None,
+    ):
         self.collector = DataSyncDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=DATASYNC_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

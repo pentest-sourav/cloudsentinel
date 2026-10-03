@@ -169,7 +169,8 @@ OPENSEARCH_RULES = RuleRegistry(
             ],
             check=check_opensearch_tagging,
             build_finding=build_opensearch_tagging_finding,
-        ),
+            parameters={"required_tag_keys": []},
+                ),
         RuleDefinition(
             rule_id="CS-AWS-OPENSEARCH-010",
             name="opensearch_software_update",

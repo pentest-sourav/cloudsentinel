@@ -54,4 +54,5 @@ def test_cloudfront_scanner_executes_registered_rules():
         "CS-AWS-CLOUDFRONT-009",
         "CS-AWS-CLOUDFRONT-010",
         "CS-AWS-CLOUDFRONT-011",
+            "CS-AWS-CLOUDFRONT-014",
     }

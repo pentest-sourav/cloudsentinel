@@ -85,9 +85,6 @@ def check_datasync_task_logging(
     mode = str(task_mode or "").upper()
     level = str(log_level or "").upper()
 
-    # Enhanced mode automatically sends task logs to
-    # /aws/datasync, so absence of an explicit log-group ARN
-    # is not itself a failure.
     if mode == "ENHANCED":
         if level in {"OFF", "NONE"}:
             return _result(
@@ -107,8 +104,6 @@ def check_datasync_task_logging(
 
         return None
 
-    # Basic-mode tasks must have logging enabled and must
-    # publish to a CloudWatch Logs group.
     if level in {"OFF", "NONE", ""}:
         return _result(
             name=resource_name,
@@ -171,18 +166,93 @@ def build_datasync_task_logging_finding(
 # DATASYNC.2 — TASK TAGGING
 # ============================================================
 
+def _normalize_required_tag_keys(
+    required_tag_keys,
+) -> list[str]:
+    if not isinstance(required_tag_keys, list):
+        return []
+
+    normalized: list[str] = []
+
+    for key in required_tag_keys:
+        if not isinstance(key, str):
+            continue
+
+        key = key.strip()
+
+        if not key or key.lower().startswith("aws:"):
+            continue
+
+        if key not in normalized:
+            normalized.append(key)
+
+    return normalized
+
+
+def _missing_required_tag_keys(
+    tags: dict[str, str],
+    required_tag_keys: list[str],
+) -> list[str]:
+    actual_keys = {
+        key
+        for key in tags
+        if isinstance(key, str)
+        and not key.lower().startswith("aws:")
+    }
+
+    return [
+        key
+        for key in required_tag_keys
+        if key not in actual_keys
+    ]
+
+
 def check_datasync_task_tags(
     resource_name,
     resource_arn,
     resource_type,
     tag_data_available,
     has_non_system_tags,
+    tags=None,
+    required_tag_keys=None,
 ):
     if not resource_name or not resource_arn:
         return None
 
     if not tag_data_available:
         return None
+
+    normalized_tags = (
+        tags
+        if isinstance(tags, dict)
+        else {}
+    )
+
+    required = _normalize_required_tag_keys(
+        required_tag_keys
+    )
+
+    if required:
+        missing = _missing_required_tag_keys(
+            normalized_tags,
+            required,
+        )
+
+        if not missing:
+            return None
+
+        return _result(
+            name=resource_name,
+            arn=resource_arn,
+            resource_type=resource_type,
+            control_id="DataSync.2",
+            reason="missing_required_tag_keys",
+            evidence={
+                "tags": normalized_tags,
+                "required_tag_keys": required,
+                "missing_tag_keys": missing,
+            },
+        )
 
     if has_non_system_tags:
         return None
@@ -194,7 +264,10 @@ def check_datasync_task_tags(
         control_id="DataSync.2",
         reason="missing_non_system_tags",
         evidence={
+            "tags": normalized_tags,
             "has_non_system_tags": False,
+            "required_tag_keys": [],
+            "missing_tag_keys": [],
         },
     )
 
@@ -202,17 +275,31 @@ def check_datasync_task_tags(
 def build_datasync_task_tags_finding(
     result,
 ):
-    return _finding(
-        result,
-        Severity.LOW,
-        "DataSync Task Is Not Tagged",
-        (
+    if result.reason == "missing_required_tag_keys":
+        description = (
+            f"AWS DataSync task "
+            f"{result.resource_name} is missing one or "
+            "more required tag keys."
+        )
+        remediation = (
+            "Add all configured required tag keys to "
+            "the DataSync task."
+        )
+    else:
+        description = (
             f"AWS DataSync task "
             f"{result.resource_name} does not have "
             "any non-system tags."
-        ),
-        (
+        )
+        remediation = (
             "Add the required organizational tags to "
             "the DataSync task."
-        ),
+        )
+
+    return _finding(
+        result,
+        Severity.LOW,
+        "DataSync Task Is Not Properly Tagged",
+        description,
+        remediation,
     )

@@ -83,6 +83,7 @@ def test_collect_distributions_normalizes_security_fields():
         },
     ]
 
+    service.list_tags_for_resource.return_value = []
     collector = CloudFrontDataCollector(service)
 
     result = collector.collect_distributions()
@@ -179,6 +180,7 @@ def test_collect_distributions_normalizes_security_fields():
             ],
             "origin_groups": {},
             "origin_groups_count": 0,
+            "tags": [],
         },
     ]
 
@@ -269,6 +271,7 @@ def test_collect_distributions_normalizes_cache_behavior_origin_groups():
         },
     ]
 
+    service.list_tags_for_resource.return_value = []
     collector = CloudFrontDataCollector(service)
 
     result = collector.collect_distributions()

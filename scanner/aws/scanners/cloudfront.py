@@ -22,6 +22,7 @@ class CloudFrontScanner:
     def __init__(
         self,
         service: CloudFrontService,
+        rule_parameters=None,
     ):
         self.collector = CloudFrontDataCollector(
             service
@@ -29,6 +30,7 @@ class CloudFrontScanner:
 
         self.executor = RuleExecutor(
             handlers=CLOUDFRONT_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:
