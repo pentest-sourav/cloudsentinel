@@ -6,8 +6,8 @@ CloudSentinel is an **AWS-first, production-oriented security posture and compli
 
 The repository currently has a verified regression baseline of:
 
-- **2855 passing tests** in the latest local verification before the current deprecation cleanup
-- current branch replaces the FastAPI startup-event and deprecated HTTP 413 APIs; the post-cleanup warning count is pending verification
+- CI runs the full regression suite, dependency vulnerability audit, and container security gate on every push and pull request
+- production deployment configuration is validated by CI with Docker Compose config rendering
 - AWS is the primary implemented provider
 - Azure is intentionally in development
 
@@ -140,6 +140,8 @@ Production deployment should provide:
 - metrics and alerting
 - database migrations
 - controlled deployment/rollback
+- immutable production container publishing
+- reproducible TLS-terminated production deployment baseline
 
 ### AWS scanning safety
 
