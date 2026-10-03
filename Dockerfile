@@ -21,7 +21,8 @@ RUN apt-get update \
 COPY requirements.txt .
 
 RUN pip install --upgrade pip setuptools \
-    && pip install -r requirements.txt
+    && pip install -r requirements.txt \
+    && pip uninstall -y pip setuptools
 
 COPY backend ./backend
 COPY engine ./engine
