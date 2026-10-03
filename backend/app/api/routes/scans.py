@@ -211,7 +211,8 @@ def get_scan_by_id(
 
     queue = ScanQueue()
     try:
-        scan.progress = queue.get_progress(scan_id)
+        progress_reader = getattr(queue, "get_progress", None)
+        scan.progress = progress_reader(scan_id) if progress_reader else None
     finally:
         queue.close()
 
