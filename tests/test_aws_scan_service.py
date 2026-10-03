@@ -962,3 +962,49 @@ def test_run_aws_scan_isolates_scanner_failure_and_continues():
     assert len(result.errors) == 1
     assert result.errors[0].service == "ec2"
     assert "EC2 access denied" in result.errors[0].message
+
+
+
+def test_run_aws_scan_isolates_regional_session_failure():
+    scanners, services, findings = make_mocks()
+
+    fake_session = Mock()
+    fake_provider = Mock()
+    fake_provider.verify_identity.return_value = Mock(
+        account_id=ACCOUNT_ID,
+    )
+
+    with patch_aws_scanners(
+        scanners,
+        services,
+        fake_session,
+        fake_provider,
+    ) as mock_session, patch(
+        "backend.app.services.aws_scan_service.discover_aws_regions",
+        return_value=[REGION, "us-west-2"],
+    ):
+        mock_session.side_effect = [
+            fake_session,
+            RuntimeError("STS unavailable in us-west-2"),
+        ]
+
+        result = run_aws_scan(
+            role_arn=ROLE_ARN,
+            external_id=EXTERNAL_ID,
+            region_name=REGION,
+            expected_account_id=ACCOUNT_ID,
+        )
+
+    assert result.findings
+    assert all(
+        getattr(finding, "region", REGION) != "us-west-2"
+        for finding in result.findings
+    )
+    session_errors = [
+        error
+        for error in result.errors
+        if error.service == "aws_session"
+    ]
+    assert len(session_errors) == 1
+    assert session_errors[0].region == "us-west-2"
+    assert "STS unavailable in us-west-2" in session_errors[0].message
