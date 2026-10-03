@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.11@sha256:d74eeac9a635390a49bc21bd49fccd973de707e2a53a76ac49b552b8712ec46f
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -19,7 +19,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:8-alpine
+    image: redis:8.10.1-alpine@sha256:ba6e394f6acc2a695ef1b6944f161b9ca813711739be68319fa0db3470673f1d
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -164,7 +164,7 @@ services:
     command: ["python", "-m", "backend.worker"]
 
   caddy:
-    image: caddy:2
+    image: caddy:2.11.6-alpine@sha256:881bbc60f9986d5ab8e7cfd6cf7e4ef3c9c0439fef2429d035d065577882f028
     restart: unless-stopped
     init: true
     read_only: true
