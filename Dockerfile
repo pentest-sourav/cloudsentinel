@@ -32,6 +32,7 @@ COPY database ./database
 COPY frontend ./frontend
 COPY tests ./tests
 COPY pyproject.toml .
+COPY alembic.ini .
 
 RUN chown -R cloudsentinel:cloudsentinel /app
 
