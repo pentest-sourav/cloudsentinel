@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from engine.findings.model import Finding, Severity
 
@@ -8,7 +8,7 @@ class Route53TaggingResult:
     resource_id: str
     resource_type: str
     tags: list[dict[str, str]]
-    required_tag_keys: list[str]
+    required_tag_keys: list[str] = field(default_factory=list)
 
 
 def check_route53_health_check_tagging(
