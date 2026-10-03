@@ -873,7 +873,7 @@ def run_aws_scan(
 
     def report_progress(service: str, region: str) -> None:
         nonlocal completed_steps
-        completed_steps += 1
+        completed_steps = min(total_steps, completed_steps + 1)
         if progress_callback is not None:
             try:
                 progress_callback(
@@ -1100,6 +1100,8 @@ def run_aws_scan(
                 errors.append(error)
 
             report_progress(service_name, current_region)
+
+    report_progress("completed", "global")
 
     return AWSScanResult(
         findings=findings,
