@@ -209,6 +209,13 @@ def get_scan_by_id(
             detail="Scan not found",
         )
 
+    queue = ScanQueue()
+    try:
+        progress_reader = getattr(queue, "get_progress", None)
+        scan.progress = progress_reader(scan_id) if progress_reader else None
+    finally:
+        queue.close()
+
     return scan
 
 
@@ -246,3 +253,6 @@ def get_scan_summary_by_id(
         )
 
     return summary
+
+
+# live progress endpoint marker

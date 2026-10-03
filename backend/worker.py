@@ -1,6 +1,7 @@
 import logging
 import signal
 import threading
+from functools import partial
 from collections.abc import Callable
 
 from backend.app.core.database import SessionLocal
@@ -44,14 +45,18 @@ def get_scan(db, scan_id: int):
 ScannerFactory = Callable[[CloudAccount, int], Callable[[], list]]
 
 
-SCANNERS: dict[str, ScannerFactory] = {
-    "aws": lambda account, scan_id: lambda: run_aws_scan(
+def _default_aws_scanner(account: CloudAccount, scan_id: int):
+    return lambda: run_aws_scan(
         role_arn=account.role_arn,
         external_id=account.external_id,
         region_name=account.region,
         expected_account_id=account.external_account_id,
         scan_id=scan_id,
-    ),
+    )
+
+
+SCANNERS: dict[str, ScannerFactory] = {
+    "aws": _default_aws_scanner,
 }
 
 
@@ -73,6 +78,16 @@ class ScanWorker:
             dead_letter_max_length=settings.scan_queue_dead_letter_max_length,
         )
         self.running = True
+
+    def _run_aws_scan(self, account: CloudAccount, scan_id: int):
+        return run_aws_scan(
+            role_arn=account.role_arn,
+            external_id=account.external_id,
+            region_name=account.region,
+            expected_account_id=account.external_account_id,
+            scan_id=scan_id,
+            progress_callback=lambda **data: self.queue.set_progress(scan_id, **data),
+        )
 
     def stop(self, *_args) -> None:
         logger.info("Shutdown signal received")
@@ -299,7 +314,17 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
                 return
 
-            scanner = scanner_factory(cloud_account, scan.id)
+            if scanner_factory is _default_aws_scanner:
+                scanner = partial(
+                    self._run_aws_scan,
+                    cloud_account,
+                    scan.id,
+                )
+            else:
+                scanner = scanner_factory(
+                    cloud_account,
+                    scan.id,
+                )
 
             logger.info(
                 "Starting scan",

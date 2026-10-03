@@ -267,6 +267,31 @@ class ScanQueue:
             ),
         }
 
+    def set_progress(self, scan_id: int, *, completed: int, total: int, service: str, region: str) -> None:
+        total = max(1, int(total))
+        completed = max(0, min(int(completed), total))
+        self.client.hset(self._progress_key(scan_id), mapping={
+            "completed": str(completed), "total": str(total),
+            "service": service[:100], "region": region[:100],
+        })
+        self.client.expire(self._progress_key(scan_id), 86_400)
+
+    def get_progress(self, scan_id: int) -> dict[str, object] | None:
+        values = self.client.hgetall(self._progress_key(scan_id))
+        if not values:
+            return None
+        completed = int(values.get("completed", 0))
+        total = max(1, int(values.get("total", 1)))
+        return {"completed": completed, "total": total,
+                "percent": round((completed / total) * 100, 1),
+                "service": values.get("service", ""), "region": values.get("region", "")}
+
+    def clear_progress(self, scan_id: int) -> None:
+        self.client.delete(self._progress_key(scan_id))
+
+    def _progress_key(self, scan_id: int) -> str:
+        return f"cloudsentinel:scan_progress:{scan_id}"
+
     def ping(self) -> bool:
         return bool(self.client.ping())
 

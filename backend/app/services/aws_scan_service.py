@@ -788,6 +788,7 @@ def run_aws_scan(
     region_name,
     expected_account_id,
     scan_id: int | None = None,
+    progress_callback=None,
 ):
     if not role_arn:
         raise RuntimeError(
@@ -858,6 +859,40 @@ def run_aws_scan(
         "route53",
     }
 
+    regional_service_count = sum(
+        1 for name, _ in base_scanners
+        if name not in global_services and name not in {"s3", "waf"}
+    )
+    total_steps = (
+        len(global_services)
+        + 1
+        + (len(discovered_regions) + 1)
+        + (regional_service_count * len(discovered_regions))
+    )
+    completed_steps = 0
+
+    def report_progress(service: str, region: str) -> None:
+        nonlocal completed_steps
+        completed_steps = min(total_steps, completed_steps + 1)
+        if progress_callback is not None:
+            try:
+                progress_callback(
+                    completed=completed_steps,
+                    total=total_steps,
+                    service=service,
+                    region=region,
+                )
+            except Exception:
+                pass
+
+    if progress_callback is not None:
+        progress_callback(
+            completed=0,
+            total=total_steps,
+            service="initializing",
+            region="global",
+        )
+
     findings: list = []
     errors: list[ScannerExecutionError] = []
 
@@ -895,6 +930,7 @@ def run_aws_scan(
             if error is not None:
                 errors.append(error)
 
+            report_progress(service_name, "global")
             continue
 
         # --------------------------------------------------------
@@ -918,6 +954,7 @@ def run_aws_scan(
             if error is not None:
                 errors.append(error)
 
+            report_progress(service_name, "global")
             continue
 
         # --------------------------------------------------------
@@ -975,6 +1012,8 @@ def run_aws_scan(
                 if error is not None:
                     errors.append(error)
 
+                report_progress("waf", current_region)
+
             # CloudFront WAF uses the WAF us-east-1 endpoint.
             # WAFService creates that client explicitly, so a second
             # AWS session is NOT required.
@@ -999,6 +1038,7 @@ def run_aws_scan(
             if error is not None:
                 errors.append(error)
 
+            report_progress("waf-cloudfront", "global")
             continue
 
         # --------------------------------------------------------
@@ -1058,6 +1098,10 @@ def run_aws_scan(
 
             if error is not None:
                 errors.append(error)
+
+            report_progress(service_name, current_region)
+
+    report_progress("completed", "global")
 
     return AWSScanResult(
         findings=findings,

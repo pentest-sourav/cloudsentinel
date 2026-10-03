@@ -1615,6 +1615,10 @@ function startScanPolling(
                     renderRecentScans();
                     renderHistory();
 
+                    if (state.currentView === "dashboard") {
+                        renderDashboardSummary(state.currentSummary, scan);
+                    }
+
                     if (
                         [
                             "completed",
@@ -1901,6 +1905,20 @@ function renderDashboardSummary(
 
             </div>
 
+
+            ${scan?.progress && status === "running" ? `
+                <div class="scan-progress-block">
+                    <div class="scan-progress-header">
+                        <span>Live scan progress</span>
+                        <strong>${safeNumber(scan.progress.percent)}%</strong>
+                    </div>
+                    <progress class="scan-progress-meter" max="100" value="${safeNumber(scan.progress.percent)}"></progress>
+                    <div class="scan-progress-meta">
+                        <span>${escapeHtml(scan.progress.service || "Scanning")}</span>
+                        <span>${escapeHtml(scan.progress.region || "global")}</span>
+                    </div>
+                </div>
+            ` : ""}
 
             <div class="latest-scan-stats">
 

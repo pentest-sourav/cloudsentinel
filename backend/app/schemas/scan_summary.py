@@ -12,6 +12,14 @@ class ScanExecutionErrorSummary(BaseModel):
     created_at: datetime
 
 
+class ScanProgressResponse(BaseModel):
+    completed: int
+    total: int
+    percent: float
+    service: str
+    region: str
+
+
 class ScanSummaryResponse(BaseModel):
     scan_id: int
     provider: str
@@ -27,3 +35,4 @@ class ScanSummaryResponse(BaseModel):
 
     execution_error_count: int
     execution_errors: list[ScanExecutionErrorSummary]
+    progress: ScanProgressResponse | None = None

@@ -61,6 +61,15 @@ class FakeRedis:
     def delete(self, key):
         self.deleted_keys.append(key)
 
+    def hset(self, key, mapping):
+        self.progress = mapping
+
+    def expire(self, key, seconds):
+        self.progress_expiry = (key, seconds)
+
+    def hgetall(self, key):
+        return getattr(self, "progress", {})
+
     def ping(self):
         return True
 
@@ -321,3 +330,28 @@ def test_retry_count_starts_at_zero_for_unknown_message():
     queue.client = FakeRedis()
 
     assert queue.retry_count("unknown-message") == 0
+
+
+def test_scan_queue_live_progress_round_trip():
+    client = FakeRedis()
+    queue = ScanQueue(redis_url="redis://unused")
+    queue.client = client
+
+    queue.set_progress(
+        42,
+        completed=7,
+        total=20,
+        service="ec2",
+        region="ap-south-1",
+    )
+
+    progress = queue.get_progress(42)
+
+    assert progress == {
+        "completed": 7,
+        "total": 20,
+        "percent": 35.0,
+        "service": "ec2",
+        "region": "ap-south-1",
+    }
+    assert client.progress_expiry[1] == 86_400
