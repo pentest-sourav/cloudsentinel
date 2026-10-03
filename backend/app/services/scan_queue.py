@@ -44,10 +44,24 @@ class ScanQueue:
         stream_name: str | None = None,
         group_name: str | None = None,
         consumer_name: str | None = None,
-        max_retries: int = 3,
+        max_retries: int | None = None,
+        dead_letter_max_length: int | None = None,
     ):
-        if max_retries < 0:
+        resolved_max_retries = (
+            settings.scan_queue_max_retries
+            if max_retries is None
+            else max_retries
+        )
+        if resolved_max_retries < 0:
             raise ValueError("max_retries must be >= 0")
+
+        resolved_dlq_max_length = (
+            settings.scan_queue_dead_letter_max_length
+            if dead_letter_max_length is None
+            else dead_letter_max_length
+        )
+        if resolved_dlq_max_length <= 0:
+            raise ValueError("dead_letter_max_length must be > 0")
 
         self.stream_name = (
             stream_name or settings.scan_queue_stream
@@ -59,7 +73,8 @@ class ScanQueue:
             consumer_name
             or f"{socket.gethostname()}-{os.getpid()}"
         )
-        self.max_retries = max_retries
+        self.max_retries = resolved_max_retries
+        self.dead_letter_max_length = resolved_dlq_max_length
         self.retry_key_prefix = self.RETRY_KEY_PREFIX
         self.dead_letter_stream = (
             f"{self.stream_name}{self.DLQ_SUFFIX}"
@@ -262,4 +277,6 @@ class ScanQueue:
                 "retry_count": str(retry_count),
                 "reason": "max_retries_exceeded",
             },
+            maxlen=self.dead_letter_max_length,
+            approximate=True,
         )
