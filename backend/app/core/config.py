@@ -67,6 +67,12 @@ class Settings(BaseSettings):
         if any(value <= 0 for value in queue_settings):
             raise ValueError("Scan queue settings must all be > 0")
 
+        if self.scan_queue_worker_stale_seconds <= self.scan_queue_worker_heartbeat_seconds:
+            raise ValueError(
+                "SCAN_QUEUE_WORKER_STALE_SECONDS must be greater than "
+                "SCAN_QUEUE_WORKER_HEARTBEAT_SECONDS."
+            )
+
         if self.scan_queue_stale_scan_seconds <= (
             self.scan_queue_recovery_idle_ms / 1000
         ):
