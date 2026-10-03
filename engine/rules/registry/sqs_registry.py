@@ -40,6 +40,7 @@ SQS_RULES = RuleRegistry(
             ],
             check=check_sqs_tagging,
             build_finding=build_sqs_tagging_finding,
+            parameters={"required_tag_keys": []},
         ),
         RuleDefinition(
             rule_id="CS-AWS-SQS-003",
