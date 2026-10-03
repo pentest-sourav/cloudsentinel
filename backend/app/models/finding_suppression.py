@@ -40,7 +40,7 @@ class FindingSuppression(Base):
         nullable=True,
         index=True,
     )
-    created_by_user_id: Mapped[int] = mapped_column(
+    created_by_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
