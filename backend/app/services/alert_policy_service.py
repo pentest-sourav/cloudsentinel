@@ -68,6 +68,27 @@ def create_policy(db: Session, *, tenant_id: int, user_id: int, name: str, endpo
 
 
 
+
+def list_deliveries(
+    db: Session, *, tenant_id: int, policy_id: int, limit: int = 50, offset: int = 0
+) -> list[AlertDelivery]:
+    policy_exists = db.query(AlertPolicy.id).filter(
+        AlertPolicy.id == policy_id, AlertPolicy.tenant_id == tenant_id
+    ).first()
+    if policy_exists is None:
+        return []
+    return (
+        db.query(AlertDelivery)
+        .filter(
+            AlertDelivery.policy_id == policy_id,
+            AlertDelivery.tenant_id == tenant_id,
+        )
+        .order_by(AlertDelivery.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
 def update_policy(
     db: Session, *, tenant_id: int, policy_id: int,
     name: str | None = None, endpoint_url: str | None = None,
