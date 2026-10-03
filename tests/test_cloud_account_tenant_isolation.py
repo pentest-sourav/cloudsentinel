@@ -36,11 +36,13 @@ def client():
 
     app.dependency_overrides[get_db] = override_get_db
     app.state.test_session_factory = TestSession
+    app.state.testing = True
 
     with TestClient(app) as test_client:
         yield test_client
 
     app.dependency_overrides.clear()
+    app.state.testing = False
     if hasattr(app.state, "test_session_factory"):
         delattr(app.state, "test_session_factory")
     engine.dispose()
