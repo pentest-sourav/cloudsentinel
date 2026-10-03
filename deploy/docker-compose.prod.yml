@@ -130,7 +130,6 @@ services:
       AWS_SDK_READ_TIMEOUT_SECONDS: ${AWS_SDK_READ_TIMEOUT_SECONDS:-60}
     networks:
       - internal
-      - edge
     depends_on:
       migrate:
         condition: service_completed_successfully

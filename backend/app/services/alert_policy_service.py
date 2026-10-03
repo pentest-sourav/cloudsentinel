@@ -3,6 +3,9 @@ import ipaddress
 import socket
 import time
 from datetime import datetime, timezone
+import hashlib
+import hmac
+import json
 
 import httpx
 from sqlalchemy.orm import Session
@@ -66,6 +69,68 @@ def create_policy(db: Session, *, tenant_id: int, user_id: int, name: str, endpo
     db.refresh(policy)
     return policy
 
+
+
+
+def list_deliveries(
+    db: Session, *, tenant_id: int, policy_id: int, limit: int = 50, offset: int = 0
+) -> list[AlertDelivery]:
+    policy_exists = db.query(AlertPolicy.id).filter(
+        AlertPolicy.id == policy_id, AlertPolicy.tenant_id == tenant_id
+    ).first()
+    if policy_exists is None:
+        return []
+    return (
+        db.query(AlertDelivery)
+        .filter(
+            AlertDelivery.policy_id == policy_id,
+            AlertDelivery.tenant_id == tenant_id,
+        )
+        .order_by(AlertDelivery.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+def update_policy(
+    db: Session, *, tenant_id: int, policy_id: int,
+    name: str | None = None, endpoint_url: str | None = None,
+    min_severity: str | None = None, events: list[str] | None = None,
+    secret: str | None = None, rotate_secret: bool = False,
+    enabled: bool | None = None,
+) -> AlertPolicy | None:
+    policy = db.query(AlertPolicy).filter(
+        AlertPolicy.id == policy_id, AlertPolicy.tenant_id == tenant_id
+    ).first()
+    if policy is None:
+        return None
+    if name is not None:
+        normalized_name = name.strip()
+        if normalized_name != policy.name and db.query(AlertPolicy).filter(
+            AlertPolicy.tenant_id == tenant_id,
+            AlertPolicy.name == normalized_name,
+            AlertPolicy.id != policy.id,
+        ).first():
+            raise ValueError("An alert policy with this name already exists.")
+        policy.name = normalized_name
+    if endpoint_url is not None:
+        _validate_endpoint(endpoint_url)
+        policy.endpoint_url = endpoint_url
+    if min_severity is not None:
+        policy.min_severity = min_severity
+    if events is not None:
+        policy.events = events
+    if rotate_secret:
+        if not secret:
+            raise ValueError("A new secret is required when rotating the secret.")
+        policy.secret = secret
+    elif secret is not None:
+        policy.secret = secret
+    if enabled is not None:
+        policy.enabled = enabled
+    db.commit()
+    db.refresh(policy)
+    return policy
 
 def delete_policy(db: Session, *, tenant_id: int, policy_id: int) -> bool:
     policy = db.query(AlertPolicy).filter(AlertPolicy.id == policy_id, AlertPolicy.tenant_id == tenant_id).first()
@@ -146,14 +211,24 @@ def dispatch_scan_alerts(db: Session, *, scan_id: int, tenant_id: int) -> dict:
                 continue
 
             payload = _event_payload(scan, finding, item.status)
-            headers = {"Content-Type": "application/json", "User-Agent": "CloudSentinel-Alert/1.0"}
+            body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "CloudSentinel-Alert/1.0",
+            }
             if policy.secret:
-                headers["X-CloudSentinel-Signature"] = policy.secret
+                timestamp = str(int(datetime.now(timezone.utc).timestamp()))
+                digest = hmac.new(
+                    policy.secret.encode("utf-8"),
+                    f"{timestamp}.".encode("utf-8") + body,
+                    hashlib.sha256,
+                ).hexdigest()
+                headers["X-CloudSentinel-Signature"] = f"t={timestamp},v1={digest}"
             last_error = None
             for attempt in range(1, 4):
                 try:
                     with httpx.Client(timeout=httpx.Timeout(5.0, connect=2.0), follow_redirects=False) as client:
-                        response = client.post(policy.endpoint_url, json=payload, headers=headers)
+                        response = client.post(policy.endpoint_url, content=body, headers=headers)
                     if 200 <= response.status_code < 300:
                         delivery.status = "delivered"
                         delivery.attempts = attempt
