@@ -89,10 +89,25 @@ class Settings(BaseSettings):
                 "Wildcard CORS origins are not allowed."
             )
 
+        if self.jwt_access_token_expire_minutes <= 0:
+            raise ValueError("JWT_ACCESS_TOKEN_EXPIRE_MINUTES must be > 0")
+
         if self.app_environment.lower() == "production":
             if len(self.jwt_secret_key) < 32:
                 raise ValueError(
                     "JWT_SECRET_KEY must be at least 32 characters in production."
+                )
+            if self.jwt_access_token_expire_minutes > 60:
+                raise ValueError(
+                    "JWT_ACCESS_TOKEN_EXPIRE_MINUTES must be <= 60 in production."
+                )
+            if not self.security_headers_hsts_enabled:
+                raise ValueError(
+                    "SECURITY_HEADERS_HSTS_ENABLED must be true in production."
+                )
+            if self.log_format.lower() != "json":
+                raise ValueError(
+                    "LOG_FORMAT must be json in production."
                 )
             if self.metrics_enabled and len(self.metrics_auth_token) < 32:
                 raise ValueError(
