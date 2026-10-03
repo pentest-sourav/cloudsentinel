@@ -218,6 +218,9 @@ See the project documentation for the current onboarding details.
 - tenant-scoped report access
 - security audit event persistence
 - request correlation IDs for API responses
+- tenant-scoped audit event API with pagination and filtering
+- production request-size limits and trusted-proxy-aware rate limiting
+- optional Prometheus-format API metrics
 
 ### Operational Readiness
 
@@ -246,6 +249,7 @@ Current hardening includes:
 - security audit trail for authentication and privileged operations
 - request correlation IDs
 - CI dependency vulnerability auditing
+- CI container vulnerability gating for high/critical findings
 - read-only AWS scanner model
 - automated regression tests
 - CI test/compile gate
@@ -336,9 +340,7 @@ CloudSentinel is an active open-source development project.
 ### In development
 
 - 🚧 Expanded AWS Security Hub control coverage
-- 🚧 Production authorization/RBAC hardening
-- 🚧 Rate limiting and abuse protection
-- 🚧 Observability and operational hardening
+- 🚧 Deployment, backup/recovery, and production operations validation
 - 🚧 Dashboard/onboarding UX
 - 🚧 Azure provider implementation
 - 🚧 Additional compliance frameworks

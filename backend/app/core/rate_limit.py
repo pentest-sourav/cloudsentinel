@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from ipaddress import ip_address, ip_network
 from time import monotonic
 
 from fastapi import Request
 from redis.exceptions import RedisError
 
+from backend.app.core.config import settings
 from backend.app.services.scan_queue import ScanQueue
 
 
@@ -22,8 +24,7 @@ class RateLimiter:
 
     Redis is the shared source of truth so multiple API instances enforce
     the same limit. A local fallback is intentionally kept conservative for
-    dependency outages: callers fail open rather than turning a Redis outage
-    into a complete API outage.
+    dependency outages.
     """
 
     KEY_PREFIX = "cloudsentinel:rate_limit"
@@ -36,9 +37,55 @@ class RateLimiter:
         self._fallback: dict[str, tuple[float, int]] = {}
 
     @staticmethod
-    def _client_ip(request: Request) -> str:
+    def _trusted_proxy_networks() -> tuple:
+        networks = []
+        for raw_value in settings.trusted_proxy_ips.split(","):
+            value = raw_value.strip()
+            if not value:
+                continue
+            try:
+                networks.append(ip_network(value, strict=False))
+            except ValueError:
+                continue
+        return tuple(networks)
+
+    @classmethod
+    def _client_ip(cls, request: Request) -> str:
         client = request.client
-        return client.host if client is not None else "unknown"
+        peer_ip = client.host if client is not None else "unknown"
+
+        try:
+            peer = ip_address(peer_ip)
+        except ValueError:
+            return peer_ip
+
+        trusted_networks = cls._trusted_proxy_networks()
+        if not any(peer in network for network in trusted_networks):
+            return peer_ip
+
+        forwarded = request.headers.get("x-forwarded-for", "")
+        candidates = [
+            value.strip()
+            for value in forwarded.split(",")
+            if value.strip()
+        ]
+
+        if not candidates:
+            return peer_ip
+
+        # Walk the proxy chain from right to left. The first address that
+        # is not itself trusted is the client address. This avoids trusting
+        # spoofed X-Forwarded-For values when the direct peer is untrusted.
+        for candidate in reversed(candidates):
+            try:
+                candidate_ip = ip_address(candidate)
+            except ValueError:
+                continue
+
+            if not any(candidate_ip in network for network in trusted_networks):
+                return candidate
+
+        return candidates[0]
 
     def _key(self, request: Request, scope: str) -> str:
         return f"{self.KEY_PREFIX}:{scope}:{self._client_ip(request)}"

@@ -1,4 +1,5 @@
 from pathlib import Path
+from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
@@ -6,12 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from backend.app.api.routes.audit import router as audit_router
 from backend.app.api.routes.auth import router as auth_router
 from backend.app.api.routes.cloud_accounts import router as cloud_accounts_router
 from backend.app.api.routes.findings import router as findings_router
 from backend.app.api.routes.reports import router as reports_router
 from backend.app.api.routes.scans import router as scans_router
 from backend.app.core.config import settings
+from backend.app.core.metrics import metrics_registry
 from backend.app.core.rate_limit import rate_limiter
 from backend.app.core.database import SessionLocal
 from backend.app.services.audit_service import purge_expired_audit_events
@@ -94,7 +97,7 @@ async def api_rate_limit(
         )
 
         if not decision.allowed:
-            return JSONResponse(
+            response = JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={
                     "detail": "Rate limit exceeded. Please retry later.",
@@ -105,6 +108,12 @@ async def api_rate_limit(
                     "X-RateLimit-Remaining": "0",
                 },
             )
+            response.headers["X-Request-ID"] = getattr(
+                request.state,
+                "request_id",
+                uuid4().hex,
+            )
+            return response
 
         response = await call_next(request)
         response.headers.setdefault(
@@ -148,6 +157,7 @@ async def security_headers(
 
 
 app.include_router(auth_router)
+app.include_router(audit_router)
 app.include_router(cloud_accounts_router)
 app.include_router(scans_router)
 app.include_router(findings_router)
@@ -227,6 +237,91 @@ def readiness_check():
         "status": "ready",
         "checks": checks,
     }
+
+
+@app.middleware("http")
+async def request_metrics(
+    request: Request,
+    call_next,
+) -> Response:
+    started = perf_counter()
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        metrics_registry.observe_request(
+            method=request.method,
+            path=request.url.path,
+            status_code=500,
+            duration_seconds=perf_counter() - started,
+        )
+        raise
+
+    metrics_registry.observe_request(
+        method=request.method,
+        path=metrics_registry.metric_path(request),
+        status_code=response.status_code,
+        duration_seconds=perf_counter() - started,
+    )
+    return response
+
+
+@app.middleware("http")
+async def request_body_limit(
+    request: Request,
+    call_next,
+) -> Response:
+    content_length = request.headers.get("content-length")
+
+    if content_length:
+        try:
+            declared_length = int(content_length)
+        except ValueError:
+            declared_length = -1
+
+        if declared_length < 0:
+            response = JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "Invalid Content-Length header."},
+            )
+            response.headers["X-Request-ID"] = getattr(
+                request.state,
+                "request_id",
+                uuid4().hex,
+            )
+            return response
+
+        if declared_length > settings.max_request_body_bytes:
+            response = JSONResponse(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                content={"detail": "Request body is too large."},
+            )
+            response.headers["X-Request-ID"] = getattr(
+                request.state,
+                "request_id",
+                uuid4().hex,
+            )
+            return response
+
+    return await call_next(request)
+
+
+@app.get(
+    "/metrics",
+    include_in_schema=False,
+)
+def metrics():
+    if not settings.metrics_enabled:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"detail": "Not found"},
+        )
+
+    return Response(
+        content=metrics_registry.render(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
 
 
 _FRONTEND_DIR = (

@@ -148,3 +148,31 @@ def test_mutation_exposes_rate_limit_headers_without_database_dependency():
     assert response.headers["x-ratelimit-limit"] == str(
         settings.rate_limit_auth_max_requests
     )
+
+
+def test_rate_limiter_uses_forwarded_client_only_for_trusted_proxy():
+    request = Mock()
+    request.client.host = "10.0.0.10"
+    request.headers.get.return_value = (
+        "203.0.113.50, 10.0.0.10"
+    )
+
+    with patch.object(
+        settings,
+        "trusted_proxy_ips",
+        "10.0.0.0/24",
+    ):
+        assert RateLimiter._client_ip(request) == "203.0.113.50"
+
+
+def test_rate_limiter_does_not_trust_forwarded_header_from_public_peer():
+    request = Mock()
+    request.client.host = "198.51.100.10"
+    request.headers.get.return_value = "203.0.113.50"
+
+    with patch.object(
+        settings,
+        "trusted_proxy_ips",
+        "10.0.0.0/24",
+    ):
+        assert RateLimiter._client_ip(request) == "198.51.100.10"
