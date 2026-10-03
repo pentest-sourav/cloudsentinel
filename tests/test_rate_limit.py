@@ -96,17 +96,22 @@ def test_authentication_rate_limit_returns_429():
 
     app.state.testing = False
 
-    with patch(
-        "backend.app.main.rate_limiter",
-        limiter,
+    with patch.object(
+        settings,
+        "app_environment",
+        "production",
     ):
-        response = TestClient(app).post(
-            "/api/v1/auth/login",
-            json={
-                "email": "rate@example.com",
-                "password": "StrongPassword-2026!",
-            },
-        )
+        with patch(
+            "backend.app.main.rate_limiter",
+            limiter,
+        ):
+            response = TestClient(app).post(
+                "/api/v1/auth/login",
+                json={
+                    "email": "rate@example.com",
+                    "password": "StrongPassword-2026!",
+                },
+            )
 
     assert response.status_code == 429
     assert response.json()["detail"] == (
@@ -131,21 +136,26 @@ def test_mutation_exposes_rate_limit_headers_without_database_dependency():
 
     app.state.testing = False
     try:
-        with patch(
-            "backend.app.main.rate_limiter",
-            limiter,
+        with patch.object(
+            settings,
+            "app_environment",
+            "production",
         ):
             with patch(
-                "backend.app.api.routes.auth.authenticate_user",
-                return_value=None,
+                "backend.app.main.rate_limiter",
+                limiter,
             ):
-                response = TestClient(app).post(
-                    "/api/v1/auth/login",
-                    json={
-                        "email": "rate-success@example.com",
-                        "password": "StrongPassword-2026!",
-                    },
-                )
+                with patch(
+                    "backend.app.api.routes.auth.authenticate_user",
+                    return_value=None,
+                ):
+                    response = TestClient(app).post(
+                        "/api/v1/auth/login",
+                        json={
+                            "email": "rate-success@example.com",
+                            "password": "StrongPassword-2026!",
+                        },
+                    )
 
         assert response.status_code == 401
         assert response.headers["x-ratelimit-remaining"] == "7"
@@ -154,6 +164,7 @@ def test_mutation_exposes_rate_limit_headers_without_database_dependency():
         )
     finally:
         app.state.testing = False
+
 
 
 def test_rate_limiter_uses_forwarded_client_only_for_trusted_proxy():
