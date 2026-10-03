@@ -119,6 +119,9 @@ Before public exposure:
 - enable secure response headers, including HSTS only when the service is served over HTTPS
 - prevent authentication responses from being cached
 - use HTTPS
+- run production with HSTS enabled
+- use JSON application logs in production
+- keep production access tokens at or below 60 minutes
 - disable development-only credential mounts
 - keep secrets outside source control
 - use short-lived access tokens
