@@ -89,6 +89,11 @@ def get_scan_summary(
         if count_key is not None:
             counts[count_key] += count
 
+    risk_posture = build_risk_posture(
+        db=db,
+        scan_id=scan_id,
+    )
+
     execution_errors = get_execution_errors(
         db=db,
         scan_id=scan_id,
@@ -101,6 +106,7 @@ def get_scan_summary(
         **counts,
         "execution_error_count": len(execution_errors),
         "execution_errors": execution_errors,
+        "risk_posture": risk_posture,
     }
 
 
