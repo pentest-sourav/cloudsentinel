@@ -168,6 +168,63 @@ def start_scan(
     return locked_scan
 
 
+def touch_scan_heartbeat(
+    db: Session,
+    scan_id: int,
+) -> bool:
+    """Refresh the durable heartbeat while a worker owns a scan."""
+    updated = (
+        db.query(Scan)
+        .filter(
+            Scan.id == scan_id,
+            Scan.status == SCAN_STATUS_RUNNING,
+        )
+        .update(
+            {Scan.updated_at: datetime.now(timezone.utc)},
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    return bool(updated)
+
+
+def recover_stale_running_scan(
+    db: Session,
+    scan: Scan,
+    stale_after_seconds: int,
+) -> Scan:
+    """Return a running scan to pending only after its heartbeat expires."""
+    locked_scan = (
+        db.query(Scan)
+        .filter(Scan.id == scan.id)
+        .with_for_update()
+        .one()
+    )
+
+    if locked_scan.status != SCAN_STATUS_RUNNING:
+        return locked_scan
+
+    age_seconds = (
+        datetime.now(timezone.utc) - locked_scan.updated_at
+    ).total_seconds()
+
+    if age_seconds < stale_after_seconds:
+        return locked_scan
+
+    locked_scan.status = SCAN_STATUS_PENDING
+    locked_scan.started_at = None
+    locked_scan.completed_at = None
+    locked_scan.error_message = (
+        "Previous scan worker stopped responding; "
+        "the scan is being retried."
+    )
+    locked_scan.updated_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(locked_scan)
+    return locked_scan
+
+
 def complete_scan(
     db: Session,
     scan: Scan,
