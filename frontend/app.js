@@ -1752,6 +1752,88 @@ function renderExecutiveDashboard(data) {
     $("executive-affected-assets").textContent =
         safeNumber(data?.affected_resource_count);
 
+    const trend = Array.isArray(data?.risk_trend)
+        ? data.risk_trend
+        : [];
+
+    const trendScores = trend.map((item) => {
+        const findings = safeNumber(item.total_findings);
+        if (!findings) {
+            return 100;
+        }
+        return Math.max(
+            0,
+            Math.min(
+                100,
+                100 -
+                    (
+                        safeNumber(item.risk_score_sum) /
+                        findings
+                    ) * 10
+            )
+        );
+    });
+
+    const latestTrendScore =
+        trendScores.length
+            ? trendScores[0]
+            : null;
+
+    const previousTrendScore =
+        trendScores.length > 1
+            ? trendScores[1]
+            : null;
+
+    const trendDelta =
+        latestTrendScore !== null &&
+        previousTrendScore !== null
+            ? latestTrendScore - previousTrendScore
+            : null;
+
+    $("executive-trend-delta").textContent =
+        trendDelta === null
+            ? latestTrendScore === null
+                ? "—"
+                : `${latestTrendScore.toFixed(1)}`
+            : `${trendDelta >= 0 ? "+" : ""}${trendDelta.toFixed(1)}`;
+
+    const trendElement = $("executive-trend-list");
+
+    if (!trend.length) {
+        trendElement.innerHTML =
+            '<span class="executive-trend-empty">No completed scan history yet.</span>';
+    } else {
+        trendElement.innerHTML = trend
+            .slice(0, 6)
+            .reverse()
+            .map((item) => {
+                const findings = safeNumber(item.total_findings);
+                const itemScore = findings
+                    ? Math.max(
+                          0,
+                          Math.min(
+                              100,
+                              100 -
+                                  (
+                                      safeNumber(item.risk_score_sum) /
+                                      findings
+                                  ) * 10
+                          )
+                      )
+                    : 100;
+
+                return `
+                    <span
+                        class="executive-trend-bar"
+                        title="Scan #${escapeHtml(item.scan_id)} · posture ${itemScore.toFixed(1)}"
+                    >
+                        <i style="height:${Math.max(8, itemScore)}%"></i>
+                    </span>
+                `;
+            })
+            .join("");
+    }
+
     const remediation = data?.top_risks || [];
     const remediationElement = $("executive-remediation-list");
 
@@ -2263,6 +2345,9 @@ function resetDashboard() {
     $("executive-sensitive-assets").textContent = "0";
     $("executive-attack-paths").textContent = "0";
     $("executive-affected-assets").textContent = "0";
+    $("executive-trend-delta").textContent = "—";
+    $("executive-trend-list").innerHTML =
+        '<span class="executive-trend-empty">No completed scan history yet.</span>';
     $("executive-remediation-list").innerHTML = `
         <div class="empty-state compact">
             <strong>No remediation items yet</strong>
