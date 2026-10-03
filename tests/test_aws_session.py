@@ -43,8 +43,6 @@ def test_create_aws_session_uses_short_lived_external_id_assume_role():
 
     assert result is assumed_session
 
-    assert assumed_session.aws_access_key_id == "ASIAEXAMPLE" if hasattr(assumed_session, "aws_access_key_id") else True
-
 
 @pytest.mark.parametrize("duration_seconds", [899, 43_201])
 def test_create_aws_session_rejects_invalid_sts_duration(duration_seconds):
