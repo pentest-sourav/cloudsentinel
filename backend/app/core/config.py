@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     rate_limit_auth_max_requests: int = 10
     rate_limit_scan_max_requests: int = 20
     rate_limit_global_max_requests: int = 300
+    aws_sts_session_duration_seconds: int = 900
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -65,6 +66,11 @@ class Settings(BaseSettings):
         if self.security_headers_hsts_max_age_seconds <= 0:
             raise ValueError(
                 "SECURITY_HEADERS_HSTS_MAX_AGE_SECONDS must be > 0"
+            )
+
+        if not 900 <= self.aws_sts_session_duration_seconds <= 43_200:
+            raise ValueError(
+                "AWS_STS_SESSION_DURATION_SECONDS must be between 900 and 43200 seconds."
             )
 
         rate_limits = (
