@@ -2668,6 +2668,10 @@ async function openFinding(
             finding
         );
 
+        await loadFindingWorkflow(
+            finding.id
+        );
+
     } catch (error) {
         handleError(error);
 
@@ -3056,8 +3060,125 @@ function renderFindingDetail(
                 </div>
 
             </div>
+
+            <div class="drawer-section">
+
+                <h3>
+                    Remediation workflow
+                </h3>
+
+                <div class="workflow-editor">
+
+                    <label>
+                        <span>Status</span>
+                        <select id="finding-workflow-status">
+                            <option value="open">Open</option>
+                            <option value="acknowledged">Acknowledged</option>
+                            <option value="in_progress">In progress</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="accepted_risk">Accepted risk</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Custom SLA due date</span>
+                        <input id="finding-workflow-due" type="datetime-local">
+                    </label>
+
+                    <label>
+                        <span>Note</span>
+                        <textarea
+                            id="finding-workflow-note"
+                            rows="3"
+                            maxlength="2000"
+                            placeholder="Add remediation context..."
+                        ></textarea>
+                    </label>
+
+                    <div class="workflow-editor-footer">
+                        <span id="finding-workflow-sla">
+                            No custom SLA due date configured
+                        </span>
+                        <button
+                            id="finding-workflow-save"
+                            type="button"
+                            class="primary-btn"
+                        >
+                            Save workflow
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
         `;
 }
+
+async function loadFindingWorkflow(findingId) {
+    const workflow = await apiFetch(
+        `/findings/${encodeURIComponent(findingId)}/workflow`
+    );
+
+    renderFindingWorkflow(workflow);
+}
+
+function renderFindingWorkflow(workflow) {
+    const dueAt = workflow?.due_at
+        ? new Date(workflow.due_at)
+        : null;
+
+    $("finding-workflow-due").value = dueAt
+        ? new Date(
+              dueAt.getTime() -
+                  dueAt.getTimezoneOffset() * 60000
+          ).toISOString().slice(0, 16)
+        : "";
+
+    $("finding-workflow-status").value =
+        workflow?.status || "open";
+
+    $("finding-workflow-note").value =
+        workflow?.note || "";
+
+    $("finding-workflow-sla").textContent =
+        workflow?.due_at
+            ? `Due ${formatDateTime(workflow.due_at)}`
+            : "No custom SLA due date configured";
+}
+
+async function saveFindingWorkflow() {
+    const finding = state.currentFinding;
+    if (!finding?.id) {
+        return;
+    }
+
+    const dueValue = $("finding-workflow-due").value;
+
+    const payload = {
+        status: $("finding-workflow-status").value,
+        assignee_user_id: state.user?.id || null,
+        due_at: dueValue
+            ? new Date(dueValue).toISOString()
+            : null,
+        note: $("finding-workflow-note").value.trim() || null,
+    };
+
+    const result = await apiFetch(
+        `/findings/${encodeURIComponent(finding.id)}/workflow`,
+        {
+            method: "POST",
+            body: JSON.stringify(payload),
+        }
+    );
+
+    renderFindingWorkflow(result);
+    showToast("Remediation workflow updated.", "success");
+
+    if (state.currentScanId) {
+        await loadDashboardOverview();
+    }
+}
+
 
 function formatObject(value) {
     if (
@@ -3940,6 +4061,19 @@ function bindEvents() {
         .addEventListener(
             "submit",
             createAccount
+        );
+
+
+    $("finding-workflow-save")
+        .addEventListener(
+            "click",
+            async () => {
+                try {
+                    await saveFindingWorkflow();
+                } catch (error) {
+                    handleError(error);
+                }
+            }
         );
 
 
