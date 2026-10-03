@@ -258,6 +258,7 @@ See:
 
 ```text
 docs/SAAS_READINESS.md
+docs/OPERATIONS_RUNBOOK.md
 ```
 
 for the controlled-public-beta checklist and remaining production requirements.
