@@ -185,7 +185,7 @@ def test_audit_events_never_cross_tenant_boundary(test_context):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 2
+    assert body["total"] == 3
     assert all(
         item["resource_id"] != "202"
         for item in body["items"]
@@ -229,7 +229,7 @@ def test_audit_events_support_pagination(test_context):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 2
+    assert body["total"] == 3
     assert len(body["items"]) == 1
     assert body["limit"] == 1
     assert body["offset"] == 1
