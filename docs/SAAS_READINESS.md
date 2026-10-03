@@ -50,6 +50,9 @@ The project should be presented publicly as an **AWS-focused CSPM foundation und
 - Read-only AWS scanning model
 - Configurable API rate limiting with Redis-backed enforcement
 - Role-based authorization for operational mutations
+- persisted security audit events for authentication and privileged operations
+- request correlation IDs on API responses
+- startup cleanup for expired audit events
 
 ## SaaS Security Requirements
 
@@ -171,6 +174,7 @@ until those claims have been independently validated.
 6. Add security regression tests for tenant isolation.
 7. Expand Azure support without weakening AWS correctness.
 8. Add CI security gates and dependency/container scanning.
+9. Validate production backup/restore and deployment rollback procedures.
 
 ## Definition of SaaS Ready
 
@@ -186,6 +190,8 @@ CloudSentinel can be considered ready for a controlled public beta when:
 - backups and recovery are tested
 - worker failure/retry behavior is tested
 - audit/security logging is operational
+- dependency vulnerability scanning is part of CI
+- production containers run without root privileges
 - deployment is reproducible
 - the public documentation accurately states supported capabilities and limitations
 
