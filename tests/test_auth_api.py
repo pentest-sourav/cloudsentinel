@@ -8,6 +8,7 @@ from backend.app.core.database import Base, get_db
 from backend.app.main import app
 from backend.app.models.tenant import Tenant
 from backend.app.models.user import User
+from backend.app.models.audit_event import AuditEvent
 
 
 @pytest.fixture()
@@ -373,3 +374,47 @@ def test_existing_token_is_revoked_when_tenant_is_suspended(client):
     assert me_response.json()["detail"] == (
         "User not found, inactive, or tenant inactive."
     )
+
+
+def test_authentication_writes_audit_events(client):
+    password = "StrongPassword-2026!"
+
+    register_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "audit@example.com",
+            "password": password,
+            "full_name": "Audit User",
+            "tenant_name": "Audit Tenant",
+        },
+    )
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "audit@example.com",
+            "password": password,
+            "tenant_name": "Audit Tenant",
+        },
+    )
+    assert login_response.status_code == 200
+
+    db = next(app.dependency_overrides[get_db]())
+    try:
+        events = (
+            db.query(AuditEvent)
+            .order_by(AuditEvent.id.asc())
+            .all()
+        )
+        actions = [event.action for event in events]
+        statuses = [event.status for event in events]
+
+        assert "auth.register" in actions
+        assert "auth.login" in actions
+        assert statuses.count("success") >= 2
+
+        for event in events:
+            assert event.request_id
+    finally:
+        db.close()
