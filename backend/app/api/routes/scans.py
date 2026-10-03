@@ -139,7 +139,9 @@ def create_new_scan(
 @router.post("/schedules", response_model=ScanScheduleResponse, status_code=status.HTTP_201_CREATED)
 def create_scan_schedule(schedule_data: ScanScheduleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR))):
     try:
-        return create_schedule(db=db, tenant_id=current_user.tenant_id, cloud_account_id=schedule_data.cloud_account_id, interval_minutes=schedule_data.interval_minutes)
+        schedule = create_schedule(db=db, tenant_id=current_user.tenant_id, cloud_account_id=schedule_data.cloud_account_id, interval_minutes=schedule_data.interval_minutes)
+        safe_record_audit_event(db=db, action="scan_schedule.create", status=AUDIT_SUCCESS, tenant_id=current_user.tenant_id, user_id=current_user.id, resource_type="scan_schedule", resource_id=schedule.id, metadata={"cloud_account_id": schedule.cloud_account_id, "interval_minutes": schedule.interval_minutes})
+        return schedule
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
@@ -154,7 +156,9 @@ def update_scan_schedule(schedule_id: int, schedule_data: ScanScheduleUpdate, db
     schedule = get_schedule(db=db, schedule_id=schedule_id, tenant_id=current_user.tenant_id)
     if schedule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
-    return set_schedule_enabled(db=db, schedule=schedule, enabled=schedule_data.enabled)
+    updated = set_schedule_enabled(db=db, schedule=schedule, enabled=schedule_data.enabled)
+    safe_record_audit_event(db=db, action="scan_schedule.update", status=AUDIT_SUCCESS, tenant_id=current_user.tenant_id, user_id=current_user.id, resource_type="scan_schedule", resource_id=schedule.id, metadata={"enabled": schedule_data.enabled})
+    return updated
 
 
 @router.delete("/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -163,6 +167,7 @@ def remove_scan_schedule(schedule_id: int, db: Session = Depends(get_db), curren
     if schedule is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
     delete_schedule(db=db, schedule=schedule)
+    safe_record_audit_event(db=db, action="scan_schedule.delete", status=AUDIT_SUCCESS, tenant_id=current_user.tenant_id, user_id=current_user.id, resource_type="scan_schedule", resource_id=schedule_id)
     return None
 
 
