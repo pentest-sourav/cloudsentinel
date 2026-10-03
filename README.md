@@ -220,7 +220,7 @@ See the project documentation for the current onboarding details.
 - request correlation IDs for API responses
 - tenant-scoped audit event API with pagination and filtering
 - production request-size limits and trusted-proxy-aware rate limiting
-- optional Prometheus-format API metrics
+- optional authenticated Prometheus-format API metrics
 
 ### Operational Readiness
 
