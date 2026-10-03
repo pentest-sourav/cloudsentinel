@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from backend.app.api.authorization import (
@@ -21,6 +21,11 @@ from backend.app.services.scan_service import (
     list_scans,
 )
 from backend.app.services.scan_summary_service import get_scan_summary
+from backend.app.services.audit_service import (
+    AUDIT_FAILURE,
+    AUDIT_SUCCESS,
+    safe_record_audit_event,
+)
 
 
 router = APIRouter(
@@ -36,6 +41,7 @@ router = APIRouter(
 )
 def create_new_scan(
     scan_data: ScanCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(
@@ -54,6 +60,16 @@ def create_new_scan(
         )
 
     except ValueError as exc:
+        safe_record_audit_event(
+            db=db,
+            action="scan.create",
+            status=AUDIT_FAILURE,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+            metadata={"reason": str(exc)[:200]},
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
@@ -70,6 +86,18 @@ def create_new_scan(
         )
 
     except Exception as exc:
+        safe_record_audit_event(
+            db=db,
+            action="scan.create",
+            status=AUDIT_FAILURE,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            resource_type="scan",
+            resource_id=scan.id,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+            metadata={"reason": "scan queue unavailable"},
+        )
         scan.status = "failed"
         scan.error_message = (
             f"Unable to enqueue scan job: {exc}"
@@ -86,6 +114,22 @@ def create_new_scan(
     finally:
         queue.close()
 
+    safe_record_audit_event(
+        db=db,
+        action="scan.create",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="scan",
+        resource_id=scan.id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
+        metadata={
+            "provider": scan.provider,
+            "cloud_account_id": scan.cloud_account_id,
+        },
+    )
+
     return scan
 
 
@@ -94,14 +138,26 @@ def create_new_scan(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def delete_scan_history(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(
         require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR),
     ),
 ):
-    clear_scan_history(
+    deleted_count = clear_scan_history(
         db=db,
         tenant_id=current_user.tenant_id,
+    )
+
+    safe_record_audit_event(
+        db=db,
+        action="scan_history.delete",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
+        metadata={"deleted_scan_count": deleted_count},
     )
 
     return None
