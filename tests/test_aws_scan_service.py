@@ -656,6 +656,8 @@ def test_run_aws_scan_runs_all_scanners_after_identity_verification():
         role_arn=ROLE_ARN,
         external_id=EXTERNAL_ID,
         region_name=REGION,
+        role_session_name="CloudSentinelScan",
+        duration_seconds=900,
     )
 
     fake_provider.verify_identity.assert_called_once()
