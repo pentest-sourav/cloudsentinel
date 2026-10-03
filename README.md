@@ -6,7 +6,7 @@ CloudSentinel is an open-source, production-oriented cloud security platform des
 
 > **Current focus:** AWS  
 > **Azure:** Development phase  
-> **Latest verified test baseline:** 2817 passing tests, 1 warning
+> **Latest verified test baseline:** 2827 passing tests, 1 warning
 
 ---
 
@@ -216,6 +216,11 @@ See the project documentation for the current onboarding details.
 - PDF reports
 - security response headers
 - tenant-scoped report access
+
+### Operational Readiness
+
+- `/health` liveness endpoint
+- `/ready` dependency readiness endpoint for PostgreSQL and Redis
 
 ---
 
