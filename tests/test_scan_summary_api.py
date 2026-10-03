@@ -247,6 +247,15 @@ def test_get_scan_summary(client):
     assert data["low_count"] == 0
     assert data["info_count"] == 0
 
+    assert data["risk_posture"]["score"] == 35.0
+    assert data["risk_posture"]["grade"] == "F"
+    assert data["risk_posture"]["average_risk_score"] == 6.5
+    assert data["risk_posture"]["max_risk_score"] == 9.0
+    assert data["risk_posture"]["risk_score_sum"] == 26.0
+    assert data["risk_posture"]["affected_resource_count"] == 4
+    assert len(data["risk_posture"]["top_risks"]) == 4
+    assert data["risk_posture"]["top_risks"][0]["rule_id"] == "TEST-CRITICAL"
+
 
 def test_get_scan_summary_returns_404_for_unknown_scan(client):
     create_test_user()
@@ -317,6 +326,13 @@ def test_get_scan_summary_returns_zero_counts_when_no_findings(client):
     assert data["medium_count"] == 0
     assert data["low_count"] == 0
     assert data["info_count"] == 0
+    assert data["risk_posture"]["score"] == 100.0
+    assert data["risk_posture"]["grade"] == "A"
+    assert data["risk_posture"]["average_risk_score"] == 0.0
+    assert data["risk_posture"]["max_risk_score"] == 0.0
+    assert data["risk_posture"]["risk_score_sum"] == 0.0
+    assert data["risk_posture"]["affected_resource_count"] == 0
+    assert data["risk_posture"]["top_risks"] == []
 
 
 def test_get_scan_summary_isolated_between_tenants(client):
