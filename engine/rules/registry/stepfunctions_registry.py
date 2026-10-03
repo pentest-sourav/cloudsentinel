@@ -39,6 +39,7 @@ STEPFUNCTIONS_RULES = RuleRegistry(
             build_finding=(
                 build_stepfunctions_tagging_finding
             ),
+            parameters={"required_tag_keys": []},
         ),
     ]
 )
