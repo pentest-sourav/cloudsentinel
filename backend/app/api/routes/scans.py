@@ -14,6 +14,7 @@ from backend.app.schemas.scan import ScanCreate, ScanResponse
 from backend.app.schemas.scan_history import ScanHistoryListResponse
 from backend.app.schemas.scan_schedule import ScanScheduleCreate, ScanScheduleResponse, ScanScheduleUpdate
 from backend.app.schemas.scan_summary import ScanSummaryResponse
+from backend.app.schemas.posture import PostureTrendResponse
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_service import (
     clear_scan_history,
@@ -22,6 +23,7 @@ from backend.app.services.scan_service import (
     list_scans,
 )
 from backend.app.services.scan_summary_service import get_scan_summary
+from backend.app.services.posture_service import get_posture_trend
 from backend.app.services.scan_schedule_service import create_schedule, delete_schedule, get_schedule, list_schedules, set_schedule_enabled
 from backend.app.services.audit_service import (
     AUDIT_FAILURE,
@@ -223,6 +225,48 @@ def get_scans(
         tenant_id=current_user.tenant_id,
         limit=limit,
         offset=offset,
+    )
+
+
+
+
+@router.get(
+    "/posture-trend",
+    response_model=PostureTrendResponse,
+)
+def get_posture_trend_history(
+    limit: int = Query(
+        default=30,
+        ge=1,
+        le=100,
+    ),
+    cloud_account_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if cloud_account_id is not None:
+        from backend.app.models.cloud_account import CloudAccount
+
+        account = (
+            db.query(CloudAccount)
+            .filter(
+                CloudAccount.id == cloud_account_id,
+                CloudAccount.tenant_id == current_user.tenant_id,
+            )
+            .first()
+        )
+
+        if account is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cloud account not found",
+            )
+
+    return get_posture_trend(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        cloud_account_id=cloud_account_id,
+        limit=limit,
     )
 
 
