@@ -13,6 +13,7 @@ EXPECTED_RULE_IDS = {
     "CS-AWS-S3-008",
     "CS-AWS-S3-009",
     "CS-AWS-S3-010",
+    "CS-AWS-S3-017",
     "CS-AWS-S3-020",
 }
 
