@@ -108,7 +108,17 @@ class ScanWorker:
                         )
                         schedule.last_scan_id = scan.id
                         db.commit()
-                        self.queue.enqueue(ScanJob(scan_id=scan.id, provider=scan.provider))
+                        try:
+                            self.queue.enqueue(ScanJob(scan_id=scan.id, provider=scan.provider))
+                        except Exception as exc:
+                            failed_db = SessionLocal()
+                            try:
+                                failed_scan = get_scan(db=failed_db, scan_id=scan.id)
+                                if failed_scan is not None:
+                                    fail_scan(db=failed_db, scan=failed_scan, error_message=f"Scheduled scan could not be queued: {exc}")
+                            finally:
+                                failed_db.close()
+                            raise
                         logger.info(
                             "Enqueued scheduled scan",
                             extra={"schedule_id": schedule.id, "scan_id": scan.id},
