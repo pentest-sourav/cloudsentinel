@@ -23,13 +23,21 @@ import sys
 import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from urllib.parse import urlparse
 
 
 def database_url() -> str:
     value = os.environ.get("DATABASE_URL")
     if not value:
         raise RuntimeError("DATABASE_URL must be set")
+    return value
+
+
+def libpq_url(value: str) -> str:
+    """Convert SQLAlchemy's psycopg URL into a libpq-compatible URL."""
+    if value.startswith("postgresql+psycopg://"):
+        return "postgresql://" + value.removeprefix(
+            "postgresql+psycopg://"
+        )
     return value
 
 
@@ -134,7 +142,7 @@ def backup(output_dir: Path) -> Path:
             "--no-acl",
             "--file",
             str(path),
-            database_url(),
+            libpq_url(database_url()),
         ]
     )
 
