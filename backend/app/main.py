@@ -15,6 +15,7 @@ from backend.app.core.config import settings
 from backend.app.core.rate_limit import rate_limiter
 from backend.app.core.database import SessionLocal
 from backend.app.services.scan_queue import ScanQueue
+from backend.app.services.audit_service import purge_expired_audit_events
 from sqlalchemy import text
 
 
@@ -151,6 +152,20 @@ app.include_router(cloud_accounts_router)
 app.include_router(scans_router)
 app.include_router(findings_router)
 app.include_router(reports_router)
+
+
+@app.on_event("startup")
+def cleanup_expired_audit_events() -> None:
+    db = SessionLocal()
+    try:
+        purge_expired_audit_events(
+            db=db,
+            retention_days=settings.audit_retention_days,
+        )
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
 
 
 @app.get("/health")
