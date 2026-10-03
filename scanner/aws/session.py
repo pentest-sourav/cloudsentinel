@@ -2,7 +2,6 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
-from backend.app.core.config import settings
 
 
 AWS_RETRY_CONFIG = Config(
@@ -19,6 +18,7 @@ def create_aws_session(
     role_arn: str | None = None,
     external_id: str | None = None,
     role_session_name: str = "CloudSentinelScan",
+    duration_seconds: int = 900,
 ) -> boto3.Session:
     """
     Create an AWS boto3 session.
@@ -53,6 +53,11 @@ def create_aws_session(
             "external_id is required when assuming a cross-account AWS role."
         )
 
+    if not 900 <= duration_seconds <= 43_200:
+        raise ValueError(
+            "duration_seconds must be between 900 and 43200 seconds."
+        )
+
     if not role_session_name or not role_session_name.strip():
         raise ValueError("role_session_name must not be blank.")
 
@@ -64,7 +69,7 @@ def create_aws_session(
     assume_role_kwargs = {
         "RoleArn": role_arn,
         "RoleSessionName": normalized_session_name,
-        "DurationSeconds": settings.aws_sts_session_duration_seconds,
+        "DurationSeconds": duration_seconds,
     }
 
     assume_role_kwargs["ExternalId"] = external_id
