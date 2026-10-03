@@ -274,7 +274,7 @@ def get_scan_lifecycle(
     if scan is None:
         return None
 
-    if scan.status != "completed":
+    if scan.status not in {"completed", "completed_with_warnings"}:
         return {
             "scan_id": scan.id,
             "previous_scan_id": None,
