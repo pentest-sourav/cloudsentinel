@@ -39,3 +39,27 @@ def test_wildcard_cors_is_rejected():
 def test_request_body_limit_must_be_positive():
     with pytest.raises(ValidationError, match="MAX_REQUEST_BODY_BYTES"):
         _settings(max_request_body_bytes=0)
+
+
+def test_production_rejects_weak_metrics_token():
+    with pytest.raises(ValidationError, match="METRICS_AUTH_TOKEN"):
+        _settings(
+            app_environment="production",
+            metrics_enabled=True,
+            metrics_auth_token="short",
+        )
+
+
+def test_production_accepts_metrics_token():
+    config = _settings(
+        app_environment="production",
+        metrics_enabled=True,
+        metrics_auth_token="m" * 32,
+    )
+
+    assert config.metrics_enabled is True
+
+
+def test_rate_limit_settings_must_be_positive():
+    with pytest.raises(ValidationError, match="Rate limit settings"):
+        _settings(rate_limit_global_max_requests=0)
