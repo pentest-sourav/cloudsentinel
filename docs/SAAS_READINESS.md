@@ -32,6 +32,7 @@ The project should be presented publicly as an **AWS-focused CSPM foundation und
 - AWS cross-account role assumption
 - AWS account identity verification
 - Defensive AWS API error handling
+- Regional session-failure isolation so a single unavailable region does not abort healthy-region scanning
 - Extensive automated regression coverage
 
 ### Application platform
