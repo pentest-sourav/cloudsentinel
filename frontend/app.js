@@ -3142,7 +3142,7 @@ function renderFindingWorkflow(workflow) {
 
     $("finding-workflow-sla").textContent =
         workflow?.due_at
-            ? `Due ${formatDateTime(workflow.due_at)}`
+            ? `Due ${formatDate(workflow.due_at)}`
             : "No custom SLA due date configured";
 }
 
