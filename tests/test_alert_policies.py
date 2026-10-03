@@ -176,6 +176,12 @@ def test_alert_dispatch_is_idempotent_and_does_not_alert_medium(env, monkeypatch
             "backend.app.services.alert_policy_service.httpx.Client",
             lambda *args, **kwargs: Client(),
         )
+        # This test isolates delivery/idempotency behavior; endpoint DNS/SSRF
+        # validation is covered separately by the webhook boundary tests.
+        monkeypatch.setattr(
+            "backend.app.services.alert_policy_service._validate_endpoint",
+            lambda url: url,
+        )
         first = dispatch_scan_alerts(db=db, scan_id=scan.id, tenant_id=t.id)
         second = dispatch_scan_alerts(db=db, scan_id=scan.id, tenant_id=t.id)
         assert first["delivered"] == 1
