@@ -7,12 +7,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.app.core.database import Base, get_db
-from backend.app.core.security import create_access_token, hash_password
+from backend.app.core.security import hash_password
 from backend.app.main import app
 from backend.app.models.finding import Finding
 from backend.app.models.scan import Scan
 from backend.app.models.tenant import Tenant
 from backend.app.models.user import User
+from backend.app.services.auth_service import create_user_access_token
 
 
 engine = create_engine(
@@ -78,10 +79,7 @@ def create_tenant_user(db, slug: str):
 
 
 def auth_headers(user):
-    token = create_access_token(
-        subject=str(user.id),
-        extra_claims={"tenant_id": user.tenant_id},
-    )
+    token, _expires_in = create_user_access_token(user)
     return {"Authorization": f"Bearer {token}"}
 
 
