@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from engine.findings.model import Finding, Severity
@@ -13,7 +13,7 @@ class SecretsManagerTaggingResult:
     resource_id: str
     resource_arn: str
     tags: list[dict[str, Any]]
-    required_tag_keys: list[str]
+    required_tag_keys: list[str] = field(default_factory=list)
 
 
 def check_secretsmanager_tagging(
