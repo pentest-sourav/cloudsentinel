@@ -73,3 +73,8 @@ def test_invalid_log_format_is_rejected():
 def test_invalid_log_level_is_rejected():
     with pytest.raises(ValidationError, match="LOG_LEVEL"):
         _settings(log_level="LOUD")
+
+
+def test_scan_queue_settings_must_be_positive():
+    with pytest.raises(ValidationError, match="Scan queue settings"):
+        _settings(scan_queue_recovery_batch_size=0)
