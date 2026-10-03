@@ -6,14 +6,14 @@ from scanner.aws.client_factory import create_aws_client
 
 
 class CloudFrontService:
-    CLOUDFRONT_REGION = "us-east-1"
-
     """
     Read-only Amazon CloudFront discovery service.
 
     Retrieves CloudFront distributions required by
     CloudSentinel security rules.
     """
+
+    CLOUDFRONT_REGION = "us-east-1"
 
     def __init__(self, session):
         self.cloudfront_client = create_aws_client(

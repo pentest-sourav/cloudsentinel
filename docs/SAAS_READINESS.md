@@ -6,7 +6,7 @@ CloudSentinel is an **AWS-first, production-oriented security posture and compli
 
 The repository currently has a verified regression baseline of:
 
-- **2821 passing tests**
+- **2827 passing tests**
 - 1 existing Starlette/AnyIO deprecation warning
 - AWS is the primary implemented provider
 - Azure is intentionally in development
