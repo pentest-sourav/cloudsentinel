@@ -4095,6 +4095,32 @@ function bindEvents() {
         );
 
 
+    /* EXECUTIVE DASHBOARD */
+
+    $("executive-findings-btn")
+        .addEventListener(
+            "click",
+            async () => {
+                if (!state.currentScanId) {
+                    showToast(
+                        "No scan selected.",
+                        "error"
+                    );
+                    return;
+                }
+
+                try {
+                    await loadFindings(
+                        state.currentScanId
+                    );
+                    setView("findings");
+                } catch (error) {
+                    handleError(error);
+                }
+            }
+        );
+
+
     /* DELEGATED TABLE ACTIONS */
 
     document.addEventListener(
