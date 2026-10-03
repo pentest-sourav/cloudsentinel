@@ -64,3 +64,30 @@ def test_readiness_returns_503_when_dependency_is_unavailable():
             "redis": "unavailable",
         },
     }
+
+
+def test_health_and_ready_responses_include_request_id():
+    health = TestClient(app).get("/health")
+    assert health.status_code == 200
+    assert health.headers.get("x-request-id")
+
+    fake_db = Mock()
+
+    class FakeQueue:
+        def ping(self):
+            return True
+
+        def close(self):
+            pass
+
+    with patch(
+        "backend.app.main.SessionLocal",
+        return_value=fake_db,
+    ), patch(
+        "backend.app.main.ScanQueue",
+        return_value=FakeQueue(),
+    ):
+        ready = TestClient(app).get("/ready")
+
+    assert ready.status_code == 200
+    assert ready.headers.get("x-request-id")
