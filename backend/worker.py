@@ -74,6 +74,16 @@ class ScanWorker:
         )
         self.running = True
 
+    def _run_aws_scan(self, account: CloudAccount, scan_id: int):
+        return run_aws_scan(
+            role_arn=account.role_arn,
+            external_id=account.external_id,
+            region_name=account.region,
+            expected_account_id=account.external_account_id,
+            scan_id=scan_id,
+            progress_callback=lambda **data: self.queue.set_progress(scan_id, **data),
+        )
+
     def stop(self, *_args) -> None:
         logger.info("Shutdown signal received")
         self.running = False
