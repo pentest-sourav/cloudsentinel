@@ -76,6 +76,8 @@ def test_create_aws_session_assumes_role():
 
 def test_create_aws_session_retry_configuration():
     assert isinstance(AWS_RETRY_CONFIG, Config)
+    assert AWS_RETRY_CONFIG.connect_timeout == 10
+    assert AWS_RETRY_CONFIG.read_timeout == 60
     assert AWS_RETRY_CONFIG.retries == {
         "mode": "standard",
         "max_attempts": 5,
