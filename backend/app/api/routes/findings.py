@@ -108,6 +108,7 @@ def list_scan_findings(
     result = get_findings_by_scan(
         db=db,
         scan_id=scan_id,
+        tenant_id=current_user.tenant_id,
         limit=limit,
         offset=offset,
         severity=severity,
@@ -154,4 +155,5 @@ def get_finding_by_id(
     return get_finding(
         db=db,
         finding_id=finding_id,
+        tenant_id=current_user.tenant_id,
     )

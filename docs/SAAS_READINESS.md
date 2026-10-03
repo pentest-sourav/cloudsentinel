@@ -217,3 +217,23 @@ Metrics are available from `/metrics` only when `METRICS_ENABLED=true`. The endp
 The container image runs as the non-root `cloudsentinel` user, includes an HTTP healthcheck, and is scanned in CI for high/critical OS and Python-library vulnerabilities. Production deployment should still place the service behind a TLS-terminating reverse proxy and configure trusted proxy networks explicitly.
 
 Production logging supports `LOG_LEVEL` and `LOG_FORMAT=auto|json|text`. In production, `auto` selects JSON output. API request logs inherit the `X-Request-ID` correlation value, while worker logs emit structured scan and queue identifiers. Log pipelines should retain security-relevant operational events without collecting passwords, JWTs, AWS credentials, or other secrets.
+
+
+## Multi-tenant security boundary
+
+Tenant identity is derived from the authenticated user and is never accepted from
+client-controlled request fields. Customer-owned resources are scoped by
+`tenant_id` at the service/query layer as well as at API-route authorization
+boundaries.
+
+The security boundary currently covers cloud accounts, scans, findings, reports,
+scan summaries, finding lifecycle history, and audit events. Cross-tenant
+resource references return the same not-found semantics used for unknown
+resources where applicable, avoiding cross-tenant existence disclosure.
+
+Finding reads additionally enforce tenant scope inside the finding service rather
+than relying only on the route's pre-check. This is defense in depth for future
+callers and background workflows.
+
+Tenant suspension is checked during authentication on every request, so an
+active JWT does not retain access after its tenant is suspended.
