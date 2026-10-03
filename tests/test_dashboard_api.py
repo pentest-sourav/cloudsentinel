@@ -201,6 +201,10 @@ def test_dashboard_overview_aggregates_real_security_signals(client):
     assert "critical risk" in data["top_risks"][0]["priority_reason"].lower()
     assert data["compliance"]["items"][0]["framework"] == "CIS AWS Foundations"
     assert len(data["risk_trend"]) == 1
+    assert data["remediation"]["total_items"] == 2
+    assert data["remediation"]["overdue_items"] == 0
+    assert data["remediation"]["unassigned_items"] == 2
+    assert data["remediation"]["items"][0]["sla_target_hours"] == 24
 
 
 def test_dashboard_overview_has_clean_empty_state(client):
@@ -226,6 +230,7 @@ def test_dashboard_overview_has_clean_empty_state(client):
     assert data["attack_path_count"] == 0
     assert data["top_risks"] == []
     assert data["compliance"] is None
+    assert data["remediation"]["total_items"] == 0
     assert data["data_quality_notes"]
 
 
