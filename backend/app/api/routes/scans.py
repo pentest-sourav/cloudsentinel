@@ -12,6 +12,7 @@ from backend.app.core.database import get_db
 from backend.app.models.user import User
 from backend.app.schemas.scan import ScanCreate, ScanResponse
 from backend.app.schemas.scan_history import ScanHistoryListResponse
+from backend.app.schemas.scan_schedule import ScanScheduleCreate, ScanScheduleResponse, ScanScheduleUpdate
 from backend.app.schemas.scan_summary import ScanSummaryResponse
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_service import (
@@ -21,6 +22,7 @@ from backend.app.services.scan_service import (
     list_scans,
 )
 from backend.app.services.scan_summary_service import get_scan_summary
+from backend.app.services.scan_schedule_service import create_schedule, delete_schedule, get_schedule, list_schedules, set_schedule_enabled
 from backend.app.services.audit_service import (
     AUDIT_FAILURE,
     AUDIT_SUCCESS,
@@ -131,6 +133,37 @@ def create_new_scan(
     )
 
     return scan
+
+
+
+@router.post("/schedules", response_model=ScanScheduleResponse, status_code=status.HTTP_201_CREATED)
+def create_scan_schedule(schedule_data: ScanScheduleCreate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR))):
+    try:
+        return create_schedule(db=db, tenant_id=current_user.tenant_id, cloud_account_id=schedule_data.cloud_account_id, interval_minutes=schedule_data.interval_minutes)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/schedules", response_model=list[ScanScheduleResponse])
+def get_scan_schedules(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return list_schedules(db=db, tenant_id=current_user.tenant_id)
+
+
+@router.patch("/schedules/{schedule_id}", response_model=ScanScheduleResponse)
+def update_scan_schedule(schedule_id: int, schedule_data: ScanScheduleUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR))):
+    schedule = get_schedule(db=db, schedule_id=schedule_id, tenant_id=current_user.tenant_id)
+    if schedule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+    return set_schedule_enabled(db=db, schedule=schedule, enabled=schedule_data.enabled)
+
+
+@router.delete("/schedules/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_scan_schedule(schedule_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR))):
+    schedule = get_schedule(db=db, schedule_id=schedule_id, tenant_id=current_user.tenant_id)
+    if schedule is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Schedule not found")
+    delete_schedule(db=db, schedule=schedule)
+    return None
 
 
 @router.delete(
