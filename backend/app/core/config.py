@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     scan_queue_worker_heartbeat_seconds: int = 10
     scan_queue_worker_stale_seconds: int = 30
     max_concurrent_scans_per_tenant: int = 2
+    scan_scheduler_poll_seconds: int = 10
 
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
@@ -53,6 +54,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_runtime_security(self):
+        if not 1 <= self.scan_scheduler_poll_seconds <= 300:
+            raise ValueError("SCAN_SCHEDULER_POLL_SECONDS must be between 1 and 300.")
+
         if not 1 <= self.max_concurrent_scans_per_tenant <= 100:
             raise ValueError(
                 "MAX_CONCURRENT_SCANS_PER_TENANT must be between 1 and 100."
