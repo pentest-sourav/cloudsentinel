@@ -6,7 +6,7 @@ CloudSentinel is an open-source, production-oriented cloud security platform des
 
 > **Current focus:** AWS  
 > **Azure:** Development phase  
-> **Latest verified test baseline:** 2838 passing tests, 1 warning
+> **CI:** full regression suite, dependency audit, and container security gate run on every push and pull request
 
 ---
 
@@ -226,6 +226,10 @@ See the project documentation for the current onboarding details.
 
 - `/health` liveness endpoint
 - `/ready` dependency readiness endpoint for PostgreSQL and Redis
+- Redis-backed scan queue recovery, retry, dead-letter handling, and queue metrics
+- production deployment baseline with private PostgreSQL/Redis networking and TLS termination
+- immutable production container publishing through GitHub Container Registry
+- PostgreSQL backup and restore runbook
 
 ---
 
@@ -259,6 +263,7 @@ See:
 ```text
 docs/SAAS_READINESS.md
 docs/OPERATIONS_RUNBOOK.md
+docs/DEPLOYMENT.md
 ```
 
 for the controlled-public-beta checklist and remaining production requirements.
@@ -341,7 +346,7 @@ CloudSentinel is an active open-source development project.
 ### In development
 
 - 🚧 Expanded AWS Security Hub control coverage
-- 🚧 Deployment, backup/recovery, and production operations validation
+- 🚧 Production backup/restore drills and measured recovery objectives
 - 🚧 Dashboard/onboarding UX
 - 🚧 Azure provider implementation
 - 🚧 Additional compliance frameworks
