@@ -154,6 +154,8 @@ app.include_router(findings_router)
 app.include_router(reports_router)
 
 
+# Best-effort retention cleanup. Operational startup must not fail solely
+# because historical audit cleanup is unavailable.
 @app.on_event("startup")
 def cleanup_expired_audit_events() -> None:
     db = SessionLocal()
