@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     scan_queue_group: str = "cloudsentinel:scan_workers"
     scan_queue_max_retries: int = 3
     scan_queue_recovery_idle_ms: int = 30_000
+    scan_queue_stale_scan_seconds: int = 120
     scan_queue_recovery_batch_size: int = 10
     scan_queue_read_block_ms: int = 5_000
     scan_queue_dead_letter_max_length: int = 10_000
@@ -61,6 +62,14 @@ class Settings(BaseSettings):
         )
         if any(value <= 0 for value in queue_settings):
             raise ValueError("Scan queue settings must all be > 0")
+
+        if self.scan_queue_stale_scan_seconds <= (
+            self.scan_queue_recovery_idle_ms / 1000
+        ):
+            raise ValueError(
+                "SCAN_QUEUE_STALE_SCAN_SECONDS must be greater than "
+                "SCAN_QUEUE_RECOVERY_IDLE_MS."
+            )
 
         if self.audit_retention_days <= 0:
             raise ValueError("AUDIT_RETENTION_DAYS must be > 0")
