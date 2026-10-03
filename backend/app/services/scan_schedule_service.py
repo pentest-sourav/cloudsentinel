@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from backend.app.models.cloud_account import CloudAccount
 from backend.app.models.scan_schedule import ScanSchedule
 from backend.app.services.cloud_account_service import SCAN_ELIGIBLE_ACCOUNT_STATUSES
+from backend.app.services.scan_service import has_active_scan_for_account
 
 MIN_INTERVAL_MINUTES = 15
 MAX_INTERVAL_MINUTES = 10080
