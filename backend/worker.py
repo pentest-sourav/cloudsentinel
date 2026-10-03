@@ -24,6 +24,7 @@ from backend.app.services.scan_service import (
     recover_stale_running_scan,
     retry_scan,
     touch_scan_heartbeat,
+    ScanCapacityExceeded,
 )
 
 
@@ -352,6 +353,13 @@ class ScanWorker:
                     scan=scan,
                     scanner=scanner,
                 )
+            except ScanCapacityExceeded:
+                self.queue.defer_recovery(message_id)
+                logger.info(
+                    "Deferring scan_id=%s because tenant concurrency is full",
+                    scan.id,
+                )
+                return
             finally:
                 heartbeat_stop.set()
                 heartbeat.join(timeout=2)
