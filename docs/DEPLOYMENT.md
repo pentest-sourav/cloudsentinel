@@ -89,7 +89,7 @@ identity with an external ID and a read-only role policy.
 ### External ID lifecycle
 CloudSentinel generates the AWS trust external ID server-side and does not accept it from cloud-account creation requests. The connection configuration endpoint is restricted to owner/administrator/operator roles because the external ID is sensitive trust configuration. Owners and administrators can rotate the external ID when required; rotation invalidates the previous trust configuration and moves the account back to `pending_connection` until the customer updates the IAM trust policy and reconnects.
 
-External IDs are never written to audit-event metadata. Treat the current external ID as sensitive configuration and do not copy it into application logs, tickets, or telemetry.
+External IDs are not AWS credentials or authentication secrets, but they are sensitive trust configuration. External IDs are never written to audit-event metadata; do not copy the current value into application logs or telemetry.
 
 ## Updates and rollback
 
