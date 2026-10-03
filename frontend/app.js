@@ -278,6 +278,15 @@ function initializeTheme() {
 initializeTheme();
 
 document.addEventListener("click", (event) => {
+    const workflowSave = event.target.closest(
+        "#finding-workflow-save"
+    );
+
+    if (workflowSave) {
+        saveFindingWorkflow().catch(handleError);
+        return;
+    }
+
     const executiveFinding = event.target.closest(
         "[data-executive-finding]"
     );
@@ -4061,19 +4070,6 @@ function bindEvents() {
         .addEventListener(
             "submit",
             createAccount
-        );
-
-
-    $("finding-workflow-save")
-        .addEventListener(
-            "click",
-            async () => {
-                try {
-                    await saveFindingWorkflow();
-                } catch (error) {
-                    handleError(error);
-                }
-            }
         );
 
 
