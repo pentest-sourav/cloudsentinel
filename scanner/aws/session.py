@@ -1,3 +1,5 @@
+import re
+
 import boto3
 
 from backend.app.core.config import settings
@@ -60,9 +62,13 @@ def create_aws_session(
         else duration_seconds
     )
 
-    if not 900 <= resolved_duration_seconds <= 43_200:
+    if (
+        not isinstance(resolved_duration_seconds, int)
+        or isinstance(resolved_duration_seconds, bool)
+        or not 900 <= resolved_duration_seconds <= 43_200
+    ):
         raise ValueError(
-            "duration_seconds must be between 900 and 43200 seconds."
+            "duration_seconds must be an integer between 900 and 43200 seconds."
         )
 
     if not role_session_name or not role_session_name.strip():
@@ -72,6 +78,11 @@ def create_aws_session(
 
     if len(normalized_session_name) > 64:
         raise ValueError("role_session_name must be 64 characters or fewer.")
+
+    if not re.fullmatch(r"[A-Za-z0-9+=,.@_-]+", normalized_session_name):
+        raise ValueError(
+            "role_session_name contains unsupported AWS STS characters."
+        )
 
     sts_client = base_session.client(
         "sts",
