@@ -19,7 +19,8 @@ ROUTE53_RULES = RuleRegistry(
                 "resource_id",
                 "resource_type",
                 "tags",
-            ],
+                ],
+            parameters={"required_tag_keys": []},
             check=check_route53_health_check_tagging,
             build_finding=(
                 build_route53_health_check_tagging_finding
