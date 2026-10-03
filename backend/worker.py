@@ -1,6 +1,7 @@
 import logging
 import signal
 import threading
+from functools import partial
 from collections.abc import Callable
 
 from backend.app.core.database import SessionLocal
@@ -309,7 +310,11 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
                 return
 
-            scanner = self._run_aws_scan
+            scanner = partial(
+                self._run_aws_scan,
+                cloud_account,
+                scan.id,
+            )
 
             logger.info(
                 "Starting scan",
