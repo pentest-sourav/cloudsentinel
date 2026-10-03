@@ -17,6 +17,7 @@ jobs:
       DATABASE_URL: postgresql+psycopg://cloudsentinel:cloudsentinel@localhost:5432/cloudsentinel
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: ci-only-test-secret
+      APP_ENVIRONMENT: test
 
     services:
       postgres:
@@ -68,3 +69,8 @@ jobs:
 
       - name: Run test suite
         run: pytest -q
+
+      - name: Dependency audit
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r requirements.txt --strict
