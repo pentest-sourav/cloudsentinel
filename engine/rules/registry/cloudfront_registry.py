@@ -239,6 +239,19 @@ CLOUDFRONT_RULES = RuleRegistry(
             ),
         ),
         RuleDefinition(
+            rule_id="CS-AWS-CLOUDFRONT-014",
+            name="cloudfront_tagging",
+            data_source="cloudfront_distributions",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "tags",
+            ],
+            check=check_cloudfront_tagging,
+            build_finding=build_cloudfront_tagging_finding,
+            parameters={"required_tag_keys": []},
+        ),
+        RuleDefinition(
             rule_id="CS-AWS-CLOUDFRONT-015",
             name="cloudfront_nonexistent_s3_origins",
             data_source="cloudfront_distributions",
@@ -253,18 +266,6 @@ CLOUDFRONT_RULES = RuleRegistry(
                 build_cloudfront_nonexistent_s3_origins_finding
             ),
         ),
-        RuleDefinition(
-            rule_id="CS-AWS-CLOUDFRONT-014",
-            name="cloudfront_tagging",
-            data_source="cloudfront_distributions",
-            collection_mode="multiple",
-            check_arguments=[
-                "resource_id",
-                "tags",
-            ],
-            check=check_cloudfront_tagging,
-            build_finding=build_cloudfront_tagging_finding,
-            parameters={"required_tag_keys": []},
-        ),
+
     ]
 )
