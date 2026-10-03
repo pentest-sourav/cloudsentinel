@@ -1,6 +1,5 @@
 from urllib.parse import urlparse
 import ipaddress
-import json
 import socket
 import time
 from datetime import datetime, timezone
@@ -12,7 +11,7 @@ from backend.app.models.alert_delivery import AlertDelivery
 from backend.app.models.alert_policy import AlertPolicy
 from backend.app.models.finding import Finding
 from backend.app.models.scan import Scan
-from backend.app.services.finding_lifecycle_service import get_scan_lifecycle
+from backend.app.services.finding_lifecycle_service import build_finding_identity, get_scan_lifecycle
 
 
 _SEVERITY = {"info": 1, "low": 2, "medium": 3, "high": 4, "critical": 5}
@@ -96,7 +95,7 @@ def _event_payload(scan: Scan, finding: Finding, event: str) -> dict:
         "cloud_account_id": scan.cloud_account_id,
         "finding": {
             "id": finding.id,
-            "fingerprint": __import__("backend.app.services.finding_lifecycle_service", fromlist=["build_finding_identity"]).build_finding_identity(finding).fingerprint,
+            "fingerprint": build_finding_identity(finding).fingerprint,
             "rule_id": finding.rule_id,
             "title": finding.title,
             "severity": finding.severity,
