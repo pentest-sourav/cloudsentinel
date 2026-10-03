@@ -9,6 +9,7 @@ from backend.app.core.database import Base
 from backend.app.models.cloud_account import CloudAccount
 from backend.app.models.finding import Finding
 from backend.app.models.scan import Scan
+from backend.app.models.scan_schedule import ScanSchedule
 from backend.app.models.tenant import Tenant
 from backend.app.models.user import User
 
