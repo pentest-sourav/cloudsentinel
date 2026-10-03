@@ -1026,6 +1026,7 @@ def run_aws_scan(
 
                 if session_error is not None:
                     errors.append(session_error)
+                    failed_regions.add(current_region)
                     continue
 
                 regional_sessions[current_region] = regional_session
