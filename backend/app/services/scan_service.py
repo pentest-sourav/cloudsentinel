@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.models.cloud_account import CloudAccount
@@ -332,16 +332,70 @@ def list_scans(
 
     scans = list(db.scalars(statement).all())
 
-    history = []
+    # Do not load every Finding row for every scan in the history page.
+    # A tenant can accumulate thousands of findings; the history endpoint
+    # only needs severity counters. Aggregate the selected scan IDs in one
+    # database query to keep latency and memory bounded as the SaaS grows.
+    scan_ids = [scan.id for scan in scans]
+    counts_by_scan: dict[int, dict] = {}
 
-    for scan in scans:
-        findings = (
-            db.query(Finding)
-            .filter(Finding.scan_id == scan.id)
+    if scan_ids:
+        rows = (
+            db.query(
+                Finding.scan_id,
+                Finding.severity,
+                func.count(Finding.id),
+            )
+            .filter(Finding.scan_id.in_(scan_ids))
+            .group_by(
+                Finding.scan_id,
+                Finding.severity,
+            )
             .all()
         )
 
-        counts = build_finding_counts(findings)
+        for scan_id, severity, count in rows:
+            counts = counts_by_scan.setdefault(
+                scan_id,
+                {
+                    "total_findings": 0,
+                    "critical_count": 0,
+                    "high_count": 0,
+                    "medium_count": 0,
+                    "low_count": 0,
+                    "info_count": 0,
+                },
+            )
+            normalized_severity = severity.lower()
+
+            counts["total_findings"] += count
+
+            key_by_severity = {
+                "critical": "critical_count",
+                "high": "high_count",
+                "medium": "medium_count",
+                "low": "low_count",
+                "info": "info_count",
+            }
+            count_key = key_by_severity.get(normalized_severity)
+
+            if count_key is not None:
+                counts[count_key] += count
+
+    history = []
+
+    for scan in scans:
+        counts = counts_by_scan.get(
+            scan.id,
+            {
+                "total_findings": 0,
+                "critical_count": 0,
+                "high_count": 0,
+                "medium_count": 0,
+                "low_count": 0,
+                "info_count": 0,
+            },
+        )
 
         history.append(
             {
