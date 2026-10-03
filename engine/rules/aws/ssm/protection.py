@@ -178,6 +178,7 @@ class SSMDocumentTagResult:
     owner: str | None
     tags: dict[str, str]
     has_non_system_tags: bool
+    required_tag_keys: list[str]
 
 
 def check_document_tags(
@@ -186,11 +187,23 @@ def check_document_tags(
     owner: str | None,
     tags: dict[str, str],
     has_non_system_tags: bool,
+    required_tag_keys: list[str] | None = None,
 ) -> SSMDocumentTagResult | None:
     if not resource_id:
         return None
 
-    if has_non_system_tags:
+    required = [
+        key.strip()
+        for key in (required_tag_keys or [])
+        if isinstance(key, str) and key.strip()
+        and not key.lower().startswith("aws:")
+    ]
+    actual = set(tags)
+    missing = [key for key in dict.fromkeys(required) if key not in actual]
+
+    if required and not missing:
+        return None
+    if not required and has_non_system_tags:
         return None
 
     return SSMDocumentTagResult(
@@ -199,4 +212,5 @@ def check_document_tags(
         owner=owner,
         tags=tags,
         has_non_system_tags=False,
+        required_tag_keys=required,
     )
