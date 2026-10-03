@@ -1,8 +1,6 @@
 from sqlalchemy.orm import Session
 
-from backend.app.models.finding import Finding
 from backend.app.models.scan import Scan
-from backend.app.schemas.scan_summary import RiskPostureSummary
 from backend.app.services.compliance_service import get_compliance_posture
 from backend.app.services.risk_graph_service import get_risk_graph
 from backend.app.services.scan_summary_service import get_scan_summary
