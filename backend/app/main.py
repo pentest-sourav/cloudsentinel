@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from backend.app.api.routes.audit import router as audit_router
 from backend.app.api.routes.auth import router as auth_router
 from backend.app.api.routes.cloud_accounts import router as cloud_accounts_router
 from backend.app.api.routes.findings import router as findings_router
@@ -148,6 +149,7 @@ async def security_headers(
 
 
 app.include_router(auth_router)
+app.include_router(audit_router)
 app.include_router(cloud_accounts_router)
 app.include_router(scans_router)
 app.include_router(findings_router)
