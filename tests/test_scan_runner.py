@@ -383,7 +383,7 @@ def test_scan_runner_persists_execution_errors_and_completes_scan():
         db.close()
 
 
-def test_scan_runner_completes_scan_when_only_execution_errors_exist():
+def test_scan_runner_completes_scan_with_warnings_when_execution_errors_exist():
     from backend.app.models.scan_execution_error import ScanExecutionError
     from backend.app.services.aws_scan_service import (
         AWSScanResult,
@@ -425,7 +425,7 @@ def test_scan_runner_completes_scan_when_only_execution_errors_exist():
             ),
         )
 
-        assert result.status == "completed"
+        assert result.status == "completed_with_warnings"
 
         errors = (
             db.query(ScanExecutionError)
@@ -440,3 +440,4 @@ def test_scan_runner_completes_scan_when_only_execution_errors_exist():
 
     finally:
         db.close()
+
