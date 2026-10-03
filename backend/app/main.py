@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 from time import perf_counter
 from uuid import uuid4
@@ -22,6 +23,24 @@ from backend.app.services.scan_queue import ScanQueue
 from sqlalchemy import text
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Best-effort retention cleanup. Operational startup must not fail solely
+    # because historical audit cleanup is unavailable.
+    db = SessionLocal()
+    try:
+        purge_expired_audit_events(
+            db=db,
+            retention_days=settings.audit_retention_days,
+        )
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+
+    yield
+
+
 def _is_test_request(request: Request) -> bool:
     return (
         settings.app_environment == "test"
@@ -33,6 +52,7 @@ app = FastAPI(
     title="CloudSentinel",
     description="Multi-Cloud Security Posture & Compliance Auditor",
     version=settings.app_version,
+    lifespan=lifespan,
 )
 
 cors_origins = [
@@ -164,22 +184,6 @@ app.include_router(findings_router)
 app.include_router(reports_router)
 
 
-# Best-effort retention cleanup. Operational startup must not fail solely
-# because historical audit cleanup is unavailable.
-@app.on_event("startup")
-def cleanup_expired_audit_events() -> None:
-    db = SessionLocal()
-    try:
-        purge_expired_audit_events(
-            db=db,
-            retention_days=settings.audit_retention_days,
-        )
-    except Exception:
-        db.rollback()
-    finally:
-        db.close()
-
-
 @app.get("/health")
 def health_check():
     return {
@@ -293,7 +297,7 @@ async def request_body_limit(
 
         if declared_length > settings.max_request_body_bytes:
             response = JSONResponse(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 content={"detail": "Request body is too large."},
             )
             response.headers["X-Request-ID"] = getattr(
@@ -310,12 +314,22 @@ async def request_body_limit(
     "/metrics",
     include_in_schema=False,
 )
-def metrics():
+def metrics(request: Request):
     if not settings.metrics_enabled:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content={"detail": "Not found"},
         )
+
+    if settings.metrics_auth_token:
+        authorization = request.headers.get("authorization", "")
+        expected = f"Bearer {settings.metrics_auth_token}"
+        if authorization != expected:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Metrics authentication required."},
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     return Response(
         content=metrics_registry.render(),
