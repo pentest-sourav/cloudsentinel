@@ -19,7 +19,8 @@ def test_s3_scanner_mfa_delete_finding():
         "Rules": [
             {
                 "ApplyServerSideEncryptionByDefault": {
-                    "SSEAlgorithm": "AES256",
+                    "SSEAlgorithm": "aws:kms",
+                    "KMSMasterKeyID": "arn:aws:kms:ap-south-1:123456789012:key/test",
                 }
             }
         ]
