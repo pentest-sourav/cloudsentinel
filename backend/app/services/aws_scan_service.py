@@ -167,6 +167,34 @@ def _extract_error_code(
     return None
 
 
+def _create_regional_session(
+    *,
+    role_arn: str,
+    external_id: str,
+    region: str,
+    role_session_name: str,
+) -> tuple[object | None, ScannerExecutionError | None]:
+    try:
+        return (
+            create_aws_session(
+                role_arn=role_arn,
+                external_id=external_id,
+                region_name=region,
+                role_session_name=role_session_name,
+                duration_seconds=settings.aws_sts_session_duration_seconds,
+            ),
+            None,
+        )
+    except Exception as exc:
+        return None, ScannerExecutionError(
+            service="aws_session",
+            error_type=type(exc).__name__,
+            error_code=_extract_error_code(exc),
+            message=str(exc),
+            region=region,
+        )
+
+
 def _run_scanner(
     service_name: str,
     scanner_factory: Callable[[], object],
@@ -811,6 +839,7 @@ def run_aws_scan(
 
     # Reuse the base session for the configured region.
     regional_sessions = {}
+    failed_regions: set[str] = set()
 
     if region_name:
         regional_sessions[region_name] = base_session
@@ -898,18 +927,29 @@ def run_aws_scan(
 
             # Regional WAF ACLs/rule groups.
             for current_region in discovered_regions:
+                if current_region in failed_regions:
+                    continue
+
                 regional_session = regional_sessions.get(
                     current_region
                 )
 
                 if regional_session is None:
-                    regional_session = create_aws_session(
+                    (
+                        regional_session,
+                        session_error,
+                    ) = _create_regional_session(
                         role_arn=role_arn,
                         external_id=external_id,
-                        region_name=current_region,
+                        region=current_region,
                         role_session_name=role_session_name,
-                        duration_seconds=settings.aws_sts_session_duration_seconds,
                     )
+
+                    if session_error is not None:
+                        errors.append(session_error)
+                        failed_regions.add(current_region)
+                        continue
+
                     regional_sessions[current_region] = regional_session
 
                 regional_factory = (
@@ -966,18 +1006,29 @@ def run_aws_scan(
         # --------------------------------------------------------
         for current_region in discovered_regions:
 
+            if current_region in failed_regions:
+                continue
+
             regional_session = regional_sessions.get(
                 current_region
             )
 
             if regional_session is None:
-                regional_session = create_aws_session(
+                (
+                    regional_session,
+                    session_error,
+                ) = _create_regional_session(
                     role_arn=role_arn,
                     external_id=external_id,
-                    region_name=current_region,
+                    region=current_region,
                     role_session_name=role_session_name,
-                    duration_seconds=settings.aws_sts_session_duration_seconds,
                 )
+
+                if session_error is not None:
+                    errors.append(session_error)
+                    failed_regions.add(current_region)
+                    continue
+
                 regional_sessions[current_region] = regional_session
 
             regional_scanners = _build_scanners(
