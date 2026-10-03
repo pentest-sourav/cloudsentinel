@@ -16,6 +16,8 @@ def create_aws_session(
     region_name: str | None = None,
     role_arn: str | None = None,
     external_id: str | None = None,
+    role_session_name: str = "CloudSentinelScan",
+    duration_seconds: int | None = None,
 ) -> boto3.Session:
     """
     Create an AWS boto3 session.
@@ -29,6 +31,11 @@ def create_aws_session(
     AWS clients created from the returned session should use the
     centralized CloudSentinel retry policy.
 
+    Cross-account role assumption requires a server-generated external
+    ID and requests short-lived STS credentials. The duration defaults
+    to 15 minutes and is bounded to the AWS-supported 15-minute to
+    12-hour range.
+
     No long-lived AWS credentials are stored by this function.
     """
 
@@ -40,6 +47,30 @@ def create_aws_session(
     if not role_arn:
         return base_session
 
+    if not external_id:
+        raise ValueError(
+            "external_id is required when assuming a cross-account AWS role."
+        )
+
+    resolved_duration_seconds = (
+        settings.aws_sts_session_duration_seconds
+        if duration_seconds is None
+        else duration_seconds
+    )
+
+    if not 900 <= resolved_duration_seconds <= 43_200:
+        raise ValueError(
+            "duration_seconds must be between 900 and 43200 seconds."
+        )
+
+    if not role_session_name or not role_session_name.strip():
+        raise ValueError("role_session_name must not be blank.")
+
+    normalized_session_name = role_session_name.strip()
+
+    if len(normalized_session_name) > 64:
+        raise ValueError("role_session_name must be 64 characters or fewer.")
+
     sts_client = base_session.client(
         "sts",
         config=AWS_RETRY_CONFIG,
@@ -47,11 +78,10 @@ def create_aws_session(
 
     assume_role_kwargs = {
         "RoleArn": role_arn,
-        "RoleSessionName": "CloudSentinelScan",
+        "RoleSessionName": normalized_session_name,
+        "DurationSeconds": resolved_duration_seconds,
+        "ExternalId": external_id,
     }
-
-    if external_id:
-        assume_role_kwargs["ExternalId"] = external_id
 
     try:
         response = sts_client.assume_role(**assume_role_kwargs)
