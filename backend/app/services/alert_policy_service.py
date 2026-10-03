@@ -217,12 +217,13 @@ def dispatch_scan_alerts(db: Session, *, scan_id: int, tenant_id: int) -> dict:
                 "User-Agent": "CloudSentinel-Alert/1.0",
             }
             if policy.secret:
+                timestamp = str(int(datetime.now(timezone.utc).timestamp()))
                 digest = hmac.new(
                     policy.secret.encode("utf-8"),
-                    body,
+                    f"{timestamp}.".encode("utf-8") + body,
                     hashlib.sha256,
                 ).hexdigest()
-                headers["X-CloudSentinel-Signature"] = f"sha256={digest}"
+                headers["X-CloudSentinel-Signature"] = f"t={timestamp},v1={digest}"
             last_error = None
             for attempt in range(1, 4):
                 try:
