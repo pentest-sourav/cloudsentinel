@@ -145,6 +145,8 @@ def test_collect_distributions_normalizes_security_fields():
                     "origin_access_identity": "",
                     "origin_protocol_policy": None,
                     "origin_ssl_protocols": [],
+                    "s3_bucket_name": "bucket",
+                    "s3_bucket_exists": True,
                 },
             ],
             "cache_behaviors": [
