@@ -1622,6 +1622,7 @@ function startScanPolling(
                     if (
                         [
                             "completed",
+                            "completed_with_warnings",
                             "failed",
                         ].includes(
                             normalizeStatus(
@@ -1642,12 +1643,18 @@ function startScanPolling(
                             scan.status ===
                                 "completed"
                                 ? `Scan #${scan.id} completed.`
-                                : `Scan #${scan.id} failed.`,
+                                : scan.status ===
+                                    "completed_with_warnings"
+                                    ? `Scan #${scan.id} completed with warnings.`
+                                    : `Scan #${scan.id} failed.`,
 
                             scan.status ===
-                                "completed"
-                                ? "success"
-                                : "error"
+                                "failed"
+                                ? "error"
+                                : scan.status ===
+                                    "completed_with_warnings"
+                                    ? "warning"
+                                    : "success"
                         );
                     }
 
