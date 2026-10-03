@@ -194,7 +194,7 @@ def test_risk_graph_is_tenant_scoped(environment):
 
     response = client.get(
         f"/api/v1/scans/{scan_id}/risk-graph",
-        headers=auth_headers(user_b),
+        headers=auth_headers(token_b),
     )
 
     assert response.status_code == 404
