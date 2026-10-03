@@ -6,7 +6,7 @@ CloudSentinel is an **AWS-first, production-oriented security posture and compli
 
 The repository currently has a verified regression baseline of:
 
-- **2827 passing tests**
+- **2838 passing tests**
 - 1 existing Starlette/AnyIO deprecation warning
 - AWS is the primary implemented provider
 - Azure is intentionally in development
@@ -101,7 +101,7 @@ Destructive or account-management operations should require an appropriate role.
 
 ### API protection
 
-Current implementation includes Redis-backed, configurable rate limiting for authentication, scan creation, and mutation traffic.
+Current implementation includes Redis-backed, configurable rate limiting for authentication, scan creation, and mutation traffic, plus role-based authorization for operational mutations.
 
 Before public exposure:
 
