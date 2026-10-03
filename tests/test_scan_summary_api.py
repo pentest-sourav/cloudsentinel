@@ -51,10 +51,12 @@ def setup_test_environment():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     yield
 
     app.dependency_overrides.pop(get_db, None)
+    app.state.testing = False
 
 
 @pytest.fixture
