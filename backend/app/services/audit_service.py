@@ -37,7 +37,7 @@ def record_audit_event(
         ),
         request_id=request_id,
         ip_address=ip_address,
-        metadata=dict(metadata or {}),
+        event_metadata=dict(metadata or {}),
     )
     db.add(event)
     db.commit()
