@@ -17,4 +17,5 @@ S3_DATA_SOURCE_HANDLERS: dict[
     "s3_object_lock": S3DataCollector.collect_object_lock,
     "s3_ownership": S3DataCollector.collect_ownership,
     "s3_lifecycle": S3DataCollector.collect_lifecycle,
+    "s3_mfa_delete": S3DataCollector.collect_mfa_delete,
 }
