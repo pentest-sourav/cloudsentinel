@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, Response
@@ -11,6 +11,7 @@ from backend.app.api.routes.findings import router as findings_router
 from backend.app.api.routes.reports import router as reports_router
 from backend.app.api.routes.scans import router as scans_router
 from backend.app.core.config import settings
+from backend.app.core.rate_limit import rate_limiter
 from backend.app.core.database import SessionLocal
 from backend.app.services.scan_queue import ScanQueue
 from sqlalchemy import text
@@ -36,6 +37,61 @@ if cors_origins:
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+
+@app.middleware("http")
+async def api_rate_limit(
+    request: Request,
+    call_next,
+) -> Response:
+    path = request.url.path
+
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        if path == "/api/v1/auth/login":
+            scope = "auth-login"
+            limit = settings.rate_limit_auth_max_requests
+        elif path == "/api/v1/auth/register":
+            scope = "auth-register"
+            limit = settings.rate_limit_auth_max_requests
+        elif path == "/api/v1/scans":
+            scope = "scan-create"
+            limit = settings.rate_limit_scan_max_requests
+        else:
+            scope = "global"
+            limit = settings.rate_limit_global_max_requests
+
+        decision = rate_limiter.check(
+            request,
+            scope=scope,
+            limit=limit,
+            window_seconds=settings.rate_limit_window_seconds,
+        )
+
+        if not decision.allowed:
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={
+                    "detail": "Rate limit exceeded. Please retry later.",
+                },
+                headers={
+                    "Retry-After": str(decision.retry_after),
+                    "X-RateLimit-Limit": str(limit),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        response = await call_next(request)
+        response.headers.setdefault(
+            "X-RateLimit-Limit",
+            str(limit),
+        )
+        response.headers.setdefault(
+            "X-RateLimit-Remaining",
+            str(decision.remaining),
+        )
+        return response
+
+    return await call_next(request)
 
 
 @app.middleware("http")
