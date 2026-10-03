@@ -1,6 +1,7 @@
 from backend.app.models.audit_event import AuditEvent
 from backend.app.models.cloud_account import CloudAccount
 from backend.app.models.finding import Finding
+from backend.app.models.finding_suppression import FindingSuppression
 from backend.app.models.scan import Scan
 from backend.app.models.scan_schedule import ScanSchedule
 from backend.app.models.tenant import Tenant
@@ -10,6 +11,7 @@ __all__ = [
     "AuditEvent",
     "CloudAccount",
     "Finding",
+    "FindingSuppression",
     "Scan",
     "ScanSchedule",
     "Tenant",
