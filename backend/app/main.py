@@ -358,6 +358,18 @@ def metrics(request: Request):
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
+    queue = None
+    try:
+        queue = ScanQueue()
+        queue_metrics = queue.metrics()
+        metrics_registry.observe_queue_metrics(**queue_metrics)
+    except Exception:
+        # Metrics must remain available even when Redis is temporarily down.
+        pass
+    finally:
+        if queue is not None:
+            queue.close()
+
     return Response(
         content=metrics_registry.render(),
         media_type="text/plain; version=0.0.4; charset=utf-8",
