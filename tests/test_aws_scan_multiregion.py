@@ -54,9 +54,18 @@ def test_run_aws_scan_executes_global_and_regional_services_in_each_scope():
             ),
         ]
 
-    def fake_create_session(*, role_arn, external_id, region_name):
+    def fake_create_session(
+        *,
+        role_arn,
+        external_id,
+        region_name,
+        role_session_name,
+        duration_seconds,
+    ):
         assert role_arn == ROLE_ARN
         assert external_id == EXTERNAL_ID
+        assert role_session_name == "CloudSentinelScan-42"
+        assert duration_seconds == 900
         return sessions[region_name]
 
     with patch(
@@ -78,6 +87,7 @@ def test_run_aws_scan_executes_global_and_regional_services_in_each_scope():
             external_id=EXTERNAL_ID,
             region_name="ap-south-1",
             expected_account_id=ACCOUNT_ID,
+            scan_id=42,
         )
 
     assert result.errors == []
@@ -101,10 +111,14 @@ def test_run_aws_scan_executes_global_and_regional_services_in_each_scope():
             role_arn=ROLE_ARN,
             external_id=EXTERNAL_ID,
             region_name="ap-south-1",
+            role_session_name="CloudSentinelScan-42",
+            duration_seconds=900,
         ),
         call(
             role_arn=ROLE_ARN,
             external_id=EXTERNAL_ID,
             region_name="eu-west-1",
+            role_session_name="CloudSentinelScan-42",
+            duration_seconds=900,
         ),
     ]
