@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -160,6 +162,16 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "METRICS_AUTH_TOKEN must be at least 32 characters "
                     "when metrics are enabled in production."
+                )
+
+            redis = urlparse(self.redis_url)
+            if redis.scheme not in {"redis", "rediss"} or not redis.hostname:
+                raise ValueError(
+                    "REDIS_URL must use a redis:// or rediss:// URL in production."
+                )
+            if redis.password is None:
+                raise ValueError(
+                    "REDIS_URL must include Redis authentication in production."
                 )
 
         return self
