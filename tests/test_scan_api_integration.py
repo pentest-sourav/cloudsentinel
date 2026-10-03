@@ -106,6 +106,7 @@ def test_aws_scan_api_enqueues_scan(monkeypatch):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     queue = FakeScanQueue()
 
@@ -190,6 +191,7 @@ def test_aws_scan_api_enqueues_scan(monkeypatch):
 
     finally:
         app.dependency_overrides.clear()
+        app.state.testing = False
 
 
 def test_scan_api_returns_scan_status(monkeypatch):
