@@ -181,6 +181,27 @@ class S3DataCollector:
 
         return collected
 
+    def collect_lifecycle(self) -> list[dict[str, Any]]:
+        buckets = self._get_buckets()
+
+        collected = []
+
+        for bucket in buckets:
+            bucket_name = bucket["name"]
+
+            collected.append(
+                {
+                    "bucket_name": bucket_name,
+                    "lifecycle_configuration": (
+                        self.service.get_bucket_lifecycle_configuration(
+                            bucket_name
+                        )
+                    ),
+                }
+            )
+
+        return collected
+
     def collect_ownership(self) -> list[dict[str, Any]]:
         buckets = self._get_buckets()
 
