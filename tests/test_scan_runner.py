@@ -175,7 +175,7 @@ def test_scan_runner_recovers_running_scan():
         )
 
         assert result.id == scan.id
-        assert result.status == "completed"
+        assert result.status == "completed_with_warnings"
         assert result.completed_at is not None
 
         findings = (
