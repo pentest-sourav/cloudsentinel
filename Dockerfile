@@ -7,7 +7,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Run the API as a non-root application user.
-RUN groupadd --system cloudsentinel     && useradd --system --gid cloudsentinel --create-home cloudsentinel
+RUN groupadd --system cloudsentinel \
+    && useradd --system \
+        --gid cloudsentinel \
+        --create-home cloudsentinel
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
