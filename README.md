@@ -325,7 +325,7 @@ GitHub Actions also runs compilation and the full pytest suite on pushes and pul
 
 ## Project Status
 
-CloudSentinel is an active open-source development project.
+CloudSentinel is an active open-source project with a launchable self-hosted web console and an AWS-first security assessment workflow.
 
 ### Implemented
 
@@ -347,7 +347,7 @@ CloudSentinel is an active open-source development project.
 
 - 🚧 Expanded AWS Security Hub control coverage
 - 🚧 Production backup/restore drills and measured recovery objectives
-- 🚧 Dashboard/onboarding UX
+- ✅ Web dashboard and AWS onboarding/verification console
 - 🚧 Azure provider implementation
 - 🚧 Additional compliance frameworks
 
@@ -357,7 +357,7 @@ CloudSentinel is an active open-source development project.
 
 CloudSentinel should currently be presented as:
 
-> **An AWS-first cloud security posture and compliance auditing platform under active development.**
+> **An AWS-first cloud security posture and compliance auditing platform with a launchable self-hosted SaaS-style web console.**
 
 Azure is being developed as the next provider.
 
