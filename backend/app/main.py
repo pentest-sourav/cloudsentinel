@@ -16,10 +16,18 @@ from backend.app.api.routes.reports import router as reports_router
 from backend.app.api.routes.scans import router as scans_router
 from backend.app.core.config import settings
 from backend.app.core.metrics import metrics_registry
+from backend.app.core.logging import configure_logging, reset_request_id, set_request_id
 from backend.app.core.rate_limit import rate_limiter
 from backend.app.core.database import SessionLocal
 from backend.app.services.audit_service import purge_expired_audit_events
 from backend.app.services.scan_queue import ScanQueue
+
+
+configure_logging(
+    service="api",
+    level=settings.log_level,
+    log_format=settings.log_format,
+)
 from sqlalchemy import text
 
 
@@ -76,12 +84,15 @@ async def request_context(
     request: Request,
     call_next,
 ) -> Response:
-    request.state.request_id = uuid4().hex
-    response = await call_next(request)
-    response.headers.setdefault(
-        "X-Request-ID",
-        request.state.request_id,
-    )
+    request_id = uuid4().hex
+    request.state.request_id = request_id
+    token = set_request_id(request_id)
+    try:
+        response = await call_next(request)
+        response.headers.setdefault("X-Request-ID", request_id)
+        return response
+    finally:
+        reset_request_id(token)
     return response
 
 
