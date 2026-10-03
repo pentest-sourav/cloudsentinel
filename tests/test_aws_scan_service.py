@@ -1009,4 +1009,9 @@ def test_run_aws_scan_isolates_regional_session_failure():
     ]
     assert len(session_errors) == 1
     assert session_errors[0].region == "us-west-2"
+    assert all(
+        error.region != "us-west-2"
+        for error in result.errors
+        if error.service != "aws_session"
+    )
     assert "STS unavailable in us-west-2" in session_errors[0].message
