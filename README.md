@@ -247,6 +247,7 @@ Current hardening includes:
 - JWT authentication
 - Argon2 password hashing
 - AWS account identity validation
+- short-lived AWS STS scan sessions with external-ID trust and scan-level session traceability
 - idempotent finding persistence
 - API security headers
 - configurable CORS

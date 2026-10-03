@@ -87,6 +87,8 @@ CloudSentinel should use customer-side IAM roles and STS AssumeRole with an exte
 
 The application must not require customers to provide long-lived AWS access keys.
 
+Cross-account scans use STS AssumeRole with a server-generated external ID and short-lived temporary credentials. The default STS session duration is 15 minutes and is configurable within AWS-supported bounds. Scan sessions include the CloudSentinel scan ID in the role session name for CloudTrail traceability. AWS connection configuration is restricted to owner/administrator/operator roles; viewers can read account status but cannot retrieve onboarding trust configuration.
+
 Production runtime credentials should come from the CloudSentinel runtime identity, not developer workstation credential mounts.
 
 ### Authorization

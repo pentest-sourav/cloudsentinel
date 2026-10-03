@@ -141,7 +141,13 @@ def get_cloud_account_by_id(
 def get_cloud_account_connection(
     account_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        require_roles(
+            ROLE_OWNER,
+            ROLE_ADMINISTRATOR,
+            ROLE_OPERATOR,
+        ),
+    ),
 ):
     account = get_cloud_account(
         db=db,

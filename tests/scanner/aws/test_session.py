@@ -63,6 +63,7 @@ def test_create_aws_session_assumes_role():
         ),
         RoleSessionName="CloudSentinelScan",
         ExternalId="cloudsentinel-external-id",
+        DurationSeconds=900,
     )
 
     mock_session.assert_any_call(
@@ -81,47 +82,19 @@ def test_create_aws_session_retry_configuration():
     }
 
 
-def test_create_aws_session_assumes_role_without_external_id():
-    base_session = Mock(spec=boto3.Session)
-    assumed_session = Mock(spec=boto3.Session)
-    sts_client = Mock()
-
-    base_session.client.return_value = sts_client
-
-    sts_client.assume_role.return_value = {
-        "Credentials": {
-            "AccessKeyId": "ASIAEXAMPLE",
-            "SecretAccessKey": "secret-example",
-            "SessionToken": "token-example",
-        }
-    }
-
-    with patch(
-        "scanner.aws.session.boto3.Session",
-        side_effect=[base_session, assumed_session],
-    ):
-        result = create_aws_session(
-            role_arn=(
-                "arn:aws:iam::123456789012:"
-                "role/CloudSentinelAuditRole"
-            ),
-            region_name="ap-south-1",
-        )
-
-    assert result is assumed_session
-
-    base_session.client.assert_called_once_with(
-        "sts",
-        config=AWS_RETRY_CONFIG,
-    )
-
-    sts_client.assume_role.assert_called_once_with(
-        RoleArn=(
-            "arn:aws:iam::123456789012:"
-            "role/CloudSentinelAuditRole"
-        ),
-        RoleSessionName="CloudSentinelScan",
-    )
+def test_create_aws_session_assumes_role_requires_external_id():
+    with patch("scanner.aws.session.boto3.Session"):
+        try:
+            create_aws_session(
+                role_arn=(
+                    "arn:aws:iam::123456789012:"
+                    "role/CloudSentinelAuditRole"
+                ),
+                region_name="ap-south-1",
+            )
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert "external_id is required" in str(exc)
 
 
 def test_create_aws_session_handles_assume_role_client_error():
