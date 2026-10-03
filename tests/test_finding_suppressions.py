@@ -200,7 +200,7 @@ def test_expired_suppression_is_not_active(test_environment):
         tenant = create_tenant(db, "Expiry Tenant", "expiry-tenant")
         user = create_user(db, tenant, "operator@example.com", "operator")
         account = create_account(db, tenant)
-        finding = create_finding(db, tenant.id, account)
+        finding = create_finding(db, tenant.id, account.id)
 
         suppression = {
             "reason": "Temporary exception",
@@ -243,7 +243,7 @@ def test_viewer_cannot_change_suppression(test_environment):
         tenant = create_tenant(db, "Viewer Tenant", "viewer-tenant")
         user = create_user(db, tenant, "viewer@example.com", "viewer")
         account = create_account(db, tenant)
-        finding = create_finding(db, tenant.id, account)
+        finding = create_finding(db, tenant.id, account.id)
 
         response = client.post(
             f"/api/v1/findings/{finding.id}/suppression",
