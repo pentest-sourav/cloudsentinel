@@ -21,6 +21,7 @@ class ScanExecutionErrorResponse(BaseModel):
 
 
 class ScanResponse(BaseModel):
+    progress: dict | None = None
     id: int
     cloud_account_id: int | None
     provider: str
