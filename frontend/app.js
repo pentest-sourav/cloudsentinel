@@ -11,6 +11,7 @@ const state = {
     currentScanId: null,
     currentScan: null,
     currentSummary: null,
+    dashboardOverview: null,
 
     findings: [],
     filteredFindings: [],
@@ -277,6 +278,18 @@ function initializeTheme() {
 initializeTheme();
 
 document.addEventListener("click", (event) => {
+    const executiveFinding = event.target.closest(
+        "[data-executive-finding]"
+    );
+
+    if (executiveFinding) {
+        setView("findings");
+        if (state.currentScanId) {
+            loadFindings(state.currentScanId).catch(handleError);
+        }
+        return;
+    }
+
     const copyButton =
         event.target.closest("[data-copy-target]");
 
@@ -539,6 +552,7 @@ function logout(
     state.currentScanId = null;
     state.currentScan = null;
     state.currentSummary = null;
+    state.dashboardOverview = null;
 
     closeSidebar();
 
@@ -1684,6 +1698,223 @@ function startScanPolling(
 }
 
 
+
+async function loadDashboardOverview() {
+    state.dashboardOverview = await apiFetch(
+        "/scans/dashboard/overview"
+    );
+
+    renderExecutiveDashboard(
+        state.dashboardOverview
+    );
+
+    return state.dashboardOverview;
+}
+
+function renderExecutiveDashboard(data) {
+    const score = safeNumber(data?.posture_score);
+    const grade = String(data?.posture_grade || "—");
+    const status = String(data?.latest_scan_status || "No scan");
+
+    const gradeElement = $("executive-grade");
+    gradeElement.textContent = grade;
+    gradeElement.className =
+        `posture-grade ${escapeHtml(grade.toLowerCase())}`;
+
+    $("executive-posture-score").textContent =
+        data?.latest_scan_id === null
+            ? "—"
+            : `${score.toFixed(1)} / 100`;
+
+    $("executive-posture-meter").style.width =
+        `${Math.max(0, Math.min(100, score))}%`;
+
+    $("executive-average-risk").textContent =
+        `Average risk ${safeNumber(data?.average_risk_score).toFixed(2)} / 10`;
+
+    $("executive-max-risk").textContent =
+        `Max risk ${safeNumber(data?.max_risk_score).toFixed(2)} / 10`;
+
+    $("executive-scan-context").textContent =
+        data?.latest_scan_id
+            ? `Scan #${data.latest_scan_id} · ${status}`
+            : "No assessment selected";
+
+    $("executive-exposed-assets").textContent =
+        safeNumber(data?.exposed_asset_count);
+
+    $("executive-sensitive-assets").textContent =
+        safeNumber(data?.sensitive_asset_count);
+
+    $("executive-attack-paths").textContent =
+        safeNumber(data?.attack_path_count);
+
+    $("executive-affected-assets").textContent =
+        safeNumber(data?.affected_resource_count);
+
+    const trend = Array.isArray(data?.risk_trend)
+        ? data.risk_trend
+        : [];
+
+    const trendScores = trend.map((item) => {
+        const findings = safeNumber(item.total_findings);
+        if (!findings) {
+            return 100;
+        }
+        return Math.max(
+            0,
+            Math.min(
+                100,
+                100 -
+                    (
+                        safeNumber(item.risk_score_sum) /
+                        findings
+                    ) * 10
+            )
+        );
+    });
+
+    const latestTrendScore =
+        trendScores.length
+            ? trendScores[0]
+            : null;
+
+    const previousTrendScore =
+        trendScores.length > 1
+            ? trendScores[1]
+            : null;
+
+    const trendDelta =
+        latestTrendScore !== null &&
+        previousTrendScore !== null
+            ? latestTrendScore - previousTrendScore
+            : null;
+
+    $("executive-trend-delta").textContent =
+        trendDelta === null
+            ? latestTrendScore === null
+                ? "—"
+                : `${latestTrendScore.toFixed(1)}`
+            : `${trendDelta >= 0 ? "+" : ""}${trendDelta.toFixed(1)}`;
+
+    const trendElement = $("executive-trend-list");
+
+    if (!trend.length) {
+        trendElement.innerHTML =
+            '<span class="executive-trend-empty">No completed scan history yet.</span>';
+    } else {
+        trendElement.innerHTML = trend
+            .slice(0, 6)
+            .reverse()
+            .map((item) => {
+                const findings = safeNumber(item.total_findings);
+                const itemScore = findings
+                    ? Math.max(
+                          0,
+                          Math.min(
+                              100,
+                              100 -
+                                  (
+                                      safeNumber(item.risk_score_sum) /
+                                      findings
+                                  ) * 10
+                          )
+                      )
+                    : 100;
+
+                return `
+                    <span
+                        class="executive-trend-bar"
+                        title="Scan #${escapeHtml(item.scan_id)} · posture ${itemScore.toFixed(1)}"
+                    >
+                        <i style="height:${Math.max(8, itemScore)}%"></i>
+                    </span>
+                `;
+            })
+            .join("");
+    }
+
+    const remediation = data?.top_risks || [];
+    const remediationElement = $("executive-remediation-list");
+
+    if (!remediation.length) {
+        remediationElement.innerHTML = `
+            <div class="empty-state compact">
+                <strong>No high-priority remediation items</strong>
+                <span>The latest assessment has no persisted findings requiring display here.</span>
+            </div>
+        `;
+    } else {
+        remediationElement.innerHTML = remediation
+            .slice(0, 5)
+            .map((item) => `
+                <button
+                    type="button"
+                    class="executive-remediation-item"
+                    data-executive-finding="${escapeHtml(item.finding_id)}"
+                >
+                    <span class="executive-remediation-main">
+                        <strong>${escapeHtml(item.title)}</strong>
+                        <small>
+                            ${escapeHtml(item.resource_type)}
+                            · ${escapeHtml(item.resource_id)}
+                            · ${escapeHtml(item.region)}
+                        </small>
+                    </span>
+                    <span class="executive-remediation-side">
+                        ${severityBadge(item.severity)}
+                        <strong>${safeNumber(item.risk_score).toFixed(1)}</strong>
+                        <small>${escapeHtml(item.priority_reason)}</small>
+                    </span>
+                </button>
+            `)
+            .join("");
+    }
+
+    const complianceItems = data?.compliance?.items || [];
+    const complianceElement = $("executive-compliance-list");
+
+    if (!complianceItems.length) {
+        complianceElement.innerHTML = `
+            <div class="empty-state compact">
+                <strong>No framework findings</strong>
+                <span>CloudSentinel does not fabricate compliance pass rates without a complete control inventory.</span>
+            </div>
+        `;
+    } else {
+        complianceElement.innerHTML = complianceItems
+            .slice(0, 8)
+            .map((item) => `
+                <div class="executive-compliance-row">
+                    <div>
+                        <strong>${escapeHtml(item.framework)}</strong>
+                        <small>
+                            ${safeNumber(item.affected_rules)} rules
+                            · ${safeNumber(item.affected_resources)} resources
+                        </small>
+                    </div>
+                    <span>${safeNumber(item.finding_count)} findings</span>
+                </div>
+            `)
+            .join("");
+    }
+
+    const quality = $("executive-data-quality");
+    const notes = data?.data_quality_notes || [];
+
+    if (!notes.length) {
+        quality.classList.add("hidden");
+        quality.innerHTML = "";
+    } else {
+        quality.classList.remove("hidden");
+        quality.innerHTML = notes
+            .map((note) => `
+                <span>ⓘ ${escapeHtml(note)}</span>
+            `)
+            .join("");
+    }
+}
+
 /* ============================================================
    DASHBOARD
 ============================================================ */
@@ -1722,6 +1953,8 @@ async function refreshDashboard() {
             state.currentSummary,
             latest
         );
+
+        await loadDashboardOverview();
 
         await loadFindings(
             latest.id,
@@ -2020,6 +2253,7 @@ function resetDashboard() {
     state.currentScanId = null;
     state.currentScan = null;
     state.currentSummary = null;
+    state.dashboardOverview = null;
     state.findings = [];
     state.filteredFindings = [];
     state.lifecycle = null;
@@ -2099,6 +2333,35 @@ function resetDashboard() {
 
     $("risk-ring").style.background =
         "conic-gradient(#18283d 0deg 360deg)";
+
+    $("executive-grade").textContent = "—";
+    $("executive-grade").className = "posture-grade neutral";
+    $("executive-posture-score").textContent = "—";
+    $("executive-posture-meter").style.width = "0%";
+    $("executive-average-risk").textContent = "Average risk —";
+    $("executive-max-risk").textContent = "Max risk —";
+    $("executive-scan-context").textContent = "No assessment selected";
+    $("executive-exposed-assets").textContent = "0";
+    $("executive-sensitive-assets").textContent = "0";
+    $("executive-attack-paths").textContent = "0";
+    $("executive-affected-assets").textContent = "0";
+    $("executive-trend-delta").textContent = "—";
+    $("executive-trend-list").innerHTML =
+        '<span class="executive-trend-empty">No completed scan history yet.</span>';
+    $("executive-remediation-list").innerHTML = `
+        <div class="empty-state compact">
+            <strong>No remediation items yet</strong>
+            <span>Run an AWS scan to populate the queue.</span>
+        </div>
+    `;
+    $("executive-compliance-list").innerHTML = `
+        <div class="empty-state compact">
+            <strong>No framework data yet</strong>
+            <span>Terminal scan results will appear here.</span>
+        </div>
+    `;
+    $("executive-data-quality").classList.add("hidden");
+    $("executive-data-quality").innerHTML = "";
 
     updateReportsView();
 }
@@ -3913,6 +4176,32 @@ function bindEvents() {
                 setView(
                     "findings"
                 );
+            }
+        );
+
+
+    /* EXECUTIVE DASHBOARD */
+
+    $("executive-findings-btn")
+        .addEventListener(
+            "click",
+            async () => {
+                if (!state.currentScanId) {
+                    showToast(
+                        "No scan selected.",
+                        "error"
+                    );
+                    return;
+                }
+
+                try {
+                    await loadFindings(
+                        state.currentScanId
+                    );
+                    setView("findings");
+                } catch (error) {
+                    handleError(error);
+                }
             }
         );
 

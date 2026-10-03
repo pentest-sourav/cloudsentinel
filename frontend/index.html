@@ -557,6 +557,142 @@
                 </div>
 
 
+
+                <!-- =================================================
+                     CSPM EXECUTIVE POSTURE
+                ================================================== -->
+                <section class="executive-dashboard" aria-label="CSPM executive posture">
+
+                    <div class="executive-heading">
+                        <div>
+                            <span class="eyebrow">CSPM EXECUTIVE POSTURE</span>
+                            <h3>Security posture at a glance</h3>
+                            <p>
+                                Evidence-backed risk, exposure and remediation signals
+                                from the latest AWS assessment.
+                            </p>
+                        </div>
+                        <div id="executive-scan-context" class="executive-context">
+                            No assessment selected
+                        </div>
+                    </div>
+
+                    <div class="executive-grid">
+
+                        <article class="executive-card posture-score-card">
+                            <div class="executive-card-top">
+                                <span>Risk posture index</span>
+                                <span id="executive-grade" class="posture-grade neutral">—</span>
+                            </div>
+                            <div id="executive-posture-score" class="posture-score">—</div>
+                            <div class="posture-meter">
+                                <span id="executive-posture-meter"></span>
+                            </div>
+                            <div class="executive-meta">
+                                <span id="executive-average-risk">Average risk —</span>
+                                <span id="executive-max-risk">Max risk —</span>
+                            </div>
+                        </article>
+
+                        <article class="executive-card">
+                            <div class="executive-card-top">
+                                <span>Asset exposure</span>
+                                <span class="executive-icon">◎</span>
+                            </div>
+                            <div class="executive-metric-row">
+                                <div>
+                                    <strong id="executive-exposed-assets">0</strong>
+                                    <span>internet-exposed</span>
+                                </div>
+                                <div>
+                                    <strong id="executive-sensitive-assets">0</strong>
+                                    <span>sensitive-data</span>
+                                </div>
+                            </div>
+                            <p class="executive-card-note">
+                                Signals are derived from scanner evidence; no synthetic topology is inferred.
+                            </p>
+                        </article>
+
+                        <article class="executive-card">
+                            <div class="executive-card-top">
+                                <span>Attack-path candidates</span>
+                                <span class="executive-icon">↗</span>
+                            </div>
+                            <div id="executive-attack-paths" class="executive-big-number">0</div>
+                            <p class="executive-card-note">
+                                Evidence-derived paths requiring security review.
+                            </p>
+                        </article>
+
+                        <article class="executive-card">
+                            <div class="executive-card-top">
+                                <span>Affected assets</span>
+                                <span class="executive-icon">◇</span>
+                            </div>
+                            <div id="executive-affected-assets" class="executive-big-number">0</div>
+                            <p class="executive-card-note">
+                                Distinct resources with findings in the latest scan.
+                            </p>
+                        </article>
+
+                        <article class="executive-card">
+                            <div class="executive-card-top">
+                                <span>Posture trend</span>
+                                <span class="executive-icon">↗</span>
+                            </div>
+                            <div id="executive-trend-delta" class="executive-big-number">—</div>
+                            <div id="executive-trend-list" class="executive-trend-list">
+                                <span class="executive-trend-empty">No completed scan history yet.</span>
+                            </div>
+                        </article>
+
+                    </div>
+
+                    <div class="executive-lower-grid">
+
+                        <article class="panel executive-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <span class="panel-eyebrow">REMEDIATION QUEUE</span>
+                                    <h3>Fix first</h3>
+                                    <p>Highest-risk findings with the strongest available evidence signals.</p>
+                                </div>
+                                <button id="executive-findings-btn" class="text-btn" type="button">
+                                    Open findings →
+                                </button>
+                            </div>
+                            <div id="executive-remediation-list" class="executive-list">
+                                <div class="empty-state compact">
+                                    <strong>No remediation items yet</strong>
+                                    <span>Run an AWS scan to populate the queue.</span>
+                                </div>
+                            </div>
+                        </article>
+
+                        <article class="panel executive-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <span class="panel-eyebrow">COMPLIANCE CONTEXT</span>
+                                    <h3>Framework exposure</h3>
+                                    <p>Finding counts by framework, not compliance percentages.</p>
+                                </div>
+                            </div>
+                            <div id="executive-compliance-list" class="executive-list">
+                                <div class="empty-state compact">
+                                    <strong>No framework data yet</strong>
+                                    <span>Terminal scan results will appear here.</span>
+                                </div>
+                            </div>
+                        </article>
+
+                    </div>
+
+                    <div id="executive-data-quality" class="executive-quality hidden"></div>
+
+                </section>
+
+
                 <!-- TWO COLUMN -->
                 <div class="dashboard-grid">
 
