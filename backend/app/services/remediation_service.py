@@ -8,6 +8,12 @@ from backend.app.models.scan import Scan
 from backend.app.services.finding_lifecycle_service import build_finding_identity
 
 
+def _utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 _SLA_HOURS = {
     "critical": 24,
     "high": 72,
@@ -94,9 +100,9 @@ def _queue_item(
     now: datetime,
 ) -> dict:
     sla_hours = _sla_hours(finding)
-    recommended_due_at = finding.created_at + timedelta(hours=sla_hours)
+    recommended_due_at = _utc(finding.created_at) + timedelta(hours=sla_hours)
 
-    due_at = workflow.due_at if workflow and workflow.due_at else None
+    due_at = _utc(workflow.due_at) if workflow and workflow.due_at else None
 
     if due_at is None:
         sla_state = "unconfigured"
