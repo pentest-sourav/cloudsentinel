@@ -30,3 +30,60 @@ def test_guardduty_registry_has_handler_for_every_source():
             rule.data_source
             in GUARDDUTY_DATA_SOURCE_HANDLERS
         )
+
+
+from engine.findings.model import Severity
+from engine.rules.aws.guardduty.protection import (
+    GuardDutyControlResult,
+    build_finding,
+    check_ec2_runtime_monitoring,
+    check_ecs_runtime_monitoring,
+)
+
+
+def test_guardduty_compliance_control_ids_are_not_zero_padded():
+    result = GuardDutyControlResult(
+        resource_id="detector-1",
+        control_name="GuardDuty S3 Protection",
+        expected_configuration="S3_DATA_EVENTS=ENABLED",
+        actual_configuration="S3_DATA_EVENTS=DISABLED_OR_MISSING",
+    )
+
+    finding = build_finding(
+        result,
+        rule_id="CS-AWS-GD-010",
+        title="GuardDuty S3 Protection should be enabled",
+        severity=Severity.HIGH,
+    )
+
+    assert finding.compliance == ["AWS Security Hub GuardDuty.10"]
+
+
+def test_guardduty_ec2_runtime_requires_runtime_monitoring_and_agent_management():
+    features = {
+        "RUNTIME_MONITORING": {
+            "Status": "DISABLED",
+            "AdditionalConfiguration": [
+                {"Name": "EC2_AGENT_MANAGEMENT", "Status": "ENABLED"},
+            ],
+        },
+    }
+
+    result = check_ec2_runtime_monitoring("detector-1", features)
+
+    assert result is not None
+
+
+def test_guardduty_ecs_runtime_requires_runtime_monitoring_and_agent_management():
+    features = {
+        "RUNTIME_MONITORING": {
+            "Status": "DISABLED",
+            "AdditionalConfiguration": [
+                {"Name": "ECS_FARGATE_AGENT_MANAGEMENT", "Status": "ENABLED"},
+            ],
+        },
+    }
+
+    result = check_ecs_runtime_monitoring("detector-1", features)
+
+    assert result is not None
