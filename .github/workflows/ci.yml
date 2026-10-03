@@ -14,9 +14,34 @@ jobs:
     name: Python tests
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: sqlite:///./cloudsentinel-ci.db
+      DATABASE_URL: postgresql+psycopg://cloudsentinel:cloudsentinel@localhost:5432/cloudsentinel
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: ci-only-test-secret
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: cloudsentinel
+          POSTGRES_USER: cloudsentinel
+          POSTGRES_PASSWORD: cloudsentinel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U cloudsentinel -d cloudsentinel"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - name: Check out repository
@@ -33,6 +58,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest httpx2
+
+      - name: Apply database migrations
+        run: alembic upgrade head
 
       - name: Compile Python sources
         run: |
