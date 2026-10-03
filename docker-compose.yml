@@ -118,6 +118,7 @@ services:
 
     container_name: cloudsentinel-worker
     restart: unless-stopped
+    stop_grace_period: 30s
 
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
