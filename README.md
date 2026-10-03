@@ -216,6 +216,8 @@ See the project documentation for the current onboarding details.
 - PDF reports
 - security response headers
 - tenant-scoped report access
+- security audit event persistence
+- request correlation IDs for API responses
 
 ### Operational Readiness
 
@@ -241,6 +243,9 @@ Current hardening includes:
 - idempotent finding persistence
 - API security headers
 - configurable CORS
+- security audit trail for authentication and privileged operations
+- request correlation IDs
+- CI dependency vulnerability auditing
 - read-only AWS scanner model
 - automated regression tests
 - CI test/compile gate
