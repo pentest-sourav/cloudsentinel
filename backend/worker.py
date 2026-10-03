@@ -8,6 +8,7 @@ from backend.app.core.database import SessionLocal
 from backend.app.core.config import settings
 from backend.app.core.logging import configure_logging
 from backend.app.models.cloud_account import CloudAccount
+from backend.app.services.alert_policy_service import dispatch_scan_alerts
 from backend.app.services.aws_scan_service import run_aws_scan
 from backend.app.services.cloud_account_service import get_cloud_account
 from backend.app.services.cloud_account_status import SCAN_ELIGIBLE_ACCOUNT_STATUSES
@@ -417,6 +418,28 @@ class ScanWorker:
                 SCAN_STATUS_COMPLETED,
                 SCAN_STATUS_COMPLETED_WITH_WARNINGS,
             }:
+                try:
+                    alert_result = dispatch_scan_alerts(
+                        db=db,
+                        scan_id=scan.id,
+                        tenant_id=scan.tenant_id,
+                    )
+                    if alert_result["failed"]:
+                        logger.warning(
+                            "Some CSPM alerts failed",
+                            extra={
+                                "scan_id": scan.id,
+                                **alert_result,
+                            },
+                        )
+                except Exception:
+                    # Alert delivery must never change the persisted scan
+                    # result or prevent the queue message from being acked.
+                    logger.exception(
+                        "CSPM alert dispatch failed scan_id=%s",
+                        scan.id,
+                    )
+
                 self.queue.acknowledge(message_id)
 
                 logger.info(
