@@ -241,6 +241,28 @@ class ScanQueue:
 
         return int(value)
 
+    def metrics(self) -> dict[str, int]:
+        """Return bounded queue health metrics for operational monitoring."""
+        pending = self.client.xpending(
+            self.stream_name,
+            self.group_name,
+        )
+
+        if isinstance(pending, dict):
+            pending_count = int(pending.get("pending", 0))
+        elif pending:
+            pending_count = int(pending[0])
+        else:
+            pending_count = 0
+
+        return {
+            "stream_length": int(self.client.xlen(self.stream_name)),
+            "pending_count": pending_count,
+            "dead_letter_length": int(
+                self.client.xlen(self.dead_letter_stream)
+            ),
+        }
+
     def ping(self) -> bool:
         return bool(self.client.ping())
 
