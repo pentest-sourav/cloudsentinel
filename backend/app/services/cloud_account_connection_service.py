@@ -60,11 +60,12 @@ def get_connection_configuration(
     external_id = account.external_id
 
     if not external_id:
-        from backend.app.services.cloud_account_service import generate_external_id
-        external_id = generate_external_id()
-        account.external_id = external_id
-        db.commit()
-        db.refresh(account)
+        from backend.app.services.cloud_account_service import rotate_external_id
+        account = rotate_external_id(
+            db=db,
+            account=account,
+        )
+        external_id = account.external_id
 
     return {
         "account_id": account.id,
