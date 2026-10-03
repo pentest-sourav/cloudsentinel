@@ -18,11 +18,12 @@ class StepFunctionsScanner:
     Runs registered Step Functions security rules.
     """
 
-    def __init__(self, service: StepFunctionsService):
+    def __init__(self, service: StepFunctionsService, rule_parameters=None):
         self.collector = StepFunctionsDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=STEPFUNCTIONS_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:
