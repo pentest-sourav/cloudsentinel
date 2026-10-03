@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,6 +45,20 @@ if cors_origins:
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
+
+
+@app.middleware("http")
+async def request_context(
+    request: Request,
+    call_next,
+) -> Response:
+    request.state.request_id = uuid4().hex
+    response = await call_next(request)
+    response.headers.setdefault(
+        "X-Request-ID",
+        request.state.request_id,
+    )
+    return response
 
 
 @app.middleware("http")
