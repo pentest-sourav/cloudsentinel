@@ -18,7 +18,10 @@ from sqlalchemy import text
 
 
 def _is_test_request(request: Request) -> bool:
-    return settings.app_environment == "test"
+    return (
+        settings.app_environment == "test"
+        or getattr(request.app.state, "testing", False)
+    )
 
 
 app = FastAPI(
