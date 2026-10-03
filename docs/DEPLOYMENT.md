@@ -85,6 +85,12 @@ identity/IRSA. Grant the runtime identity only the STS permissions required to
 assume customer onboarding roles. Customer AWS accounts should trust the runtime
 identity with an external ID and a read-only role policy.
 
+
+### External ID lifecycle
+CloudSentinel generates the AWS trust external ID server-side and does not accept it from cloud-account creation requests. The connection configuration endpoint is restricted to owner/administrator/operator roles because the external ID is sensitive trust configuration. Owners and administrators can rotate the external ID when required; rotation invalidates the previous trust configuration and moves the account back to `pending_connection` until the customer updates the IAM trust policy and reconnects.
+
+External IDs are never written to audit-event metadata. Treat the current external ID as sensitive configuration and do not copy it into application logs, tickets, or telemetry.
+
 ## Updates and rollback
 
 Never deploy an unpinned `latest` image. Use a release or immutable commit-derived
