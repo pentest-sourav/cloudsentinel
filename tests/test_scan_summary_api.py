@@ -247,7 +247,7 @@ def test_get_scan_summary(client):
     assert data["low_count"] == 0
     assert data["info_count"] == 0
 
-    assert data["risk_posture"]["score"] == 40.0
+    assert data["risk_posture"]["score"] == 35.0
     assert data["risk_posture"]["grade"] == "F"
     assert data["risk_posture"]["average_risk_score"] == 6.5
     assert data["risk_posture"]["max_risk_score"] == 9.0
