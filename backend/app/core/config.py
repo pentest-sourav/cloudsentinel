@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = ""
     app_environment: str = "development"
     audit_retention_days: int = 365
+    max_request_body_bytes: int = 1_048_576
+    trusted_proxy_ips: str = ""
+    metrics_enabled: bool = False
 
     rate_limit_window_seconds: int = 60
     rate_limit_auth_max_requests: int = 10
