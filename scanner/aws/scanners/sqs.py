@@ -14,11 +14,12 @@ class SQSScanner:
     Runs registered SQS security rules against AWS SQS queues.
     """
 
-    def __init__(self, service: SQSService):
+    def __init__(self, service: SQSService, rule_parameters=None):
         self.collector = SQSDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=SQS_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:
