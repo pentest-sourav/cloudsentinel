@@ -95,10 +95,16 @@ def check_ecs_runtime_monitoring(
     resource_id: str,
     features: dict[str, dict[str, Any]],
 ) -> GuardDutyControlResult | None:
-    if additional_configuration_enabled(
-        features,
-        "RUNTIME_MONITORING",
-        "ECS_FARGATE_AGENT_MANAGEMENT",
+    if (
+        feature_enabled(
+            features,
+            "RUNTIME_MONITORING",
+        )
+        and additional_configuration_enabled(
+            features,
+            "RUNTIME_MONITORING",
+            "ECS_FARGATE_AGENT_MANAGEMENT",
+        )
     ):
         return None
 
@@ -123,10 +129,16 @@ def check_ec2_runtime_monitoring(
     resource_id: str,
     features: dict[str, dict[str, Any]],
 ) -> GuardDutyControlResult | None:
-    if additional_configuration_enabled(
-        features,
-        "RUNTIME_MONITORING",
-        "EC2_AGENT_MANAGEMENT",
+    if (
+        feature_enabled(
+            features,
+            "RUNTIME_MONITORING",
+        )
+        and additional_configuration_enabled(
+            features,
+            "RUNTIME_MONITORING",
+            "EC2_AGENT_MANAGEMENT",
+        )
     ):
         return None
 
@@ -180,8 +192,8 @@ def build_finding(
             "or through the GuardDuty API."
         ),
         compliance=[
-            f"AWS Security Hub "
-            f"{rule_id.replace('CS-AWS-GD-', 'GuardDuty.')}"
+            "AWS Security Hub "
+            f"GuardDuty.{int(rule_id.rsplit('-', 1)[-1])}"
         ],
     )
 
