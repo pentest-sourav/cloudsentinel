@@ -189,7 +189,7 @@ def test_s3_scanner_detects_all_insecure_bucket_checks():
 
     findings = scanner.scan()
 
-    assert len(findings) == 9
+    assert len(findings) == 11
 
     rule_ids = {
         finding.rule_id
@@ -205,6 +205,8 @@ def test_s3_scanner_detects_all_insecure_bucket_checks():
     assert "CS-AWS-S3-007" in rule_ids
     assert "CS-AWS-S3-008" in rule_ids
     assert "CS-AWS-S3-009" in rule_ids
+    assert "CS-AWS-S3-017" in rule_ids
+    assert "CS-AWS-S3-020" in rule_ids
 
     for finding in findings:
         assert finding.resource_id == "insecure-bucket"
