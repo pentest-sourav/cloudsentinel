@@ -20,6 +20,7 @@ class BackupScanner:
     def __init__(
         self,
         service: BackupService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
     ):
         self.collector = BackupDataCollector(
             service
@@ -27,6 +28,7 @@ class BackupScanner:
 
         self.executor = RuleExecutor(
             handlers=BACKUP_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

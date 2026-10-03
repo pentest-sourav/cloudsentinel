@@ -14,11 +14,16 @@ class ECRScanner:
     Runs registered ECR security rules against AWS ECR repositories.
     """
 
-    def __init__(self, service: ECRService):
+    def __init__(
+        self,
+        service: ECRService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = ECRDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=ECR_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

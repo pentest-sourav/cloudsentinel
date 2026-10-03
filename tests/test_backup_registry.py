@@ -7,6 +7,10 @@ EXPECTED_RULE_IDS = {
     "CS-AWS-BACKUP-002",
     "CS-AWS-BACKUP-003",
     "CS-AWS-BACKUP-004",
+    "CS-AWS-BACKUP-005",
+    "CS-AWS-BACKUP-006",
+    "CS-AWS-BACKUP-007",
+    "CS-AWS-BACKUP-008",
 }
 
 
@@ -61,4 +65,8 @@ def test_backup_registry_uses_expected_data_sources():
         "CS-AWS-BACKUP-002": "backup_plans",
         "CS-AWS-BACKUP-003": "backup_plans",
         "CS-AWS-BACKUP-004": "backup_vaults",
+        "CS-AWS-BACKUP-005": "backup_recovery_points",
+        "CS-AWS-BACKUP-006": "backup_vaults",
+        "CS-AWS-BACKUP-007": "backup_report_plans",
+        "CS-AWS-BACKUP-008": "backup_plans",
     }

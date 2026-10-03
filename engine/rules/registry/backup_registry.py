@@ -1,9 +1,14 @@
 from engine.findings.model import Finding, Severity
+
 from engine.rules.aws.backup.protection import (
     check_backup_plan_frequency_retention,
     check_backup_plan_selection,
     check_backup_recovery_point_encryption,
     check_backup_vault_lock,
+)
+from engine.rules.aws.backup.tagging import (
+    build_backup_tagging_finding,
+    check_backup_tagging,
 )
 from engine.rules.model import RuleDefinition
 from engine.rules.registry.base import RuleRegistry
@@ -11,11 +16,13 @@ from engine.rules.registry.base import RuleRegistry
 
 BACKUP_RULES = RuleRegistry(
     [
+        # ============================================================
+        # Existing CloudSentinel Backup controls
+        # ============================================================
+
         RuleDefinition(
             rule_id="CS-AWS-BACKUP-001",
-            name=(
-                "aws_backup_recovery_point_encryption"
-            ),
+            name="aws_backup_recovery_point_encryption",
             data_source="backup_recovery_points",
             collection_mode="multiple",
             check_arguments=[
@@ -24,20 +31,12 @@ BACKUP_RULES = RuleRegistry(
                 "encryption_key_type",
                 "status",
             ],
-            check=(
-                check_backup_recovery_point_encryption
-            ),
-            build_finding=(
-                lambda result: _build_encryption_finding(
-                    result
-                )
-            ),
+            check=check_backup_recovery_point_encryption,
+            build_finding=lambda result: _build_encryption_finding(result),
         ),
         RuleDefinition(
             rule_id="CS-AWS-BACKUP-002",
-            name=(
-                "aws_backup_plan_resource_selection"
-            ),
+            name="aws_backup_plan_resource_selection",
             data_source="backup_plans",
             collection_mode="multiple",
             check_arguments=[
@@ -48,17 +47,11 @@ BACKUP_RULES = RuleRegistry(
                 "selections",
             ],
             check=check_backup_plan_selection,
-            build_finding=(
-                lambda result: _build_selection_finding(
-                    result
-                )
-            ),
+            build_finding=lambda result: _build_selection_finding(result),
         ),
         RuleDefinition(
             rule_id="CS-AWS-BACKUP-003",
-            name=(
-                "aws_backup_plan_frequency_retention"
-            ),
+            name="aws_backup_plan_frequency_retention",
             data_source="backup_plans",
             collection_mode="multiple",
             check_arguments=[
@@ -67,17 +60,11 @@ BACKUP_RULES = RuleRegistry(
                 "rules",
             ],
             check=check_backup_plan_frequency_retention,
-            build_finding=(
-                lambda result: _build_lifecycle_finding(
-                    result
-                )
-            ),
+            build_finding=lambda result: _build_lifecycle_finding(result),
         ),
         RuleDefinition(
             rule_id="CS-AWS-BACKUP-004",
-            name=(
-                "aws_backup_vault_lock"
-            ),
+            name="aws_backup_vault_lock",
             data_source="backup_vaults",
             collection_mode="multiple",
             check_arguments=[
@@ -89,11 +76,131 @@ BACKUP_RULES = RuleRegistry(
                 "vault_state",
             ],
             check=check_backup_vault_lock,
-            build_finding=(
-                lambda result: _build_vault_lock_finding(
-                    result
-                )
+            build_finding=lambda result: _build_vault_lock_finding(result),
+        ),
+
+        # ============================================================
+        # AWS Security Hub Backup.2
+        # Recovery points should be tagged.
+        # ============================================================
+
+        RuleDefinition(
+            rule_id="CS-AWS-BACKUP-005",
+            name="backup_recovery_point_tagging",
+            data_source="backup_recovery_points",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "resource_type",
+                "tags",
+            ],
+            parameters={
+                "required_tag_keys": [],
+            },
+            check=lambda resource_id, resource_arn, resource_type, tags,
+            required_tag_keys=None: check_backup_tagging(
+                resource_id=resource_id,
+                resource_arn=resource_arn,
+                resource_type=resource_type,
+                control_id="CS-AWS-BACKUP-005",
+                tags=tags,
+                required_tag_keys=required_tag_keys,
             ),
+            build_finding=build_backup_tagging_finding,
+        ),
+
+        # ============================================================
+        # AWS Security Hub Backup.3
+        # Backup vaults should be tagged.
+        # ============================================================
+
+        RuleDefinition(
+            rule_id="CS-AWS-BACKUP-006",
+            name="backup_vault_tagging",
+            data_source="backup_vaults",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "resource_type",
+                "tags",
+            ],
+            parameters={
+                "required_tag_keys": [],
+            },
+            check=lambda resource_id, resource_arn, resource_type, tags,
+            required_tag_keys=None: check_backup_tagging(
+                resource_id=resource_id,
+                resource_arn=resource_arn,
+                resource_type=resource_type,
+                control_id="CS-AWS-BACKUP-006",
+                tags=tags,
+                required_tag_keys=required_tag_keys,
+            ),
+            build_finding=build_backup_tagging_finding,
+        ),
+
+        # ============================================================
+        # AWS Security Hub Backup.4
+        # Backup report plans should be tagged.
+        # ============================================================
+
+        RuleDefinition(
+            rule_id="CS-AWS-BACKUP-007",
+            name="backup_report_plan_tagging",
+            data_source="backup_report_plans",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "resource_type",
+                "tags",
+            ],
+            parameters={
+                "required_tag_keys": [],
+            },
+            check=lambda resource_id, resource_arn, resource_type, tags,
+            required_tag_keys=None: check_backup_tagging(
+                resource_id=resource_id,
+                resource_arn=resource_arn,
+                resource_type=resource_type,
+                control_id="CS-AWS-BACKUP-007",
+                tags=tags,
+                required_tag_keys=required_tag_keys,
+            ),
+            build_finding=build_backup_tagging_finding,
+        ),
+
+        # ============================================================
+        # AWS Security Hub Backup.5
+        # Backup plans should be tagged.
+        # ============================================================
+
+        RuleDefinition(
+            rule_id="CS-AWS-BACKUP-008",
+            name="backup_plan_tagging",
+            data_source="backup_plans",
+            collection_mode="multiple",
+            check_arguments=[
+                "resource_id",
+                "resource_arn",
+                "resource_type",
+                "tags",
+            ],
+            parameters={
+                "required_tag_keys": [],
+            },
+            check=lambda resource_id, resource_arn, resource_type, tags,
+            required_tag_keys=None: check_backup_tagging(
+                resource_id=resource_id,
+                resource_arn=resource_arn,
+                resource_type=resource_type,
+                control_id="CS-AWS-BACKUP-008",
+                tags=tags,
+                required_tag_keys=required_tag_keys,
+            ),
+            build_finding=build_backup_tagging_finding,
         ),
     ]
 )
@@ -120,12 +227,8 @@ def _build_encryption_finding(
         ),
         evidence={
             "resource_id": result.resource_id,
-            "encryption_key_arn": (
-                result.encryption_key_arn
-            ),
-            "encryption_key_type": (
-                result.encryption_key_type
-            ),
+            "encryption_key_arn": result.encryption_key_arn,
+            "encryption_key_type": result.encryption_key_type,
             "status": result.status,
             "encrypted_at_rest": False,
         },
@@ -145,9 +248,7 @@ def _build_selection_finding(
 ) -> Finding:
     return Finding(
         rule_id="CS-AWS-BACKUP-002",
-        title=(
-            "AWS Backup Plan Has No Resource Selection"
-        ),
+        title="AWS Backup Plan Has No Resource Selection",
         severity=Severity.MEDIUM,
         provider="aws",
         resource_type="backup_plan",
@@ -162,9 +263,7 @@ def _build_selection_finding(
         evidence={
             "plan_id": result.resource_id,
             "plan_name": result.plan_name,
-            "selection_count": (
-                result.selection_count
-            ),
+            "selection_count": result.selection_count,
             "rules_count": result.rules_count,
             "selections": result.selections,
         },
@@ -204,12 +303,8 @@ def _build_lifecycle_finding(
         evidence={
             "plan_id": result.resource_id,
             "plan_name": result.plan_name,
-            "has_valid_frequency": (
-                result.has_valid_frequency
-            ),
-            "has_valid_retention": (
-                result.has_valid_retention
-            ),
+            "has_valid_frequency": result.has_valid_frequency,
+            "has_valid_retention": result.has_valid_retention,
             "minimum_frequency_hours": (
                 result.minimum_frequency_hours
             ),
@@ -258,12 +353,8 @@ def _build_vault_lock_finding(
             "vault_name": result.resource_id,
             "locked": result.locked,
             "lock_date": result.lock_date,
-            "min_retention_days": (
-                result.min_retention_days
-            ),
-            "max_retention_days": (
-                result.max_retention_days
-            ),
+            "min_retention_days": result.min_retention_days,
+            "max_retention_days": result.max_retention_days,
             "vault_state": result.vault_state,
         },
         remediation=(

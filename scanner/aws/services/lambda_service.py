@@ -313,3 +313,26 @@ class LambdaService:
                 f"AWS SDK error during Lambda subnet "
                 f"availability-zone discovery: {exc}"
             ) from exc
+
+
+    def list_tags(
+        self,
+        resource_arn: str,
+    ) -> dict[str, str]:
+        try:
+            response = self.lambda_client.list_tags(
+                Resource=resource_arn
+            )
+            tags = response.get("Tags", {})
+            return tags if isinstance(tags, dict) else {}
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            raise RuntimeError(
+                f"Lambda tag discovery failed: "
+                f"{error.get('Code', 'UnknownError')}: "
+                f"{error.get('Message', 'AWS request failed')}"
+            ) from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during Lambda tag discovery: {exc}"
+            ) from exc

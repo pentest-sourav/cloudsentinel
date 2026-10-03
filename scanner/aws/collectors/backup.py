@@ -198,6 +198,9 @@ class BackupDataCollector:
                     "number_of_recovery_points": details.get(
                         "NumberOfRecoveryPoints"
                     ),
+                    "tags": self._normalize_tags(
+                        self.service.list_tags(arn)
+                    ),
                 }
             )
 
@@ -245,6 +248,9 @@ class BackupDataCollector:
                         ),
                         "resource_type_source": point.get(
                             "ResourceType"
+                        ),
+                        "tags": self._normalize_tags(
+                            self.service.list_tags(arn)
                         ),
                     }
                 )
@@ -315,6 +321,9 @@ class BackupDataCollector:
                         "VersionId",
                         plan.get("VersionId"),
                     ),
+                    "tags": self._normalize_tags(
+                        self.service.list_tags(arn)
+                    ),
                 }
             )
 
@@ -343,6 +352,9 @@ class BackupDataCollector:
                     "resource_id": resource_id,
                     "resource_type": "backup_report_plan",
                     "resource_arn": arn,
+                    "tags": self._normalize_tags(
+                        self.service.list_tags(arn)
+                    ),
                 }
             )
 

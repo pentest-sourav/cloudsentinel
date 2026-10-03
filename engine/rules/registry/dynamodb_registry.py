@@ -97,6 +97,7 @@ DYNAMODB_RULES = RuleRegistry(
                 "table_arn",
                 "tags",
             ],
+            parameters={"required_tag_keys": []},
             check=check_dynamodb_tagging,
             build_finding=build_dynamodb_tagging_finding,
         ),

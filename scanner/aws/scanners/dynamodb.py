@@ -15,11 +15,16 @@ class DynamoDBScanner:
     DynamoDB tables and DAX clusters.
     """
 
-    def __init__(self, service: DynamoDBService):
+    def __init__(
+        self,
+        service: DynamoDBService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = DynamoDBDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=DYNAMODB_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

@@ -37,6 +37,7 @@ KINESIS_RULES = RuleRegistry(
                 "stream_arn",
                 "tags",
             ],
+            parameters={"required_tag_keys": []},
             check=check_kinesis_tagging,
             build_finding=build_kinesis_tagging_finding,
         ),

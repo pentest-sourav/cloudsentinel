@@ -51,6 +51,7 @@ def test_lambda_scanner_detects_public_function_url():
     }
 
     _configure_compliant_lambda(service)
+    service.list_tags.return_value = {"Environment": "test"}
 
     scanner = LambdaScanner(service)
 
@@ -69,10 +70,15 @@ def test_lambda_scanner_detects_public_function_url():
 
 def test_lambda_scanner_ignores_authenticated_function_url():
     service = MagicMock()
+    service.list_tags.return_value = {"Environment": "test"}
 
     service.list_functions.return_value = [
         {
             "FunctionName": "private-function",
+                "FunctionArn": (
+                    "arn:aws:lambda:eu-north-1:997139435592:"
+                    "function:private-function"
+                ),
             "Runtime": "python3.12",
             "PackageType": "Image",
             "VpcConfig": {
@@ -104,10 +110,15 @@ def test_lambda_scanner_ignores_authenticated_function_url():
 
 def test_lambda_scanner_detects_public_resource_policy():
     service = MagicMock()
+    service.list_tags.return_value = {"Environment": "test"}
 
     service.list_functions.return_value = [
         {
             "FunctionName": "public-function",
+            "FunctionArn": (
+                "arn:aws:lambda:eu-north-1:997139435592:"
+                "function:public-function"
+            ),
             "Runtime": "python3.12",
             "PackageType": "Image",
             "VpcConfig": {

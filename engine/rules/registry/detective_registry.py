@@ -19,7 +19,9 @@ DETECTIVE_RULES = RuleRegistry(
                 "resource_type",
                 "tag_data_available",
                 "has_non_system_tags",
+                "tags",
             ],
+            parameters={"required_tag_keys": []},
             check=check_detective_graph_tags,
             build_finding=(
                 build_detective_graph_tags_finding

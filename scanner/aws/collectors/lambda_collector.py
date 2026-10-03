@@ -158,6 +158,13 @@ class LambdaDataCollector:
                 {
                     "function_name": function_name,
                     "function_arn": function.get("FunctionArn"),
+                    "tags": (
+                        self.service.list_tags(
+                            function.get("FunctionArn")
+                        )
+                        if function.get("FunctionArn")
+                        else {}
+                    ),
                     "runtime": function.get("Runtime"),
                     "package_type": package_type,
                     "role": function.get("Role"),

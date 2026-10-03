@@ -100,6 +100,13 @@ class ECRDataCollector:
                 {
                     "repository_name": repository_name,
                     "repository_arn": repository.get("repositoryArn"),
+                    "tags": (
+                        self.service.list_tags_for_resource(
+                            repository.get("repositoryArn")
+                        )
+                        if repository.get("repositoryArn")
+                        else []
+                    ),
                     "repository_uri": repository.get("repositoryUri"),
                     "registry_id": repository.get("registryId"),
                     "image_tag_mutability": repository.get(

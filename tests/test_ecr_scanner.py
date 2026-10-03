@@ -5,6 +5,7 @@ from scanner.aws.scanners.ecr import ECRScanner
 
 def test_ecr_scanner_executes_registry():
     service = MagicMock()
+    service.list_tags_for_resource.return_value = []
 
     service.list_repositories.return_value = [
         {
@@ -35,7 +36,7 @@ def test_ecr_scanner_executes_registry():
 
     findings = scanner.scan()
 
-    assert len(findings) == 4
+    assert len(findings) == 5
 
     assert {
         finding.rule_id
@@ -45,4 +46,6 @@ def test_ecr_scanner_executes_registry():
         "CS-AWS-ECR-002",
         "CS-AWS-ECR-003",
         "CS-AWS-ECR-004",
+            "CS-AWS-ECR-005",
+
     }

@@ -15,11 +15,16 @@ from scanner.aws.services.detective import DetectiveService
 class DetectiveScanner:
     """Runs registered Amazon Detective security rules."""
 
-    def __init__(self, service: DetectiveService):
+    def __init__(
+        self,
+        service: DetectiveService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = DetectiveDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=DETECTIVE_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

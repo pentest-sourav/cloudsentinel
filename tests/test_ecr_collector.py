@@ -5,6 +5,7 @@ from scanner.aws.collectors.ecr import ECRDataCollector
 
 def test_collect_ecr_repositories_normalizes_configuration():
     service = MagicMock()
+    service.list_tags_for_resource.return_value = []
 
     service.list_repositories.return_value = [
         {
@@ -71,6 +72,7 @@ def test_collect_ecr_repositories_normalizes_configuration():
                 "arn:aws:ecr:us-east-1:123456789012:"
                 "repository/prod/app"
             ),
+                "tags": [],
             "repository_uri": (
                 "123456789012.dkr.ecr.us-east-1.amazonaws.com/prod/app"
             ),

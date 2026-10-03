@@ -13,10 +13,15 @@ class LambdaScanner:
     Runs CloudSentinel security rules against AWS Lambda functions.
     """
 
-    def __init__(self, service: LambdaService):
+    def __init__(
+        self,
+        service: LambdaService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = LambdaDataCollector(service)
         self.executor = RuleExecutor(
-            handlers=LAMBDA_DATA_SOURCE_HANDLERS
+            handlers=LAMBDA_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

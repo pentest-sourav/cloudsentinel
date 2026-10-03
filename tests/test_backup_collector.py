@@ -58,6 +58,7 @@ def test_collect_vaults_normalizes_vault_details():
             ),
             "encryption_key_type": "KMS",
             "number_of_recovery_points": 10,
+            "tags": [],
         }
     ]
 
@@ -116,6 +117,7 @@ def test_collect_recovery_points_normalizes_encryption_fields():
                 "arn:aws:rds:us-east-1:123456789012:db:test"
             ),
             "resource_type_source": "RDS",
+            "tags": [],
         }
     ]
 

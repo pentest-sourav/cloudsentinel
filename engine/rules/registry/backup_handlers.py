@@ -30,3 +30,14 @@ BACKUP_DATA_SOURCE_HANDLERS = {
     ),
     "backup_plans": collect_backup_plans,
 }
+
+
+def collect_backup_report_plans(
+    collector: BackupDataCollector,
+) -> list[dict[str, Any]]:
+    return collector.collect_report_plans()
+
+
+BACKUP_DATA_SOURCE_HANDLERS["backup_report_plans"] = (
+    collect_backup_report_plans
+)

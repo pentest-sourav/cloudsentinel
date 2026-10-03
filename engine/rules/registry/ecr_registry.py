@@ -1,3 +1,7 @@
+from engine.rules.aws.ecr.tagging import (
+    build_ecr_tagging_finding,
+    check_ecr_tagging,
+)
 from engine.rules.aws.ecr.customer_managed_kms import (
     build_ecr_customer_managed_kms_finding,
     check_ecr_customer_managed_kms,
@@ -20,6 +24,20 @@ from engine.rules.registry.base import RuleRegistry
 
 ECR_RULES = RuleRegistry(
     [
+        RuleDefinition(
+            rule_id="CS-AWS-ECR-005",
+            name="ecr_tagging",
+            data_source="ecr_repositories",
+            collection_mode="multiple",
+            check_arguments=[
+                "repository_name",
+                "repository_arn",
+                "tags",
+            ],
+            parameters={"required_tag_keys": []},
+            check=check_ecr_tagging,
+            build_finding=build_ecr_tagging_finding,
+        ),
         RuleDefinition(
             rule_id="CS-AWS-ECR-001",
             name="ecr_image_scanning",

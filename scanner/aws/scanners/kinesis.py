@@ -15,11 +15,16 @@ class KinesisScanner:
     Amazon Kinesis Data Streams.
     """
 
-    def __init__(self, service: KinesisService):
+    def __init__(
+        self,
+        service: KinesisService,
+        rule_parameters: dict[str, dict[str, object]] | None = None,
+    ):
         self.collector = KinesisDataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=KINESIS_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:

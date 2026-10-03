@@ -1,3 +1,7 @@
+from engine.rules.aws.lambda_rules.tagging import (
+    build_lambda_tagging_finding,
+    check_lambda_tagging,
+)
 from engine.rules.aws.lambda_rules.code_signing import (
     build_lambda_code_signing_finding,
     check_lambda_code_signing,
@@ -36,6 +40,20 @@ from engine.rules.registry.base import RuleRegistry
 
 LAMBDA_RULES = RuleRegistry(
     [
+        RuleDefinition(
+            rule_id="CS-AWS-LAMBDA-009",
+            name="lambda_tagging",
+            data_source="lambda_functions",
+            collection_mode="multiple",
+            check_arguments=[
+                "function_name",
+                "function_arn",
+                "tags",
+            ],
+            parameters={"required_tag_keys": []},
+            check=check_lambda_tagging,
+            build_finding=build_lambda_tagging_finding,
+        ),
         RuleDefinition(
             rule_id="CS-AWS-LAMBDA-001",
             name="public_lambda_function_url",

@@ -135,3 +135,28 @@ class ECRService:
             raise RuntimeError(
                 f"AWS SDK error during ECR KMS key discovery: {exc}"
             ) from exc
+
+    def list_tags_for_resource(
+        self,
+        resource_arn: str,
+    ) -> list[dict[str, Any]]:
+        try:
+            response = self.ecr_client.list_tags_for_resource(
+                resourceArn=resource_arn,
+            )
+            tags = response.get("tags", [])
+            return [
+                tag for tag in tags
+                if isinstance(tag, dict)
+            ] if isinstance(tags, list) else []
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            raise RuntimeError(
+                f"ECR tag discovery failed: "
+                f"{error.get('Code', 'UnknownError')}: "
+                f"{error.get('Message', 'AWS request failed')}"
+            ) from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error during ECR tag discovery: {exc}"
+            ) from exc
