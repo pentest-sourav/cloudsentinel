@@ -80,3 +80,21 @@ def test_invalid_log_level_is_rejected():
 def test_scan_queue_settings_must_be_positive():
     with pytest.raises(ValidationError, match="Scan queue settings"):
         _settings(scan_queue_recovery_batch_size=0)
+
+
+def test_aws_sts_session_duration_must_be_between_15_minutes_and_12_hours():
+    with pytest.raises(ValidationError, match="AWS_STS_SESSION_DURATION_SECONDS"):
+        _settings(aws_sts_session_duration_seconds=899)
+
+    with pytest.raises(ValidationError, match="AWS_STS_SESSION_DURATION_SECONDS"):
+        _settings(aws_sts_session_duration_seconds=43_201)
+
+
+def test_aws_sts_session_duration_accepts_supported_bounds():
+    assert _settings(
+        aws_sts_session_duration_seconds=900,
+    ).aws_sts_session_duration_seconds == 900
+
+    assert _settings(
+        aws_sts_session_duration_seconds=43_200,
+    ).aws_sts_session_duration_seconds == 43_200
