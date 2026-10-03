@@ -1,3 +1,4 @@
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.app.models.finding import Finding
@@ -51,18 +52,47 @@ def get_scan_summary(
     if scan is None:
         return None
 
-    findings = (
-        db.query(Finding)
+    # Summary endpoints are called repeatedly while a scan is running.
+    # Aggregate severity counts in SQL instead of materializing every finding
+    # row on every poll; this keeps the API cheap for large scans.
+    rows = (
+        db.query(
+            Finding.severity,
+            func.count(Finding.id),
+        )
         .filter(Finding.scan_id == scan_id)
+        .group_by(Finding.severity)
         .all()
     )
+
+    counts = {
+        "total_findings": 0,
+        "critical_count": 0,
+        "high_count": 0,
+        "medium_count": 0,
+        "low_count": 0,
+        "info_count": 0,
+    }
+
+    key_by_severity = {
+        "critical": "critical_count",
+        "high": "high_count",
+        "medium": "medium_count",
+        "low": "low_count",
+        "info": "info_count",
+    }
+
+    for severity, count in rows:
+        counts["total_findings"] += count
+        count_key = key_by_severity.get(severity.lower())
+
+        if count_key is not None:
+            counts[count_key] += count
 
     execution_errors = get_execution_errors(
         db=db,
         scan_id=scan_id,
     )
-
-    counts = build_finding_counts(findings)
 
     return {
         "scan_id": scan.id,
