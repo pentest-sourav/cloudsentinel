@@ -53,6 +53,14 @@ def register(
         )
         return user
     except ValueError as exc:
+        safe_record_audit_event(
+            db=db,
+            action="auth.register",
+            status=AUDIT_FAILURE,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+            metadata={"reason": str(exc)[:200]},
+        )
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
