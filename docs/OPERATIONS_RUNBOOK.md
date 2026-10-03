@@ -86,3 +86,23 @@ but PostgreSQL remains the authoritative recovery target.
 Do not place database passwords, AWS credentials, JWT secrets, or backup credentials in
 repository files. Use the deployment platform's secret store or an external secret
 manager and grant the backup runtime only the permissions it needs.
+
+
+## Worker queue reliability
+
+The worker's Redis Streams recovery behavior is configurable through:
+
+- `SCAN_QUEUE_MAX_RETRIES`: maximum reclaim attempts before dead-lettering.
+- `SCAN_QUEUE_RECOVERY_IDLE_MS`: minimum pending-message idle time before reclaim.
+- `SCAN_QUEUE_RECOVERY_BATCH_SIZE`: maximum recovered jobs handled per recovery pass.
+- `SCAN_QUEUE_READ_BLOCK_MS`: maximum blocking interval for new jobs, which bounds graceful shutdown latency.
+- `SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH`: approximate cap for the dead-letter stream.
+
+The dead-letter stream is intentionally bounded so repeated scanner failures cannot
+consume unbounded Redis memory. Operators should alert on dead-letter growth and
+investigate the underlying scan failure rather than silently increasing the limit.
+
+For controlled shutdown, send SIGTERM to the worker. It stops accepting the next
+queue read, finishes the current job, acknowledges only successfully completed jobs,
+and closes the Redis connection. Container orchestration should allow enough
+termination grace time for the configured scan workload.

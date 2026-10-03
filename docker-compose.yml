@@ -55,12 +55,18 @@ services:
 
     container_name: cloudsentinel-api
     restart: unless-stopped
+    stop_grace_period: 30s
 
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}
       REDIS_URL: redis://redis:6379/0
       SCAN_QUEUE_STREAM: ${SCAN_QUEUE_STREAM:-cloudsentinel:scan_jobs}
       SCAN_QUEUE_GROUP: ${SCAN_QUEUE_GROUP:-cloudsentinel:scan_workers}
+      SCAN_QUEUE_MAX_RETRIES: ${SCAN_QUEUE_MAX_RETRIES:-3}
+      SCAN_QUEUE_RECOVERY_IDLE_MS: ${SCAN_QUEUE_RECOVERY_IDLE_MS:-30000}
+      SCAN_QUEUE_RECOVERY_BATCH_SIZE: ${SCAN_QUEUE_RECOVERY_BATCH_SIZE:-10}
+      SCAN_QUEUE_READ_BLOCK_MS: ${SCAN_QUEUE_READ_BLOCK_MS:-5000}
+      SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH: ${SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH:-10000}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
@@ -112,6 +118,7 @@ services:
 
     container_name: cloudsentinel-worker
     restart: unless-stopped
+    stop_grace_period: 30s
 
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-cloudsentinel}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-cloudsentinel}

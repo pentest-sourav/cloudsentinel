@@ -254,7 +254,7 @@ def test_recover_pending_moves_job_to_dead_letter_after_max_retries():
             )
             return 1
 
-        def xadd(self, stream, fields):
+        def xadd(self, stream, fields, **_kwargs):
             self.dead_letter.append(
                 (stream, fields)
             )
