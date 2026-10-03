@@ -139,6 +139,25 @@ class S3DataCollector:
 
         return collected
 
+    def collect_mfa_delete(self) -> list[dict[str, Any]]:
+        buckets = self._get_buckets()
+
+        collected = []
+
+        for bucket in buckets:
+            bucket_name = bucket["name"]
+
+            collected.append(
+                {
+                    "bucket_name": bucket_name,
+                    "versioning_status": self.service.get_bucket_mfa_delete(
+                        bucket_name
+                    ),
+                }
+            )
+
+        return collected
+
     def collect_logging(self) -> list[dict[str, Any]]:
         buckets = self._get_buckets()
 
