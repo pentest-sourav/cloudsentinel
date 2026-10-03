@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     cors_allowed_origins: str = ""
 
+    rate_limit_window_seconds: int = 60
+    rate_limit_auth_max_requests: int = 10
+    rate_limit_scan_max_requests: int = 20
+    rate_limit_global_max_requests: int = 300
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
