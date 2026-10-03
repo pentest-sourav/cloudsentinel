@@ -63,3 +63,13 @@ def test_production_accepts_metrics_token():
 def test_rate_limit_settings_must_be_positive():
     with pytest.raises(ValidationError, match="Rate limit settings"):
         _settings(rate_limit_global_max_requests=0)
+
+
+def test_invalid_log_format_is_rejected():
+    with pytest.raises(ValidationError, match="LOG_FORMAT"):
+        _settings(log_format="xml")
+
+
+def test_invalid_log_level_is_rejected():
+    with pytest.raises(ValidationError, match="LOG_LEVEL"):
+        _settings(log_level="LOUD")
