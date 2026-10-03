@@ -1,5 +1,6 @@
 import logging
 import signal
+import threading
 from collections.abc import Callable
 
 from backend.app.core.database import SessionLocal
@@ -14,9 +15,13 @@ from backend.app.services.scan_runner import ScanRunner
 from backend.app.services.scan_service import (
     SCAN_STATUS_COMPLETED,
     SCAN_STATUS_FAILED,
+    SCAN_STATUS_PENDING,
+    SCAN_STATUS_RUNNING,
     fail_scan,
     get_scan_for_worker,
+    recover_stale_running_scan,
     retry_scan,
+    touch_scan_heartbeat,
 )
 
 
@@ -73,6 +78,32 @@ class ScanWorker:
         logger.info("Shutdown signal received")
         self.running = False
 
+    def _scan_heartbeat(
+        self,
+        scan_id: int,
+        stop_event: threading.Event,
+    ) -> None:
+        interval_seconds = min(
+            max(1.0, settings.scan_queue_stale_scan_seconds / 3),
+            max(1.0, settings.scan_queue_recovery_idle_ms / 2000),
+        )
+
+        while not stop_event.wait(interval_seconds):
+            heartbeat_db = SessionLocal()
+            try:
+                touch_scan_heartbeat(
+                    db=heartbeat_db,
+                    scan_id=scan_id,
+                )
+            except Exception:
+                heartbeat_db.rollback()
+                logger.exception(
+                    "Failed to update scan heartbeat scan_id=%s",
+                    scan_id,
+                )
+            finally:
+                heartbeat_db.close()
+
     def _fail_scan(
         self,
         db,
@@ -127,17 +158,52 @@ class ScanWorker:
                 self.queue.acknowledge(message_id)
                 return
 
-            if recovered and scan.status == SCAN_STATUS_FAILED:
-                logger.warning(
-                    "Retrying failed scan_id=%s message_id=%s",
-                    job.scan_id,
-                    message_id,
-                )
+            if recovered:
+                if scan.status == SCAN_STATUS_COMPLETED:
+                    self.queue.acknowledge(message_id)
+                    return
 
-                scan = retry_scan(
-                    db=db,
-                    scan=scan,
-                )
+                if scan.status == SCAN_STATUS_FAILED:
+                    logger.warning(
+                        "Retrying failed scan_id=%s message_id=%s",
+                        job.scan_id,
+                        message_id,
+                    )
+                    scan = retry_scan(
+                        db=db,
+                        scan=scan,
+                    )
+
+                elif scan.status == SCAN_STATUS_RUNNING:
+                    scan = recover_stale_running_scan(
+                        db=db,
+                        scan=scan,
+                        stale_after_seconds=(
+                            settings.scan_queue_stale_scan_seconds
+                        ),
+                    )
+
+                    if scan.status == SCAN_STATUS_RUNNING:
+                        # A healthy worker may legitimately run longer than
+                        # Redis' reclaim interval. Do not duplicate it or
+                        # consume retry budget; the original worker can still
+                        # acknowledge the stream entry after completion.
+                        self.queue.defer_recovery(message_id)
+                        logger.info(
+                            "Deferring recovery for live scan_id=%s message_id=%s",
+                            scan.id,
+                            message_id,
+                        )
+                        return
+
+                elif scan.status != SCAN_STATUS_PENDING:
+                    self.queue.acknowledge(message_id)
+                    logger.error(
+                        "Acknowledging recovered scan_id=%s with unexpected status=%s",
+                        scan.id,
+                        scan.status,
+                    )
+                    return
 
             scanner_factory = SCANNERS.get(job.provider)
 
@@ -246,10 +312,23 @@ class ScanWorker:
                 },
             )
 
-            result = ScanRunner(db=db).run(
-                scan=scan,
-                scanner=scanner,
+            heartbeat_stop = threading.Event()
+            heartbeat = threading.Thread(
+                target=self._scan_heartbeat,
+                args=(scan.id, heartbeat_stop),
+                name=f"scan-heartbeat-{scan.id}",
+                daemon=True,
             )
+            heartbeat.start()
+
+            try:
+                result = ScanRunner(db=db).run(
+                    scan=scan,
+                    scanner=scanner,
+                )
+            finally:
+                heartbeat_stop.set()
+                heartbeat.join(timeout=2)
 
             if result.status == SCAN_STATUS_COMPLETED:
                 self.queue.acknowledge(message_id)
