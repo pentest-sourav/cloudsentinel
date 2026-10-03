@@ -77,6 +77,7 @@ def test_list_scans_returns_scan_history():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     db = SessionLocal()
 
@@ -151,6 +152,7 @@ def test_list_scans_returns_scan_history():
     finally:
         db.close()
         app.dependency_overrides.clear()
+        app.state.testing = False
 
 
 def test_list_scans_returns_empty_list_when_no_scans():
