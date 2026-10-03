@@ -190,6 +190,51 @@ async def security_headers(
             f"max-age={settings.security_headers_hsts_max_age_seconds}",
         )
 
+    # The bundled web console is same-origin and intentionally has no
+    # third-party JavaScript, fonts, frames, forms, or network endpoints.
+    # Keep the API/docs behavior unchanged while giving the public console
+    # a strict browser execution boundary.
+    frontend_path = request.url.path
+    if (
+        frontend_path in {"/", "/index.html"}
+        or frontend_path.endswith(".css")
+        or frontend_path.endswith(".js")
+    ):
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self'; "
+                "img-src 'self' data:; "
+                "font-src 'self'; "
+                "connect-src 'self'; "
+                "frame-src 'none'; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'; "
+                "object-src 'none'"
+            ),
+        )
+        response.headers.setdefault(
+            "Cross-Origin-Opener-Policy",
+            "same-origin",
+        )
+        response.headers.setdefault(
+            "Cross-Origin-Resource-Policy",
+            "same-origin",
+        )
+
+    if frontend_path in {"/", "/index.html"}:
+        response.headers.setdefault(
+            "Cache-Control",
+            "no-cache, no-store, must-revalidate",
+        )
+        response.headers.setdefault(
+            "Pragma",
+            "no-cache",
+        )
+
     if request.url.path.startswith("/api/v1/auth/"):
         response.headers.setdefault(
             "Cache-Control",
