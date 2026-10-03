@@ -14,6 +14,11 @@ from backend.app.services.auth_service import (
     create_user_access_token,
     register_user,
 )
+from backend.app.services.audit_service import (
+    AUDIT_FAILURE,
+    AUDIT_SUCCESS,
+    safe_record_audit_event,
+)
 
 
 router = APIRouter(
@@ -29,13 +34,24 @@ router = APIRouter(
 )
 def register(
     registration: RegisterRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     try:
-        return register_user(
+        user = register_user(
             db=db,
             registration=registration,
         )
+        safe_record_audit_event(
+            db=db,
+            action="auth.register",
+            status=AUDIT_SUCCESS,
+            tenant_id=user.tenant_id,
+            user_id=user.id,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+        )
+        return user
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -49,6 +65,7 @@ def register(
 )
 def login(
     login_data: LoginRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     user = authenticate_user(
@@ -59,6 +76,14 @@ def login(
     )
 
     if user is None:
+        safe_record_audit_event(
+            db=db,
+            action="auth.login",
+            status=AUDIT_FAILURE,
+            request_id=getattr(request.state, "request_id", None),
+            ip_address=request.client.host if request.client else None,
+            metadata={"email": login_data.email.lower().strip()},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
@@ -66,6 +91,16 @@ def login(
         )
 
     token, expires_in = create_user_access_token(user)
+
+    safe_record_audit_event(
+        db=db,
+        action="auth.login",
+        status=AUDIT_SUCCESS,
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
+    )
 
     return TokenResponse(
         access_token=token,
