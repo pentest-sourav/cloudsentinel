@@ -15,6 +15,11 @@ class MetricsRegistry:
         self._request_duration: dict[tuple[str, str], tuple[float, int]] = defaultdict(
             lambda: (0.0, 0)
         )
+        self._queue_metrics: dict[str, int] = {
+            "stream_length": 0,
+            "pending_count": 0,
+            "dead_letter_length": 0,
+        }
 
     @staticmethod
     def metric_path(request) -> str:
@@ -42,8 +47,31 @@ class MetricsRegistry:
                 count + 1,
             )
 
+    def observe_queue_metrics(
+        self,
+        *,
+        stream_length: int,
+        pending_count: int,
+        dead_letter_length: int,
+    ) -> None:
+        with self._lock:
+            self._queue_metrics = {
+                "stream_length": max(stream_length, 0),
+                "pending_count": max(pending_count, 0),
+                "dead_letter_length": max(dead_letter_length, 0),
+            }
+
     def render(self) -> str:
         lines = [
+            "# HELP cloudsentinel_scan_queue_stream_length Current scan stream length.",
+            "# TYPE cloudsentinel_scan_queue_stream_length gauge",
+            f"cloudsentinel_scan_queue_stream_length {self._queue_metrics['stream_length']}",
+            "# HELP cloudsentinel_scan_queue_pending_count Pending scan jobs in the consumer group.",
+            "# TYPE cloudsentinel_scan_queue_pending_count gauge",
+            f"cloudsentinel_scan_queue_pending_count {self._queue_metrics['pending_count']}",
+            "# HELP cloudsentinel_scan_queue_dead_letter_length Current dead-letter stream length.",
+            "# TYPE cloudsentinel_scan_queue_dead_letter_length gauge",
+            f"cloudsentinel_scan_queue_dead_letter_length {self._queue_metrics['dead_letter_length']}",
             "# HELP cloudsentinel_process_uptime_seconds Process uptime.",
             "# TYPE cloudsentinel_process_uptime_seconds gauge",
             f"cloudsentinel_process_uptime_seconds {max(time() - self._started_at, 0.0):.3f}",
