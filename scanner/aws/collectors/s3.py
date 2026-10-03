@@ -192,6 +192,11 @@ class S3DataCollector:
             collected.append(
                 {
                     "bucket_name": bucket_name,
+                    "versioning_status": (
+                        self.service.get_bucket_versioning(
+                            bucket_name
+                        )
+                    ),
                     "lifecycle_configuration": (
                         self.service.get_bucket_lifecycle_configuration(
                             bucket_name
