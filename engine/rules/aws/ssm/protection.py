@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -178,7 +178,7 @@ class SSMDocumentTagResult:
     owner: str | None
     tags: dict[str, str]
     has_non_system_tags: bool
-    required_tag_keys: list[str]
+    required_tag_keys: list[str] = field(default_factory=list)
 
 
 def check_document_tags(
