@@ -875,12 +875,15 @@ def run_aws_scan(
         nonlocal completed_steps
         completed_steps += 1
         if progress_callback is not None:
-            progress_callback(
-                completed=completed_steps,
-                total=total_steps,
-                service=service,
-                region=region,
-            )
+            try:
+                progress_callback(
+                    completed=completed_steps,
+                    total=total_steps,
+                    service=service,
+                    region=region,
+                )
+            except Exception:
+                pass
 
     if progress_callback is not None:
         progress_callback(
