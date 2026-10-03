@@ -146,6 +146,12 @@ def test_mutation_exposes_rate_limit_headers_without_database_dependency():
                         "password": "StrongPassword-2026!",
                     },
                 )
+
+        assert response.status_code == 401
+        assert response.headers["x-ratelimit-remaining"] == "7"
+        assert response.headers["x-ratelimit-limit"] == str(
+            settings.rate_limit_auth_max_requests
+        )
     finally:
         app.state.testing = False
 
