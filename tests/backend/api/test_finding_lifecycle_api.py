@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -83,6 +85,11 @@ def create_scan(db, tenant, *, status="completed"):
         tenant_id=tenant.id,
         provider="aws",
         status=status,
+        completed_at=(
+            datetime.now(timezone.utc)
+            if status in {"completed", "completed_with_warnings"}
+            else None
+        ),
     )
 
     db.add(scan)
