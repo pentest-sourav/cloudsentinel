@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,6 +32,28 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+
+    @model_validator(mode="after")
+    def validate_runtime_security(self):
+        if self.max_request_body_bytes <= 0:
+            raise ValueError("MAX_REQUEST_BODY_BYTES must be > 0")
+
+        if self.audit_retention_days <= 0:
+            raise ValueError("AUDIT_RETENTION_DAYS must be > 0")
+
+        if "*" in self.cors_allowed_origins:
+            raise ValueError(
+                "Wildcard CORS origins are not allowed."
+            )
+
+        if self.app_environment.lower() == "production":
+            if len(self.jwt_secret_key) < 32:
+                raise ValueError(
+                    "JWT_SECRET_KEY must be at least 32 characters in production."
+                )
+
+        return self
 
 
 settings = Settings()
