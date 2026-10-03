@@ -33,6 +33,10 @@ from engine.rules.aws.s3.ownership import (
     build_s3_ownership_finding,
     check_s3_ownership,
 )
+from engine.rules.aws.s3.lifecycle import (
+    build_s3_lifecycle_finding,
+    check_s3_lifecycle,
+)
 from engine.rules.aws.s3.tls_policy import (
     build_s3_tls_policy_finding,
     check_s3_tls_policy,
@@ -133,6 +137,19 @@ S3_RULES = RuleRegistry(
             ],
             check=check_s3_ownership,
             build_finding=build_s3_ownership_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-S3-010",
+            name="lifecycle",
+            data_source="s3_lifecycle",
+            collection_mode="multiple",
+            check_arguments=[
+                "bucket_name",
+                "versioning_status",
+                "lifecycle_configuration",
+            ],
+            check=check_s3_lifecycle,
+            build_finding=build_s3_lifecycle_finding,
         ),
         RuleDefinition(
             rule_id="CS-AWS-S3-009",
