@@ -153,6 +153,7 @@ def test_list_scans_returns_scan_history():
         db.close()
         app.dependency_overrides.clear()
         app.state.testing = False
+        app.state.testing = False
 
 
 def test_list_scans_returns_empty_list_when_no_scans():
@@ -166,6 +167,7 @@ def test_list_scans_returns_empty_list_when_no_scans():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     db = SessionLocal()
 
@@ -201,6 +203,7 @@ def test_list_scans_returns_empty_list_when_no_scans():
     finally:
         db.close()
         app.dependency_overrides.clear()
+        app.state.testing = False
 
 
 def test_list_scans_supports_pagination():
@@ -214,6 +217,7 @@ def test_list_scans_supports_pagination():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     db = SessionLocal()
 
@@ -284,6 +288,7 @@ def test_list_scans_supports_pagination():
     finally:
         db.close()
         app.dependency_overrides.clear()
+        app.state.testing = False
 
 
 def test_list_scans_pagination_offset():
@@ -297,6 +302,7 @@ def test_list_scans_pagination_offset():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     db = SessionLocal()
 
@@ -348,6 +354,7 @@ def test_list_scans_pagination_offset():
     finally:
         db.close()
         app.dependency_overrides.clear()
+        app.state.testing = False
 
 
 def test_list_scans_rejects_invalid_limit_zero():
@@ -391,6 +398,7 @@ def test_list_scans_pagination_returns_only_requested_page():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     db = SessionLocal()
 
@@ -436,3 +444,4 @@ def test_list_scans_pagination_returns_only_requested_page():
     finally:
         db.close()
         app.dependency_overrides.clear()
+        app.state.testing = False
