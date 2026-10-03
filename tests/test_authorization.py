@@ -217,6 +217,29 @@ def test_viewer_cannot_delete_cloud_account(test_environment):
     assert response.json()["detail"] == "Insufficient permissions."
 
 
+def test_viewer_cannot_read_aws_connection_configuration(test_environment):
+    client, SessionLocal = test_environment
+    user_id, account_id = _create_owner_and_account(SessionLocal)
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).one()
+        user.role = ROLE_VIEWER
+        db.commit()
+    finally:
+        db.close()
+
+    token = _token(client)
+
+    response = client.get(
+        f"/api/v1/cloud-accounts/{account_id}/connection",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient permissions."
+
+
 def test_viewer_can_read_cloud_account(test_environment):
     client, SessionLocal = test_environment
     user_id, account_id = _create_owner_and_account(SessionLocal)
