@@ -9,12 +9,20 @@ class StepFunctionsTaggingResult:
     activity_arn: str
     tagged: bool
     tags: list[dict[str, Any]]
+    required_tag_keys: list[str]
 
 
 def check_stepfunctions_tagging(
     activity_arn: str,
     tags: list[dict[str, Any]],
+    required_tag_keys: list[str] | None = None,
 ) -> StepFunctionsTaggingResult:
+    required = [
+        key.strip()
+        for key in (required_tag_keys or [])
+        if isinstance(key, str) and key.strip()
+        and not key.lower().startswith("aws:")
+    ]
     valid_tags = [
         tag
         for tag in tags
@@ -28,13 +36,18 @@ def check_stepfunctions_tagging(
         activity_arn=activity_arn,
         tagged=bool(valid_tags),
         tags=valid_tags,
+        required_tag_keys=required,
     )
 
 
 def build_stepfunctions_tagging_finding(
     result: StepFunctionsTaggingResult,
 ) -> Finding | None:
-    if result.tagged:
+    if result.required_tag_keys:
+        actual = {tag.get("key") for tag in result.tags}
+        if all(key in actual for key in result.required_tag_keys):
+            return None
+    elif result.tagged:
         return None
 
     return Finding(
@@ -52,6 +65,7 @@ def build_stepfunctions_tagging_finding(
         evidence={
             "tagged": result.tagged,
             "tags": result.tags,
+            "required_tag_keys": result.required_tag_keys,
         },
         remediation=(
             "Add appropriate ownership, environment, application, "
