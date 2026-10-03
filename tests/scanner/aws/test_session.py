@@ -268,3 +268,19 @@ def test_create_aws_session_handles_assume_role_boto_core_error():
             assert False, "Expected RuntimeError"
         except RuntimeError as exc:
             assert "AWS SDK error during role assumption" in str(exc)
+
+
+def test_create_aws_session_rejects_invalid_role_session_name_characters():
+    with patch("scanner.aws.session.boto3.Session"):
+        try:
+            create_aws_session(
+                role_arn=(
+                    "arn:aws:iam::123456789012:"
+                    "role/CloudSentinelAuditRole"
+                ),
+                external_id="cloudsentinel-external-id",
+                role_session_name="CloudSentinel Scan!",
+            )
+            assert False, "Expected ValueError"
+        except ValueError as exc:
+            assert "unsupported AWS STS characters" in str(exc)
