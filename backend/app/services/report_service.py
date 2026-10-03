@@ -27,8 +27,8 @@ def get_scan_report_data(
     """
     Load the complete report dataset for a scan.
 
-    Tenant scoping is applied at the scan lookup so callers cannot
-    retrieve report data belonging to another tenant.
+    Tenant scoping is applied at the scan lookup and every tenant-sensitive
+    child dataset is loaded from that already-authorized scan.
     """
     scan = (
         db.query(Scan)
@@ -56,6 +56,7 @@ def get_scan_report_data(
     execution_errors = get_execution_errors(
         db=db,
         scan_id=scan.id,
+        tenant_id=tenant_id,
     )
 
     lifecycle = get_scan_lifecycle(

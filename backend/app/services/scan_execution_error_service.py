@@ -2,6 +2,7 @@ from collections.abc import Iterable
 
 from sqlalchemy.orm import Session
 
+from backend.app.models.scan import Scan
 from backend.app.models.scan_execution_error import ScanExecutionError
 
 
@@ -40,10 +41,19 @@ def persist_execution_errors(
 def get_execution_errors(
     db: Session,
     scan_id: int,
+    tenant_id: int | None = None,
 ) -> list[ScanExecutionError]:
-    return (
+    query = (
         db.query(ScanExecutionError)
+        .join(Scan, ScanExecutionError.scan_id == Scan.id)
         .filter(ScanExecutionError.scan_id == scan_id)
+    )
+
+    if tenant_id is not None:
+        query = query.filter(Scan.tenant_id == tenant_id)
+
+    return (
+        query
         .order_by(ScanExecutionError.id.asc())
         .all()
     )

@@ -207,3 +207,70 @@ def test_clear_execution_errors_removes_all_errors_for_scan():
         ) == []
     finally:
         db.close()
+
+
+def test_get_execution_errors_can_enforce_tenant_scope():
+    db = create_test_db()
+
+    try:
+        scan_a = create_test_scan(db)
+
+        tenant_b = Tenant(
+            name="Execution Error Tenant B",
+            slug="execution-error-tenant-b",
+            status="active",
+            created_at=datetime.now(timezone.utc),
+        )
+        db.add(tenant_b)
+        db.commit()
+        db.refresh(tenant_b)
+
+        scan_b = Scan(
+            tenant_id=tenant_b.id,
+            provider="aws",
+            status="running",
+        )
+        db.add(scan_b)
+        db.commit()
+        db.refresh(scan_b)
+
+        persist_execution_errors(
+            db=db,
+            scan_id=scan_a.id,
+            errors=[
+                ExecutionErrorStub(
+                    service="ec2",
+                    error_type="ClientError",
+                    error_code="AccessDenied",
+                    message="Tenant A error",
+                ),
+            ],
+        )
+        persist_execution_errors(
+            db=db,
+            scan_id=scan_b.id,
+            errors=[
+                ExecutionErrorStub(
+                    service="s3",
+                    error_type="ClientError",
+                    error_code="AccessDenied",
+                    message="Tenant B error",
+                ),
+            ],
+        )
+
+        own = get_execution_errors(
+            db=db,
+            scan_id=scan_a.id,
+            tenant_id=scan_a.tenant_id,
+        )
+        foreign = get_execution_errors(
+            db=db,
+            scan_id=scan_a.id,
+            tenant_id=scan_b.tenant_id,
+        )
+
+        assert [error.message for error in own] == ["Tenant A error"]
+        assert foreign == []
+    finally:
+        db.close()

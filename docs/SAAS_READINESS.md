@@ -237,3 +237,5 @@ callers and background workflows.
 
 Tenant suspension is checked during authentication on every request, so an
 active JWT does not retain access after its tenant is suspended.
+
+Report generation now re-validates the tenant at the report service boundary before loading findings, lifecycle data, or scan execution errors. Execution-error reads can also enforce the scan tenant directly, preventing a future caller from turning a valid scan identifier into cross-tenant operational data access.
