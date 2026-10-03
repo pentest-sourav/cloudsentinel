@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 import ipaddress
 import json
+import socket
 import time
 from datetime import datetime, timezone
 
@@ -22,14 +23,29 @@ def _validate_endpoint(url: str) -> str:
     if parsed.scheme != "https" or not parsed.hostname:
         raise ValueError("Alert endpoints must use HTTPS.")
     host = parsed.hostname
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        address = None
-    if address is not None and (address.is_private or address.is_loopback or address.is_link_local or address.is_reserved or address.is_multicast):
-        raise ValueError("Private or non-routable alert endpoints are not allowed.")
     if host.lower() in {"localhost", "localhost.localdomain"}:
         raise ValueError("Local alert endpoints are not allowed.")
+
+    addresses = []
+    try:
+        addresses = [info[4][0] for info in socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)]
+    except OSError as exc:
+        raise ValueError("Alert endpoint hostname could not be resolved.") from exc
+
+    for resolved_host in set(addresses):
+        try:
+            address = ipaddress.ip_address(resolved_host)
+        except ValueError:
+            continue
+        if (
+            address.is_private
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_reserved
+            or address.is_multicast
+            or address.is_unspecified
+        ):
+            raise ValueError("Private or non-routable alert endpoints are not allowed.")
     return url
 
 
