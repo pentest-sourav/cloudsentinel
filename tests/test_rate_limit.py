@@ -117,7 +117,7 @@ def test_authentication_rate_limit_returns_429():
     assert call_kwargs["limit"] == settings.rate_limit_auth_max_requests
 
 
-def test_successful_mutation_exposes_rate_limit_headers():
+def test_mutation_exposes_rate_limit_headers_without_database_dependency():
     limiter = Mock()
     limiter.check.return_value = RateLimitDecision(
         allowed=True,
@@ -129,17 +129,19 @@ def test_successful_mutation_exposes_rate_limit_headers():
         "backend.app.main.rate_limiter",
         limiter,
     ):
-        response = TestClient(app).post(
-            "/api/v1/auth/register",
-            json={
-                "email": "rate-success@example.com",
-                "password": "StrongPassword-2026!",
-                "full_name": "Rate Success",
-                "tenant_name": "Rate Success Tenant",
-            },
-        )
+        with patch(
+            "backend.app.api.routes.auth.authenticate_user",
+            return_value=None,
+        ):
+            response = TestClient(app).post(
+                "/api/v1/auth/login",
+                json={
+                    "email": "rate-success@example.com",
+                    "password": "StrongPassword-2026!",
+                },
+            )
 
-    assert response.status_code == 201
+    assert response.status_code == 401
     assert response.headers["x-ratelimit-remaining"] == "7"
     assert response.headers["x-ratelimit-limit"] == str(
         settings.rate_limit_auth_max_requests

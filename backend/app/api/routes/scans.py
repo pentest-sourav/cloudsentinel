@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from backend.app.api.authorization import (
+    ROLE_ADMINISTRATOR,
+    ROLE_OPERATOR,
+    ROLE_OWNER,
+    require_roles,
+)
 from backend.app.api.dependencies import get_current_user
 from backend.app.core.database import get_db
 from backend.app.models.user import User
@@ -31,7 +37,13 @@ router = APIRouter(
 def create_new_scan(
     scan_data: ScanCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        require_roles(
+            ROLE_OWNER,
+            ROLE_ADMINISTRATOR,
+            ROLE_OPERATOR,
+        ),
+    ),
 ):
     try:
         scan = create_scan(
@@ -83,7 +95,9 @@ def create_new_scan(
 )
 def delete_scan_history(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        require_roles(ROLE_OWNER, ROLE_ADMINISTRATOR),
+    ),
 ):
     clear_scan_history(
         db=db,

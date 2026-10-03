@@ -49,6 +49,7 @@ The project should be presented publicly as an **AWS-focused CSPM foundation und
 - AWS account connection testing
 - Read-only AWS scanning model
 - Configurable API rate limiting with Redis-backed enforcement
+- Role-based authorization for operational mutations
 
 ## SaaS Security Requirements
 
@@ -81,6 +82,11 @@ The application must not require customers to provide long-lived AWS access keys
 Production runtime credentials should come from the CloudSentinel runtime identity, not developer workstation credential mounts.
 
 ### Authorization
+
+Role-based authorization is now enforced for operational mutations:
+- owner/administrator: manage cloud accounts and delete scan history
+- owner/administrator/operator: create scans and test AWS connections
+- viewer: read-only access to tenant data
 
 Authenticated users should not automatically receive every operational capability.
 
