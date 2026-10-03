@@ -19,6 +19,7 @@ class MetricsRegistry:
             "stream_length": 0,
             "pending_count": 0,
             "dead_letter_length": 0,
+            "active_workers": 0,
         }
 
     @staticmethod
@@ -53,12 +54,14 @@ class MetricsRegistry:
         stream_length: int,
         pending_count: int,
         dead_letter_length: int,
+        active_workers: int = 0,
     ) -> None:
         with self._lock:
             self._queue_metrics = {
                 "stream_length": max(stream_length, 0),
                 "pending_count": max(pending_count, 0),
                 "dead_letter_length": max(dead_letter_length, 0),
+                "active_workers": max(active_workers, 0),
             }
 
     def render(self) -> str:
@@ -72,6 +75,9 @@ class MetricsRegistry:
             "# HELP cloudsentinel_scan_queue_dead_letter_length Current dead-letter stream length.",
             "# TYPE cloudsentinel_scan_queue_dead_letter_length gauge",
             f"cloudsentinel_scan_queue_dead_letter_length {self._queue_metrics['dead_letter_length']}",
+            "# HELP cloudsentinel_scan_queue_active_workers Number of workers with a live heartbeat.",
+            "# TYPE cloudsentinel_scan_queue_active_workers gauge",
+            f"cloudsentinel_scan_queue_active_workers {self._queue_metrics['active_workers']}",
             "# HELP cloudsentinel_process_uptime_seconds Process uptime.",
             "# TYPE cloudsentinel_process_uptime_seconds gauge",
             f"cloudsentinel_process_uptime_seconds {max(time() - self._started_at, 0.0):.3f}",

@@ -355,3 +355,50 @@ def test_scan_queue_live_progress_round_trip():
         "region": "ap-south-1",
     }
     assert client.progress_expiry[1] == 86_400
+
+
+
+def test_scan_queue_worker_heartbeat_and_health():
+    class HeartbeatRedis:
+        def __init__(self):
+            self.values = {}
+
+        def set(self, key, value, ex):
+            self.values[key] = (value, ex)
+
+        def scan_iter(self, match, count):
+            prefix = match[:-1]
+            return iter(key for key in self.values if key.startswith(prefix))
+
+    client = HeartbeatRedis()
+    queue = ScanQueue(redis_url="redis://unused")
+    queue.client = client
+
+    queue.heartbeat_worker(ttl_seconds=30)
+
+    key = queue._worker_heartbeat_key()
+    assert key in client.values
+    assert client.values[key][1] == 30
+    assert queue.worker_health() == {"active_workers": 1}
+
+
+def test_scan_queue_metrics_include_active_workers():
+    class MetricsRedis:
+        def xpending(self, *args):
+            return {"pending": 2}
+
+        def xlen(self, stream):
+            return 4 if stream != "cloudsentinel:scan_jobs:dlq" else 1
+
+        def scan_iter(self, match, count):
+            return iter(["cloudsentinel:worker_heartbeat:w1"])
+
+    queue = ScanQueue(redis_url="redis://unused")
+    queue.client = MetricsRedis()
+
+    metrics = queue.metrics()
+
+    assert metrics["stream_length"] == 4
+    assert metrics["pending_count"] == 2
+    assert metrics["dead_letter_length"] == 1
+    assert metrics["active_workers"] == 1
