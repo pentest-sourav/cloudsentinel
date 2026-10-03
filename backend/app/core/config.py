@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     cors_allowed_origins: str = ""
     app_environment: str = "development"
+    audit_retention_days: int = 365
 
     rate_limit_window_seconds: int = 60
     rate_limit_auth_max_requests: int = 10
