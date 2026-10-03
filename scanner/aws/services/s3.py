@@ -420,3 +420,33 @@ class S3Service:
                 f"AWS SDK error while checking S3 lifecycle configuration: "
                 f"{exc}"
             ) from exc
+
+    def get_bucket_mfa_delete(
+        self,
+        bucket_name: str,
+    ) -> dict[str, Any]:
+        try:
+            response = self.s3_client.get_bucket_versioning(
+                Bucket=bucket_name
+            )
+
+            return {
+                "Status": response.get("Status"),
+                "MFADelete": response.get("MFADelete"),
+            }
+
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get(
+                "Message",
+                "AWS request failed",
+            )
+            raise RuntimeError(
+                f"S3 MFA delete check failed: {code}: {message}"
+            ) from exc
+
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"AWS SDK error while checking S3 MFA delete: {exc}"
+            ) from exc
