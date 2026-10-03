@@ -19,6 +19,27 @@ class CloudFrontDataCollector:
         return self._distributions
 
     @staticmethod
+    def _s3_bucket_name_from_domain(
+        domain_name: Any,
+    ) -> str | None:
+        if not isinstance(domain_name, str):
+            return None
+
+        normalized = domain_name.strip().lower().rstrip(".")
+        if not normalized:
+            return None
+
+        labels = normalized.split(".")
+        for index, label in enumerate(labels):
+            if label == "s3" or label.startswith("s3-"):
+                bucket_labels = labels[:index]
+                if not bucket_labels:
+                    return None
+                return ".".join(bucket_labels)
+
+        return None
+
+    @staticmethod
     def _normalize_origins(
         origins: dict[str, Any] | None,
     ) -> list[dict[str, Any]]:
@@ -361,6 +382,13 @@ class CloudFrontDataCollector:
             )
         ]
 
+        for origin in s3_origins:
+            origin["s3_bucket_name"] = (
+                cls._s3_bucket_name_from_domain(
+                    origin.get("domain_name")
+                )
+            )
+
         logging_config = (
             distribution_config.get(
                 "Logging"
@@ -510,6 +538,28 @@ class CloudFrontDataCollector:
                 item = self._normalize_distribution(
                     distribution
                 )
+
+                for origin in item.get(
+                    "s3_origins",
+                    [],
+                ):
+                    bucket_name = origin.get(
+                        "s3_bucket_name"
+                    )
+
+                    if not bucket_name:
+                        continue
+
+                    check_bucket = getattr(
+                        self.service,
+                        "check_s3_bucket_exists",
+                        None,
+                    )
+
+                    if callable(check_bucket):
+                        origin["s3_bucket_exists"] = (
+                            check_bucket(bucket_name)
+                        )
 
                 resource_arn = distribution.get("ARN")
 
