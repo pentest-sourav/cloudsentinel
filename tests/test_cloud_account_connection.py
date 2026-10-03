@@ -264,3 +264,45 @@ def test_cloud_account_operations_write_audit_events():
         app.dependency_overrides.clear()
         app.state.testing = False
         engine.dispose()
+
+
+
+def test_external_id_rotation_invalidates_previous_configuration():
+    client, engine = _client()
+
+    try:
+        token = _register_and_login(client)
+        account = _create_account(client, token)
+
+        setup = client.get(
+            f"/api/v1/cloud-accounts/{account['id']}/connection",
+            headers=_headers(token),
+        )
+        assert setup.status_code == 200
+        old_external_id = setup.json()["external_id"]
+
+        response = client.post(
+            f"/api/v1/cloud-accounts/{account['id']}/external-id/rotate",
+            headers=_headers(token),
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["external_id"] != old_external_id
+        assert payload["external_id"].startswith("cs-")
+        assert payload["status"] == "pending_connection"
+        assert "update the customer iam trust policy" in (
+            payload["last_connection_error"].lower()
+        )
+
+        refreshed = client.get(
+            f"/api/v1/cloud-accounts/{account['id']}/connection",
+            headers=_headers(token),
+        )
+        assert refreshed.status_code == 200
+        assert refreshed.json()["external_id"] == payload["external_id"]
+
+    finally:
+        app.dependency_overrides.clear()
+        app.state.testing = False
+        engine.dispose()
