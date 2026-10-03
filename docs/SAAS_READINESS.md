@@ -6,8 +6,8 @@ CloudSentinel is an **AWS-first, production-oriented security posture and compli
 
 The repository currently has a verified regression baseline of:
 
-- **2838 passing tests**
-- 1 existing Starlette/AnyIO deprecation warning
+- **2855 passing tests** in the latest local verification before the current deprecation cleanup
+- current branch replaces the FastAPI startup-event and deprecated HTTP 413 APIs; the post-cleanup warning count is pending verification
 - AWS is the primary implemented provider
 - Azure is intentionally in development
 
@@ -55,7 +55,8 @@ The project should be presented publicly as an **AWS-focused CSPM foundation und
 - request correlation IDs on API responses
 - configurable request body-size limits
 - trusted-proxy-aware rate-limit client identification
-- optional Prometheus-format API metrics
+- production-safe metrics authentication
+- optional authenticated Prometheus-format API metrics
 - startup cleanup for expired audit events
 
 ## SaaS Security Requirements
@@ -113,7 +114,6 @@ Current implementation includes Redis-backed, configurable rate limiting for aut
 Before public exposure:
 
 - verify rate-limit thresholds with expected traffic and proxy topology
-- enforce request-size limits
 - enforce request-size limits
 - configure production CORS explicitly
 - enable secure response headers
