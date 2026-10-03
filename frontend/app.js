@@ -1834,41 +1834,68 @@ function renderExecutiveDashboard(data) {
             .join("");
     }
 
-    const remediation = data?.top_risks || [];
+    const remediation = data?.remediation?.items || [];
     const remediationElement = $("executive-remediation-list");
 
     if (!remediation.length) {
         remediationElement.innerHTML = `
             <div class="empty-state compact">
-                <strong>No high-priority remediation items</strong>
-                <span>The latest assessment has no persisted findings requiring display here.</span>
+                <strong>No active remediation items</strong>
+                <span>Resolved and accepted-risk findings are excluded from the active queue.</span>
             </div>
         `;
     } else {
         remediationElement.innerHTML = remediation
             .slice(0, 5)
-            .map((item) => `
-                <button
-                    type="button"
-                    class="executive-remediation-item"
-                    data-executive-finding="${escapeHtml(item.finding_id)}"
-                >
-                    <span class="executive-remediation-main">
-                        <strong>${escapeHtml(item.title)}</strong>
-                        <small>
-                            ${escapeHtml(item.resource_type)}
-                            · ${escapeHtml(item.resource_id)}
-                            · ${escapeHtml(item.region)}
-                        </small>
-                    </span>
-                    <span class="executive-remediation-side">
-                        ${severityBadge(item.severity)}
-                        <strong>${safeNumber(item.risk_score).toFixed(1)}</strong>
-                        <small>${escapeHtml(item.priority_reason)}</small>
-                    </span>
-                </button>
-            `)
+            .map((item) => {
+                const slaLabel =
+                    item.sla_state === "overdue"
+                        ? "OVERDUE"
+                        : item.sla_state === "unconfigured"
+                            ? "SLA NOT CONFIGURED"
+                            : "ON TRACK";
+
+                return `
+                    <button
+                        type="button"
+                        class="executive-remediation-item"
+                        data-executive-finding="${escapeHtml(item.finding_id)}"
+                    >
+                        <span class="executive-remediation-main">
+                            <strong>${escapeHtml(item.title)}</strong>
+                            <small>
+                                ${escapeHtml(item.resource_type)}
+                                · ${escapeHtml(item.resource_id)}
+                                · ${escapeHtml(item.region)}
+                            </small>
+                            <small>
+                                ${escapeHtml(item.workflow_status.replace("_", " "))}
+                                · SLA ${safeNumber(item.sla_target_hours)}h
+                                · ${escapeHtml(slaLabel)}
+                            </small>
+                        </span>
+                        <span class="executive-remediation-side">
+                            ${severityBadge(item.severity)}
+                            <strong>${safeNumber(item.risk_score).toFixed(1)}</strong>
+                            <small>${escapeHtml(item.priority_reason)}</small>
+                        </span>
+                    </button>
+                `;
+            })
             .join("");
+    }
+
+    const remediationQuality =
+        data?.remediation || {};
+
+    const remediationHeader =
+        document.querySelector(
+            ".executive-panel .panel-header p"
+        );
+
+    if (remediationHeader) {
+        remediationHeader.textContent =
+            `${safeNumber(remediationQuality.overdue_items)} overdue · ${safeNumber(remediationQuality.unassigned_items)} unassigned · SLA policy by severity`;
     }
 
     const complianceItems = data?.compliance?.items || [];
