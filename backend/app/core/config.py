@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     rate_limit_scan_max_requests: int = 20
     rate_limit_global_max_requests: int = 300
     aws_sts_session_duration_seconds: int = 900
+    aws_sdk_connect_timeout_seconds: int = 10
+    aws_sdk_read_timeout_seconds: int = 60
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -66,6 +68,16 @@ class Settings(BaseSettings):
         if self.security_headers_hsts_max_age_seconds <= 0:
             raise ValueError(
                 "SECURITY_HEADERS_HSTS_MAX_AGE_SECONDS must be > 0"
+            )
+
+        if not 1 <= self.aws_sdk_connect_timeout_seconds <= 60:
+            raise ValueError(
+                "AWS_SDK_CONNECT_TIMEOUT_SECONDS must be between 1 and 60 seconds."
+            )
+
+        if not 1 <= self.aws_sdk_read_timeout_seconds <= 300:
+            raise ValueError(
+                "AWS_SDK_READ_TIMEOUT_SECONDS must be between 1 and 300 seconds."
             )
 
         if not 900 <= self.aws_sts_session_duration_seconds <= 43_200:
