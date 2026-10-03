@@ -983,10 +983,12 @@ def test_run_aws_scan_isolates_regional_session_failure():
         "backend.app.services.aws_scan_service.discover_aws_regions",
         return_value=[REGION, "us-west-2"],
     ):
-        mock_session.side_effect = [
-            fake_session,
-            RuntimeError("STS unavailable in us-west-2"),
-        ]
+        def create_session(**kwargs):
+            if kwargs.get("region_name") == "us-west-2":
+                raise RuntimeError("STS unavailable in us-west-2")
+            return fake_session
+
+        mock_session.side_effect = create_session
 
         result = run_aws_scan(
             role_arn=ROLE_ARN,
