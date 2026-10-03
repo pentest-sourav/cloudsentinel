@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class AuditEventResponse(BaseModel):
@@ -13,7 +13,9 @@ class AuditEventResponse(BaseModel):
     resource_id: str | None
     request_id: str | None
     ip_address: str | None
-    metadata: dict
+    metadata: dict = Field(
+        validation_alias=AliasChoices("event_metadata", "metadata"),
+    )
     created_at: datetime
 
     model_config = {
