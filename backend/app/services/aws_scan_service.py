@@ -758,11 +758,18 @@ def run_aws_scan(
     external_id,
     region_name,
     expected_account_id,
+    scan_id: int | None = None,
 ):
     if not role_arn:
         raise RuntimeError(
             "AWS IAM role ARN is not configured"
         )
+
+    role_session_name = (
+        f"CloudSentinelScan-{scan_id}"
+        if scan_id is not None
+        else "CloudSentinelScan"
+    )
 
     # Base session:
     # - verifies account identity
@@ -773,6 +780,8 @@ def run_aws_scan(
         role_arn=role_arn,
         external_id=external_id,
         region_name=region_name,
+        role_session_name=role_session_name,
+        duration_seconds=settings.aws_sts_session_duration_seconds,
     )
 
     provider = AWSProvider(base_session)
@@ -897,6 +906,8 @@ def run_aws_scan(
                         role_arn=role_arn,
                         external_id=external_id,
                         region_name=current_region,
+                        role_session_name=role_session_name,
+                        duration_seconds=settings.aws_sts_session_duration_seconds,
                     )
                     regional_sessions[current_region] = regional_session
 
@@ -963,6 +974,8 @@ def run_aws_scan(
                     role_arn=role_arn,
                     external_id=external_id,
                     region_name=current_region,
+                    role_session_name=role_session_name,
+                    duration_seconds=settings.aws_sts_session_duration_seconds,
                 )
                 regional_sessions[current_region] = regional_session
 
