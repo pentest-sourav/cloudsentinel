@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_current_user
 from backend.app.core.database import get_db
 from backend.app.models.user import User
 from backend.app.services.report_service import get_scan_report_data
+from backend.app.services.audit_service import (
+    AUDIT_SUCCESS,
+    safe_record_audit_event,
+)
 from reporting.html_report import render_scan_report
 from reporting.pdf_report import render_scan_pdf
 
@@ -62,6 +66,7 @@ def _report_security_headers() -> dict[str, str]:
 )
 def get_scan_html_report(
     scan_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -69,6 +74,19 @@ def get_scan_html_report(
         db=db,
         scan_id=scan_id,
         tenant_id=current_user.tenant_id,
+    )
+
+    safe_record_audit_event(
+        db=db,
+        action="report.view",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="scan",
+        resource_id=scan_id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
+        metadata={"format": "html"},
     )
 
     report = render_scan_report(
@@ -96,6 +114,7 @@ def get_scan_html_report(
 )
 def get_scan_pdf_report(
     scan_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -103,6 +122,19 @@ def get_scan_pdf_report(
         db=db,
         scan_id=scan_id,
         tenant_id=current_user.tenant_id,
+    )
+
+    safe_record_audit_event(
+        db=db,
+        action="report.view",
+        status=AUDIT_SUCCESS,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
+        resource_type="scan",
+        resource_id=scan_id,
+        request_id=getattr(request.state, "request_id", None),
+        ip_address=request.client.host if request.client else None,
+        metadata={"format": "pdf"},
     )
 
     report = render_scan_pdf(
