@@ -139,6 +139,18 @@ S3_RULES = RuleRegistry(
             build_finding=build_s3_ownership_finding,
         ),
         RuleDefinition(
+            rule_id="CS-AWS-S3-009",
+            name="tls_policy",
+            data_source="s3_tls_policy",
+            collection_mode="multiple",
+            check_arguments=[
+                "bucket_name",
+                "policy",
+            ],
+            check=check_s3_tls_policy,
+            build_finding=build_s3_tls_policy_finding,
+        ),
+        RuleDefinition(
             rule_id="CS-AWS-S3-010",
             name="lifecycle",
             data_source="s3_lifecycle",
@@ -150,18 +162,6 @@ S3_RULES = RuleRegistry(
             ],
             check=check_s3_lifecycle,
             build_finding=build_s3_lifecycle_finding,
-        ),
-        RuleDefinition(
-            rule_id="CS-AWS-S3-009",
-            name="tls_policy",
-            data_source="s3_tls_policy",
-            collection_mode="multiple",
-            check_arguments=[
-                "bucket_name",
-                "policy",
-            ],
-            check=check_s3_tls_policy,
-            build_finding=build_s3_tls_policy_finding,
         ),
     ]
 )
