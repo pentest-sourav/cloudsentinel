@@ -68,6 +68,40 @@ def test_create_aws_session_requires_external_id_for_role_assumption():
         )
 
 
+def test_create_aws_session_uses_configured_default_duration():
+    base_session = Mock()
+    sts = Mock()
+    sts.assume_role.return_value = {
+        "Credentials": {
+            "AccessKeyId": "ASIAEXAMPLE",
+            "SecretAccessKey": "secret",
+            "SessionToken": "token",
+        }
+    }
+    base_session.client.return_value = sts
+    assumed_session = Mock()
+
+    with patch(
+        "scanner.aws.session.boto3.Session",
+        side_effect=[base_session, assumed_session],
+    ), patch(
+        "scanner.aws.session.settings.aws_sts_session_duration_seconds",
+        1800,
+    ):
+        result = create_aws_session(
+            role_arn=ROLE_ARN,
+            external_id=EXTERNAL_ID,
+        )
+
+    assert result is assumed_session
+    sts.assume_role.assert_called_once_with(
+        RoleArn=ROLE_ARN,
+        RoleSessionName="CloudSentinelScan",
+        DurationSeconds=1800,
+        ExternalId=EXTERNAL_ID,
+    )
+
+
 def test_create_aws_session_preserves_normal_boto3_chain_without_role():
     session = Mock()
 
