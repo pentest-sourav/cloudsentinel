@@ -62,7 +62,10 @@ class ScanWorker:
         self,
         queue: ScanQueue | None = None,
     ):
-        self.queue = queue or ScanQueue()
+        self.queue = queue or ScanQueue(
+            max_retries=settings.scan_queue_max_retries,
+            dead_letter_max_length=settings.scan_queue_dead_letter_max_length,
+        )
         self.running = True
 
     def stop(self, *_args) -> None:
@@ -296,8 +299,8 @@ class ScanWorker:
 
         while self.running:
             recovered_jobs = self.queue.recover_pending(
-                min_idle_ms=30000,
-                count=10,
+                min_idle_ms=settings.scan_queue_recovery_idle_ms,
+                count=settings.scan_queue_recovery_batch_size,
             )
 
             for recovered in recovered_jobs:
@@ -313,7 +316,7 @@ class ScanWorker:
             if not self.running:
                 break
 
-            jobs = self.queue.read(block_ms=5000)
+            jobs = self.queue.read(block_ms=settings.scan_queue_read_block_ms)
 
             for message_id, job in jobs:
                 if not self.running:
