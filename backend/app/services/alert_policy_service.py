@@ -3,6 +3,9 @@ import ipaddress
 import socket
 import time
 from datetime import datetime, timezone
+import hashlib
+import hmac
+import json
 
 import httpx
 from sqlalchemy.orm import Session
@@ -208,14 +211,23 @@ def dispatch_scan_alerts(db: Session, *, scan_id: int, tenant_id: int) -> dict:
                 continue
 
             payload = _event_payload(scan, finding, item.status)
-            headers = {"Content-Type": "application/json", "User-Agent": "CloudSentinel-Alert/1.0"}
+            body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "CloudSentinel-Alert/1.0",
+            }
             if policy.secret:
-                headers["X-CloudSentinel-Signature"] = policy.secret
+                digest = hmac.new(
+                    policy.secret.encode("utf-8"),
+                    body,
+                    hashlib.sha256,
+                ).hexdigest()
+                headers["X-CloudSentinel-Signature"] = f"sha256={digest}"
             last_error = None
             for attempt in range(1, 4):
                 try:
                     with httpx.Client(timeout=httpx.Timeout(5.0, connect=2.0), follow_redirects=False) as client:
-                        response = client.post(policy.endpoint_url, json=payload, headers=headers)
+                        response = client.post(policy.endpoint_url, content=body, headers=headers)
                     if 200 <= response.status_code < 300:
                         delivery.status = "delivered"
                         delivery.attempts = attempt
