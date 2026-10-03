@@ -1015,3 +1015,37 @@ def test_run_aws_scan_isolates_regional_session_failure():
         if error.service != "aws_session"
     )
     assert "STS unavailable in us-west-2" in session_errors[0].message
+
+
+
+def test_classifies_common_aws_execution_errors():
+    from botocore.exceptions import ClientError
+    from backend.app.services.aws_scan_service import _classify_aws_error
+
+    access_denied = ClientError(
+        {
+            "Error": {
+                "Code": "AccessDeniedException",
+                "Message": "not allowed",
+            }
+        },
+        "DescribeInstances",
+    )
+    throttled = ClientError(
+        {
+            "Error": {
+                "Code": "ThrottlingException",
+                "Message": "rate exceeded",
+            }
+        },
+        "ListBuckets",
+    )
+
+    assert _classify_aws_error(access_denied) == "permission_denied"
+    assert _classify_aws_error(throttled) == "throttled"
+
+
+def test_classifies_unknown_aws_errors_by_exception_type():
+    from backend.app.services.aws_scan_service import _classify_aws_error
+
+    assert _classify_aws_error(RuntimeError("boom")) == "RuntimeError"
