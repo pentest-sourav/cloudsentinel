@@ -51,7 +51,11 @@ The project should be presented publicly as an **AWS-focused CSPM foundation und
 - Configurable API rate limiting with Redis-backed enforcement
 - Role-based authorization for operational mutations
 - persisted security audit events for authentication and privileged operations
+- tenant-scoped audit event retrieval for owner/administrator roles
 - request correlation IDs on API responses
+- configurable request body-size limits
+- trusted-proxy-aware rate-limit client identification
+- optional Prometheus-format API metrics
 - startup cleanup for expired audit events
 
 ## SaaS Security Requirements
@@ -196,3 +200,18 @@ CloudSentinel can be considered ready for a controlled public beta when:
 - the public documentation accurately states supported capabilities and limitations
 
 This checklist is deliberately stricter than simply having a large number of AWS rules.
+
+
+## Current Production Hardening Layer
+
+The application now exposes a read-only, tenant-scoped audit event API for owner/administrator users:
+
+`GET /api/v1/audit-events`
+
+Supported filters include action, status, and resource type, with bounded pagination.
+
+API request bodies are bounded by `MAX_REQUEST_BODY_BYTES`. Rate limiting only honors `X-Forwarded-For` when the direct peer belongs to an explicitly configured `TRUSTED_PROXY_IPS` network.
+
+Metrics are available from `/metrics` only when `METRICS_ENABLED=true`. The endpoint emits Prometheus-compatible text and intentionally uses bounded FastAPI route labels rather than raw resource URLs.
+
+The container image runs as the non-root `cloudsentinel` user, includes an HTTP healthcheck, and is scanned in CI for high/critical OS and Python-library vulnerabilities. Production deployment should still place the service behind a TLS-terminating reverse proxy and configure trusted proxy networks explicitly.
