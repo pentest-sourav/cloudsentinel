@@ -84,6 +84,7 @@ def test_collect_distributions_normalizes_security_fields():
     ]
 
     service.list_tags_for_resource.return_value = []
+    service.check_s3_bucket_exists.return_value = True
     collector = CloudFrontDataCollector(service)
 
     result = collector.collect_distributions()
@@ -127,6 +128,8 @@ def test_collect_distributions_normalizes_security_fields():
                     "origin_access_identity": "",
                     "origin_protocol_policy": None,
                     "origin_ssl_protocols": [],
+                    "s3_bucket_name": "bucket",
+                    "s3_bucket_exists": True,
                 },
             ],
             "s3_origins": [
