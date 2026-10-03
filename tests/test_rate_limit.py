@@ -155,6 +155,7 @@ def test_mutation_exposes_rate_limit_headers_without_database_dependency():
     finally:
         app.state.testing = False
 
+
 def test_rate_limiter_uses_forwarded_client_only_for_trusted_proxy():
     request = Mock()
     request.client.host = "10.0.0.10"
