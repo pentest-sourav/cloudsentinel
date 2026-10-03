@@ -18,11 +18,12 @@ class Route53Scanner:
     Runs registered Amazon Route 53 security rules.
     """
 
-    def __init__(self, service: Route53Service):
+    def __init__(self, service: Route53Service, rule_parameters=None):
         self.collector = Route53DataCollector(service)
 
         self.executor = RuleExecutor(
             handlers=ROUTE53_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:
