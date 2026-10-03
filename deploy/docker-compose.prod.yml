@@ -124,6 +124,7 @@ services:
       LOG_FORMAT: json
     networks:
       - internal
+      - edge
     depends_on:
       migrate:
         condition: service_completed_successfully
