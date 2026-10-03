@@ -292,6 +292,24 @@ def test_recover_pending_moves_job_to_dead_letter_after_max_retries():
     assert fields["reason"] == "max_retries_exceeded"
 
 
+def test_defer_recovery_clears_transient_retry_accounting():
+    class FakeRedis:
+        def __init__(self):
+            self.deleted_keys = []
+
+        def delete(self, key):
+            self.deleted_keys.append(key)
+
+    queue = ScanQueue()
+    queue.client = FakeRedis()
+
+    queue.defer_recovery("10-0")
+
+    assert queue.client.deleted_keys == [
+        "cloudsentinel:scan_retry:10-0",
+    ]
+
+
 def test_retry_count_starts_at_zero_for_unknown_message():
     from backend.app.services.scan_queue import ScanQueue
 
