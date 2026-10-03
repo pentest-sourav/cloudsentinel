@@ -193,7 +193,7 @@ CloudSentinel aims to normalize provider-specific data before security rules eva
 
 ## Project Status
 
-CloudSentinel is an active development project.
+CloudSentinel is an active development project. The AWS path is the primary implementation target; Azure is intentionally being developed separately so provider-specific behavior is not hidden behind premature abstractions.
 
 The current implementation provides a working foundation for:
 
@@ -260,9 +260,9 @@ The project is being developed with an extensible architecture for AWS, Azure, a
 ## Project Status
 
 **Status:** Active Development
-**Current Primary Provider:** AWS
-**Current AWS Security Rules:** **88**
-**Current AWS Security Domains:** **8**
+**Primary Provider:** AWS
+**Secondary Providers:** Azure — development phase
+**Automated Test Suite:** **2816 passing tests** at the latest verified baseline
 
 CloudSentinel has progressed beyond a basic proof-of-concept or simple collection of security scripts.
 
@@ -284,7 +284,7 @@ The current implementation focuses on building a reliable security-engineering f
 - [x] Worker-based scan execution
 - [x] Automated regression testing
 
-The project is intentionally focused on **quality of detection and architecture**, rather than increasing the rule count without meaningful security value.
+The project is intentionally focused on **quality of detection, architecture, tenant isolation, and operational reliability**, rather than increasing the rule count without meaningful security value.
 
 ---
 
@@ -367,19 +367,21 @@ CloudSentinel is designed to provide:
 
 # Current AWS Security Coverage
 
-CloudSentinel currently contains **88 AWS security rules** across eight major AWS security domains.
+CloudSentinel is currently **AWS-first**. The scanning engine, provider integration, rule registry, findings pipeline, persistence, APIs, and worker architecture are being hardened around AWS before Azure coverage is expanded.
 
 | AWS Service | Rules | Status |
 |---|---:|:---:|
-| EC2 | 10 | [x] |
-| IAM | 38 | [x] |
-| S3 | 8 | [x] |
-| RDS | 8 | [x] |
-| Lambda | 6 | [x] |
-| KMS | 3 | [x] |
-| VPC | 5 | [x] |
-| CloudTrail | 10 | [x] |
-| **Total** | **88** | **[x]** |
+| AWS domain | Status |
+|---|:---:|
+| EC2 | [x] |
+| IAM | [x] |
+| S3 | [x] |
+| RDS | [x] |
+| Lambda | [x] |
+| KMS | [x] |
+| VPC | [x] |
+| CloudTrail | [x] |
+| Azure | Development phase |
 
 ---
 
