@@ -34,6 +34,7 @@ def _client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.state.testing = True
 
     return TestClient(app), engine
 
@@ -115,6 +116,7 @@ def test_external_id_is_server_generated():
 
     finally:
         app.dependency_overrides.clear()
+        app.state.testing = False
         engine.dispose()
 
 
