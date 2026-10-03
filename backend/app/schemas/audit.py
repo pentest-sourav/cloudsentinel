@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class AuditEventResponse(BaseModel):
@@ -15,6 +15,10 @@ class AuditEventResponse(BaseModel):
     ip_address: str | None
     metadata: dict
     created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
 
 
 class AuditEventListResponse(BaseModel):
