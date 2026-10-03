@@ -41,12 +41,14 @@ Set these outside the repository:
 export CLOUDSENTINEL_IMAGE=ghcr.io/pentest-sourav/cloudsentinel:VERSION
 export CLOUDSENTINEL_DOMAIN=cspm.example.com
 export POSTGRES_PASSWORD='<random-password>'
+export REDIS_PASSWORD='<random-redis-password>'
 export JWT_SECRET_KEY='<random-secret-at-least-32-characters>'
 export CORS_ALLOWED_ORIGINS='https://app.example.com'
 ```
 
 Do not commit these values. Production requires explicit CORS, HSTS, JSON logging,
-and a bounded JWT lifetime.
+a bounded JWT lifetime, and authenticated Redis. Keep the Redis password in a
+protected secret-management mechanism rather than committing it to the repository.
 
 ## Start
 
@@ -125,6 +127,7 @@ backup failures, disk pressure, and TLS certificate failures.
 ## Security notes
 
 - PostgreSQL and Redis have no host-published ports.
+- Redis requires authentication even though it remains on the private internal network.
 - API is reachable only through Caddy on the edge network.
 - Caddy obtains and renews public certificates for the configured DNS name.
 - HSTS is enabled in production configuration.
