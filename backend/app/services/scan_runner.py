@@ -9,6 +9,7 @@ from backend.app.services.scan_execution_error_service import (
 )
 from backend.app.services.scan_service import (
     SCAN_STATUS_COMPLETED,
+    SCAN_STATUS_COMPLETED_WITH_WARNINGS,
     SCAN_STATUS_FAILED,
     SCAN_STATUS_PENDING,
     SCAN_STATUS_RUNNING,
@@ -61,6 +62,13 @@ class ScanRunner:
                 scan_id=scan.id,
                 errors=execution_errors,
             )
+
+            if execution_errors:
+                return complete_scan(
+                    db=self.db,
+                    scan=scan,
+                    with_warnings=True,
+                )
 
             return complete_scan(db=self.db, scan=scan)
 
