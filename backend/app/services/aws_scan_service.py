@@ -150,6 +150,37 @@ class AWSScanResult:
     errors: list[ScannerExecutionError]
 
 
+def _classify_aws_error(error: Exception) -> str:
+    """Classify common AWS execution failures for actionable scan warnings."""
+    code = _extract_error_code(error)
+
+    if code in {
+        "AccessDenied",
+        "AccessDeniedException",
+        "UnauthorizedOperation",
+        "UnrecognizedClientException",
+    }:
+        return "permission_denied"
+
+    if code in {
+        "Throttling",
+        "ThrottlingException",
+        "TooManyRequestsException",
+        "RequestLimitExceeded",
+        "ProvisionedThroughputExceededException",
+    }:
+        return "throttled"
+
+    if code in {
+        "RequestTimeout",
+        "RequestTimeoutException",
+        "EndpointConnectionError",
+    }:
+        return "network_timeout"
+
+    return type(error).__name__
+
+
 def _extract_error_code(
     error: Exception,
 ) -> str | None:
@@ -188,7 +219,7 @@ def _create_regional_session(
     except Exception as exc:
         return None, ScannerExecutionError(
             service="aws_session",
-            error_type=type(exc).__name__,
+            error_type=_classify_aws_error(exc),
             error_code=_extract_error_code(exc),
             message=str(exc),
             region=region,
