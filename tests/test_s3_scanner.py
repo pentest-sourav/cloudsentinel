@@ -135,6 +135,18 @@ class FakeS3Service:
 
         return {}
 
+    def get_bucket_mfa_delete(self, bucket_name):
+        if bucket_name == "secure-bucket":
+            return {
+                "Status": "Enabled",
+                "MFADelete": "Enabled",
+            }
+
+        return {
+            "Status": None,
+            "MFADelete": None,
+        }
+
     def get_bucket_logging(self, bucket_name):
         if bucket_name == "secure-bucket":
             return {
