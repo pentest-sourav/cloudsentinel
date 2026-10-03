@@ -75,11 +75,11 @@ def create_tenant_user(db, slug: str):
     db.add(user)
     db.commit()
     db.refresh(user)
-    return tenant, user
-
-
-def auth_headers(user):
     token, _expires_in = create_user_access_token(user)
+    return tenant, token
+
+
+def auth_headers(token):
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -87,7 +87,7 @@ def test_risk_graph_builds_asset_inventory_and_attack_path(environment):
     client, session_factory = environment
     db = session_factory()
 
-    tenant, user = create_tenant_user(db, "risk-graph")
+    tenant, user_token = create_tenant_user(db, "risk-graph")
     scan = Scan(
         tenant_id=tenant.id,
         provider="aws",
@@ -145,7 +145,7 @@ def test_risk_graph_builds_asset_inventory_and_attack_path(environment):
 
     response = client.get(
         f"/api/v1/scans/{scan_id}/risk-graph",
-        headers=auth_headers(user),
+        headers=auth_headers(user_token),
     )
 
     assert response.status_code == 200
@@ -178,8 +178,8 @@ def test_risk_graph_is_tenant_scoped(environment):
     client, session_factory = environment
     db = session_factory()
 
-    tenant_a, user_a = create_tenant_user(db, "risk-graph-a")
-    tenant_b, user_b = create_tenant_user(db, "risk-graph-b")
+    tenant_a, _token_a = create_tenant_user(db, "risk-graph-a")
+    tenant_b, token_b = create_tenant_user(db, "risk-graph-b")
 
     scan = Scan(
         tenant_id=tenant_a.id,
