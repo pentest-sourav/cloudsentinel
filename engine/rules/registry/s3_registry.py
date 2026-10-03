@@ -37,6 +37,10 @@ from engine.rules.aws.s3.lifecycle import (
     build_s3_lifecycle_finding,
     check_s3_lifecycle,
 )
+from engine.rules.aws.s3.mfa_delete import (
+    build_s3_mfa_delete_finding,
+    check_s3_mfa_delete,
+)
 from engine.rules.aws.s3.tls_policy import (
     build_s3_tls_policy_finding,
     check_s3_tls_policy,
@@ -162,6 +166,18 @@ S3_RULES = RuleRegistry(
             ],
             check=check_s3_lifecycle,
             build_finding=build_s3_lifecycle_finding,
+        ),
+        RuleDefinition(
+            rule_id="CS-AWS-S3-020",
+            name="mfa_delete",
+            data_source="s3_mfa_delete",
+            collection_mode="multiple",
+            check_arguments=[
+                "bucket_name",
+                "versioning_status",
+            ],
+            check=check_s3_mfa_delete,
+            build_finding=build_s3_mfa_delete_finding,
         ),
     ]
 )
