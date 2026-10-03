@@ -15,6 +15,7 @@ from backend.app.schemas.scan_history import ScanHistoryListResponse
 from backend.app.schemas.scan_schedule import ScanScheduleCreate, ScanScheduleResponse, ScanScheduleUpdate
 from backend.app.schemas.scan_summary import ScanSummaryResponse
 from backend.app.schemas.posture import PostureTrendResponse
+from backend.app.schemas.compliance import CompliancePostureResponse
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_service import (
     clear_scan_history,
@@ -24,6 +25,7 @@ from backend.app.services.scan_service import (
 )
 from backend.app.services.scan_summary_service import get_scan_summary
 from backend.app.services.posture_service import get_posture_trend
+from backend.app.services.compliance_service import get_compliance_posture
 from backend.app.services.scan_schedule_service import create_schedule, delete_schedule, get_schedule, list_schedules, set_schedule_enabled
 from backend.app.services.audit_service import (
     AUDIT_FAILURE,
@@ -228,6 +230,27 @@ def get_scans(
     )
 
 
+
+
+@router.get(
+    "/{scan_id}/compliance-posture",
+    response_model=CompliancePostureResponse,
+)
+def get_scan_compliance_posture(
+    scan_id: int,
+    cloud_account_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    posture = get_compliance_posture(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        scan_id=scan_id,
+        cloud_account_id=cloud_account_id,
+    )
+    if posture is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+    return posture
 
 
 @router.get(
