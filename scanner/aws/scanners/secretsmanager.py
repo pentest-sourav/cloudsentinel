@@ -23,6 +23,7 @@ class SecretsManagerScanner:
     def __init__(
         self,
         service: SecretsManagerService,
+        rule_parameters=None,
     ):
         self.collector = SecretsManagerDataCollector(
             service
@@ -30,6 +31,7 @@ class SecretsManagerScanner:
 
         self.executor = RuleExecutor(
             handlers=SECRETSMANAGER_DATA_SOURCE_HANDLERS,
+            rule_parameters=rule_parameters,
         )
 
     def scan(self) -> list[Finding]:
