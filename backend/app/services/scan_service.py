@@ -20,6 +20,7 @@ from backend.app.services.scan_summary_service import (
 SCAN_STATUS_PENDING = "pending"
 SCAN_STATUS_RUNNING = "running"
 SCAN_STATUS_COMPLETED = "completed"
+SCAN_STATUS_COMPLETED_WITH_WARNINGS = "completed_with_warnings"
 SCAN_STATUS_FAILED = "failed"
 
 DEFAULT_MAX_ATTEMPTS = 4
@@ -28,6 +29,7 @@ VALID_SCAN_STATUSES = {
     SCAN_STATUS_PENDING,
     SCAN_STATUS_RUNNING,
     SCAN_STATUS_COMPLETED,
+    SCAN_STATUS_COMPLETED_WITH_WARNINGS,
     SCAN_STATUS_FAILED,
 }
 
@@ -228,6 +230,7 @@ def recover_stale_running_scan(
 def complete_scan(
     db: Session,
     scan: Scan,
+    with_warnings: bool = False,
 ) -> Scan:
     if scan.status != SCAN_STATUS_RUNNING:
         raise ValueError(
@@ -235,7 +238,11 @@ def complete_scan(
             f"'{scan.status}'."
         )
 
-    scan.status = SCAN_STATUS_COMPLETED
+    scan.status = (
+        SCAN_STATUS_COMPLETED_WITH_WARNINGS
+        if with_warnings
+        else SCAN_STATUS_COMPLETED
+    )
     scan.completed_at = datetime.now(timezone.utc)
     scan.error_message = None
     scan.updated_at = datetime.now(timezone.utc)
