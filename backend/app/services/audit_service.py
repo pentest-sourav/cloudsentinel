@@ -1,5 +1,7 @@
 from collections.abc import Mapping
+from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from backend.app.models.audit_event import AuditEvent
@@ -58,3 +60,24 @@ def safe_record_audit_event(
         record_audit_event(**kwargs)
     except Exception:
         db.rollback()
+
+
+def purge_expired_audit_events(
+    *,
+    db: Session,
+    retention_days: int,
+) -> int:
+    if retention_days <= 0:
+        raise ValueError("retention_days must be > 0")
+
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        days=retention_days,
+    )
+
+    result = db.execute(
+        delete(AuditEvent).where(
+            AuditEvent.created_at < cutoff,
+        )
+    )
+    db.commit()
+    return int(result.rowcount or 0)
