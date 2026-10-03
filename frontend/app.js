@@ -2171,6 +2171,7 @@ function resetDashboard() {
     state.currentScanId = null;
     state.currentScan = null;
     state.currentSummary = null;
+    state.dashboardOverview = null;
     state.findings = [];
     state.filteredFindings = [];
     state.lifecycle = null;
@@ -2250,6 +2251,32 @@ function resetDashboard() {
 
     $("risk-ring").style.background =
         "conic-gradient(#18283d 0deg 360deg)";
+
+    $("executive-grade").textContent = "—";
+    $("executive-grade").className = "posture-grade neutral";
+    $("executive-posture-score").textContent = "—";
+    $("executive-posture-meter").style.width = "0%";
+    $("executive-average-risk").textContent = "Average risk —";
+    $("executive-max-risk").textContent = "Max risk —";
+    $("executive-scan-context").textContent = "No assessment selected";
+    $("executive-exposed-assets").textContent = "0";
+    $("executive-sensitive-assets").textContent = "0";
+    $("executive-attack-paths").textContent = "0";
+    $("executive-affected-assets").textContent = "0";
+    $("executive-remediation-list").innerHTML = `
+        <div class="empty-state compact">
+            <strong>No remediation items yet</strong>
+            <span>Run an AWS scan to populate the queue.</span>
+        </div>
+    `;
+    $("executive-compliance-list").innerHTML = `
+        <div class="empty-state compact">
+            <strong>No framework data yet</strong>
+            <span>Terminal scan results will appear here.</span>
+        </div>
+    `;
+    $("executive-data-quality").classList.add("hidden");
+    $("executive-data-quality").innerHTML = "";
 
     updateReportsView();
 }
