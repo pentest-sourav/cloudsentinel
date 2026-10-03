@@ -122,6 +122,19 @@ class FakeS3Service:
             "MFADelete": None,
         }
 
+    def get_bucket_lifecycle_configuration(self, bucket_name):
+        if bucket_name == "secure-bucket":
+            return {
+                "Rules": [
+                    {
+                        "ID": "retention",
+                        "Status": "Enabled",
+                    }
+                ]
+            }
+
+        return {}
+
     def get_bucket_logging(self, bucket_name):
         if bucket_name == "secure-bucket":
             return {
