@@ -8,6 +8,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 
 AWS_RETRY_CONFIG = Config(
+    connect_timeout=settings.aws_sdk_connect_timeout_seconds,
+    read_timeout=settings.aws_sdk_read_timeout_seconds,
     retries={
         "mode": "standard",
         "max_attempts": 5,
