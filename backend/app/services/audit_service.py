@@ -81,3 +81,51 @@ def purge_expired_audit_events(
     )
     db.commit()
     return int(result.rowcount or 0)
+
+
+def list_audit_events(
+    *,
+    db: Session,
+    tenant_id: int,
+    limit: int,
+    offset: int,
+    action: str | None = None,
+    status: str | None = None,
+    resource_type: str | None = None,
+):
+    """Return paginated audit events scoped to one tenant."""
+    from sqlalchemy import func, select
+
+    query = select(AuditEvent).where(
+        AuditEvent.tenant_id == tenant_id,
+    )
+    count_query = select(func.count(AuditEvent.id)).where(
+        AuditEvent.tenant_id == tenant_id,
+    )
+
+    if action:
+        query = query.where(AuditEvent.action == action)
+        count_query = count_query.where(AuditEvent.action == action)
+
+    if status:
+        query = query.where(AuditEvent.status == status)
+        count_query = count_query.where(AuditEvent.status == status)
+
+    if resource_type:
+        query = query.where(AuditEvent.resource_type == resource_type)
+        count_query = count_query.where(AuditEvent.resource_type == resource_type)
+
+    total = int(db.execute(count_query).scalar_one())
+    events = db.execute(
+        query.order_by(
+            AuditEvent.created_at.desc(),
+            AuditEvent.id.desc(),
+        ).limit(limit).offset(offset)
+    ).scalars().all()
+
+    return {
+        "items": events,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
