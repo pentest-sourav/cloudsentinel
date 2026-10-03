@@ -218,7 +218,7 @@ API request bodies are bounded by `MAX_REQUEST_BODY_BYTES`. Rate limiting only h
 
 Security responses include `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and a restrictive `Permissions-Policy`. HSTS is opt-in through `SECURITY_HEADERS_HSTS_ENABLED=true` with a configurable max-age; it should only be enabled when the public service is HTTPS. Authentication endpoints return `Cache-Control: no-store` and `Pragma: no-cache` so bearer-token responses are not stored by intermediaries.
 
-Metrics are available from `/metrics` only when `METRICS_ENABLED=true`. The endpoint emits Prometheus-compatible text and intentionally uses bounded FastAPI route labels rather than raw resource URLs.
+Metrics are available from `/metrics` only when `METRICS_ENABLED=true`. The endpoint emits Prometheus-compatible text and intentionally uses bounded FastAPI route labels rather than raw resource URLs. When Redis is reachable, it also exposes scan-stream length, consumer-group pending count, and dead-letter stream length so operators can alert on queue backlog and failed-job accumulation. Redis failures do not make the metrics endpoint unavailable.
 
 The container image runs as the non-root `cloudsentinel` user, includes an HTTP healthcheck, and is scanned in CI for high/critical OS and Python-library vulnerabilities. Production deployment should still place the service behind a TLS-terminating reverse proxy and configure trusted proxy networks explicitly.
 
