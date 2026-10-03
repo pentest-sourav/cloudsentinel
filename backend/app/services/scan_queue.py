@@ -231,6 +231,10 @@ class ScanQueue:
         )
         self._delete_retry_count(message_id)
 
+    def defer_recovery(self, message_id: str) -> None:
+        """Clear transient recovery accounting when a live worker still owns the scan."""
+        self._delete_retry_count(message_id)
+
     def retry_count(self, message_id: str) -> int:
         value = self.client.get(
             self._retry_key(message_id)
