@@ -1,3 +1,5 @@
+from hashlib import sha256
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from backend.app.core.config import settings
@@ -28,6 +30,16 @@ router = APIRouter(
     prefix="/api/v1/auth",
     tags=["Authentication"],
 )
+
+
+def _audit_email_fingerprint(email: str) -> str:
+    """Return a non-reversible correlation key for authentication telemetry."""
+    normalized = email.strip().lower()
+    return sha256(
+        f"cloudsentinel:audit-email:{settings.jwt_secret_key}:{normalized}".encode(
+            "utf-8"
+        )
+    ).hexdigest()
 
 
 @router.post(
@@ -107,7 +119,9 @@ def login(
             status=AUDIT_FAILURE,
             request_id=getattr(request.state, "request_id", None),
             ip_address=request.client.host if request.client else None,
-            metadata={"email": login_data.email.lower().strip()},
+            metadata={
+                "email_fingerprint": _audit_email_fingerprint(login_data.email),
+            },
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

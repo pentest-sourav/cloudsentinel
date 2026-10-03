@@ -400,6 +400,16 @@ def test_authentication_writes_audit_events(client):
     )
     assert login_response.status_code == 200
 
+    failed_login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "audit@example.com",
+            "password": "WrongPassword-2026!",
+            "tenant_name": "Audit Tenant",
+        },
+    )
+    assert failed_login_response.status_code == 401
+
     db = next(app.dependency_overrides[get_db]())
     try:
         events = (
@@ -413,6 +423,17 @@ def test_authentication_writes_audit_events(client):
         assert "auth.register" in actions
         assert "auth.login" in actions
         assert statuses.count("success") >= 2
+
+        failed_login_events = [
+            event
+            for event in events
+            if event.action == "auth.login"
+            and event.status == "failure"
+        ]
+        assert failed_login_events
+        failure_metadata = failed_login_events[-1].event_metadata
+        assert "email" not in failure_metadata
+        assert len(failure_metadata["email_fingerprint"]) == 64
 
         for event in events:
             assert event.request_id
