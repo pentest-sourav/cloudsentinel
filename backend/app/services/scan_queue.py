@@ -1,5 +1,6 @@
 import os
 import socket
+import time
 from dataclasses import dataclass
 
 import redis
@@ -36,6 +37,7 @@ class ScanQueue:
     """
 
     RETRY_KEY_PREFIX = "cloudsentinel:scan_retry:"
+    WORKER_HEARTBEAT_PREFIX = "cloudsentinel:worker_heartbeat:"
     DLQ_SUFFIX = ":dlq"
 
     def __init__(
@@ -245,6 +247,29 @@ class ScanQueue:
 
         return int(value)
 
+    def heartbeat_worker(self, ttl_seconds: int | None = None) -> None:
+        """Publish this worker's liveness with an expiring Redis key."""
+        ttl = (
+            max(1, int(ttl_seconds))
+            if ttl_seconds is not None
+            else max(1, settings.scan_queue_worker_stale_seconds)
+        )
+        self.client.set(
+            self._worker_heartbeat_key(),
+            str(time.time()),
+            ex=ttl,
+        )
+
+    def worker_health(self) -> dict[str, int]:
+        """Return the number of currently live and stale worker heartbeats."""
+        live = 0
+        for _ in self.client.scan_iter(
+            match=f"{self.WORKER_HEARTBEAT_PREFIX}*",
+            count=100,
+        ):
+            live += 1
+        return {"active_workers": live}
+
     def metrics(self) -> dict[str, int]:
         """Return bounded queue health metrics for operational monitoring."""
         pending = self.client.xpending(
@@ -259,12 +284,15 @@ class ScanQueue:
         else:
             pending_count = 0
 
+        worker_health = self.worker_health()
+
         return {
             "stream_length": int(self.client.xlen(self.stream_name)),
             "pending_count": pending_count,
             "dead_letter_length": int(
                 self.client.xlen(self.dead_letter_stream)
             ),
+            "active_workers": worker_health["active_workers"],
         }
 
     def set_progress(self, scan_id: int, *, completed: int, total: int, service: str, region: str) -> None:
@@ -297,6 +325,9 @@ class ScanQueue:
 
     def close(self) -> None:
         self.client.close()
+
+    def _worker_heartbeat_key(self) -> str:
+        return f"{self.WORKER_HEARTBEAT_PREFIX}{self.consumer_name}"
 
     def _retry_key(self, message_id: str) -> str:
         return f"{self.retry_key_prefix}{message_id}"
