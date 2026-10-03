@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     audit_retention_days: int = 365
     max_request_body_bytes: int = 1_048_576
     trusted_proxy_ips: str = ""
+    security_headers_hsts_enabled: bool = False
+    security_headers_hsts_max_age_seconds: int = 31_536_000
     metrics_enabled: bool = False
     metrics_auth_token: str = ""
     log_level: str = "INFO"
@@ -59,6 +61,11 @@ class Settings(BaseSettings):
 
         if self.audit_retention_days <= 0:
             raise ValueError("AUDIT_RETENTION_DAYS must be > 0")
+
+        if self.security_headers_hsts_max_age_seconds <= 0:
+            raise ValueError(
+                "SECURITY_HEADERS_HSTS_MAX_AGE_SECONDS must be > 0"
+            )
 
         rate_limits = (
             self.rate_limit_window_seconds,

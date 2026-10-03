@@ -116,7 +116,8 @@ Before public exposure:
 - verify rate-limit thresholds with expected traffic and proxy topology
 - enforce request-size limits
 - configure production CORS explicitly
-- enable secure response headers
+- enable secure response headers, including HSTS only when the service is served over HTTPS
+- prevent authentication responses from being cached
 - use HTTPS
 - disable development-only credential mounts
 - keep secrets outside source control
@@ -211,6 +212,8 @@ The application now exposes a read-only, tenant-scoped audit event API for owner
 Supported filters include action, status, and resource type, with bounded pagination.
 
 API request bodies are bounded by `MAX_REQUEST_BODY_BYTES`. Rate limiting only honors `X-Forwarded-For` when the direct peer belongs to an explicitly configured `TRUSTED_PROXY_IPS` network.
+
+Security responses include `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and a restrictive `Permissions-Policy`. HSTS is opt-in through `SECURITY_HEADERS_HSTS_ENABLED=true` with a configurable max-age; it should only be enabled when the public service is HTTPS. Authentication endpoints return `Cache-Control: no-store` and `Pragma: no-cache` so bearer-token responses are not stored by intermediaries.
 
 Metrics are available from `/metrics` only when `METRICS_ENABLED=true`. The endpoint emits Prometheus-compatible text and intentionally uses bounded FastAPI route labels rather than raw resource URLs.
 

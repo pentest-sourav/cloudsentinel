@@ -184,6 +184,22 @@ async def security_headers(
         "camera=(), microphone=(), geolocation=()",
     )
 
+    if settings.security_headers_hsts_enabled:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            f"max-age={settings.security_headers_hsts_max_age_seconds}",
+        )
+
+    if request.url.path.startswith("/api/v1/auth/"):
+        response.headers.setdefault(
+            "Cache-Control",
+            "no-store",
+        )
+        response.headers.setdefault(
+            "Pragma",
+            "no-cache",
+        )
+
     return response
 
 
