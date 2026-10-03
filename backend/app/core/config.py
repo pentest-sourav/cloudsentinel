@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     rate_limit_window_seconds: int = 60
     rate_limit_auth_max_requests: int = 10
+    rate_limit_auth_account_max_requests: int = 8
     rate_limit_scan_max_requests: int = 20
     rate_limit_global_max_requests: int = 300
     aws_sts_session_duration_seconds: int = 900
@@ -119,6 +120,7 @@ class Settings(BaseSettings):
         rate_limits = (
             self.rate_limit_window_seconds,
             self.rate_limit_auth_max_requests,
+            self.rate_limit_auth_account_max_requests,
             self.rate_limit_scan_max_requests,
             self.rate_limit_global_max_requests,
         )
