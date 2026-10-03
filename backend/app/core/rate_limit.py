@@ -92,7 +92,7 @@ class RateLimiter:
                 retry_after=0,
             )
 
-        except RedisError:
+        except (RedisError, OSError, ConnectionError):
             # Authentication and scanning should remain available during a
             # transient Redis outage. The in-process fallback still places a
             # conservative bound on a single API instance.
