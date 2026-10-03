@@ -18,6 +18,10 @@ class CloudFrontService:
             session,
             "cloudfront",
         )
+        self.s3_client = create_aws_client(
+            session,
+            "s3",
+        )
 
     @staticmethod
     def _raise_api_error(
@@ -154,3 +158,35 @@ class CloudFrontService:
                 exc,
             )
             raise AssertionError("unreachable")
+
+
+    def check_s3_bucket_exists(
+        self,
+        bucket_name: str,
+    ) -> bool:
+        try:
+            self.s3_client.head_bucket(
+                Bucket=bucket_name
+            )
+            return True
+        except ClientError as exc:
+            code = (
+                exc.response.get("Error", {}).get("Code", "")
+            )
+            if code in {
+                "404",
+                "NoSuchBucket",
+                "NotFound",
+            }:
+                return False
+
+            raise RuntimeError(
+                "S3 bucket existence check failed for "
+                f"'{bucket_name}': "
+                f"{code or 'UnknownError'}"
+            ) from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                "AWS SDK error during S3 bucket existence "
+                f"check for '{bucket_name}': {exc}"
+            ) from exc
