@@ -195,16 +195,17 @@ def persist_finding(
 def get_findings_by_scan(
     db: Session,
     scan_id: int,
+    tenant_id: int | None = None,
     limit: int = 50,
     offset: int = 0,
     severity: str | None = None,
     risk_level: str | None = None,
 ) -> dict | None:
-    scan_exists = (
-        db.query(Scan)
-        .filter(Scan.id == scan_id)
-        .first()
-    )
+    scan_query = db.query(Scan).filter(Scan.id == scan_id)
+    if tenant_id is not None:
+        scan_query = scan_query.filter(Scan.tenant_id == tenant_id)
+
+    scan_exists = scan_query.first()
 
     if scan_exists is None:
         return None
@@ -255,12 +256,16 @@ def get_findings_by_scan(
 def get_finding(
     db: Session,
     finding_id: int,
+    tenant_id: int | None = None,
 ) -> FindingModel | None:
-    return (
+    query = (
         db.query(FindingModel)
+        .join(Scan, FindingModel.scan_id == Scan.id)
         .filter(FindingModel.id == finding_id)
-        .first()
     )
+    if tenant_id is not None:
+        query = query.filter(Scan.tenant_id == tenant_id)
+    return query.first()
 
 
 def persist_findings(
