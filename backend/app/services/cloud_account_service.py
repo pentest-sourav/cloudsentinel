@@ -63,6 +63,26 @@ def create_cloud_account(
     return account
 
 
+def rotate_external_id(
+    db: Session,
+    account: CloudAccount,
+) -> CloudAccount:
+    """Rotate the customer trust external ID and invalidate prior trust setup."""
+
+    account.external_id = generate_external_id()
+    account.status = CLOUD_ACCOUNT_PENDING
+    account.last_connection_at = None
+    account.last_connection_error = (
+        "AWS external ID rotated. Update the customer IAM trust policy "
+        "before reconnecting this account."
+    )
+
+    db.commit()
+    db.refresh(account)
+
+    return account
+
+
 def get_cloud_accounts(
     db: Session,
     tenant_id: int,
