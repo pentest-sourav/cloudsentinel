@@ -1,4 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+from backend.app.core.config import settings
+from backend.app.core.rate_limit import rate_limiter
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_current_user
@@ -76,6 +79,20 @@ def login(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    account_decision = rate_limiter.check(
+        request,
+        scope="auth-login-account",
+        identifier=login_data.email.strip().lower(),
+        limit=settings.rate_limit_auth_account_max_requests,
+        window_seconds=settings.rate_limit_window_seconds,
+    )
+    if not account_decision.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please retry later.",
+            headers={"Retry-After": str(account_decision.retry_after)},
+        )
+
     user = authenticate_user(
         db=db,
         email=login_data.email,
