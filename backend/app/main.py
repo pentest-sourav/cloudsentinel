@@ -3,8 +3,8 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from backend.app.api.routes.auth import router as auth_router
 from backend.app.api.routes.cloud_accounts import router as cloud_accounts_router
@@ -14,8 +14,8 @@ from backend.app.api.routes.scans import router as scans_router
 from backend.app.core.config import settings
 from backend.app.core.rate_limit import rate_limiter
 from backend.app.core.database import SessionLocal
-from backend.app.services.scan_queue import ScanQueue
 from backend.app.services.audit_service import purge_expired_audit_events
+from backend.app.services.scan_queue import ScanQueue
 from sqlalchemy import text
 
 
