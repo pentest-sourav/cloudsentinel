@@ -1121,7 +1121,7 @@ def build_cloudfront_nonexistent_s3_origins_finding(
             "CloudFront distribution points to a "
             "non-existent S3 origin"
         ),
-        severity=Severity.MEDIUM,
+        severity=Severity.HIGH,
         provider="aws",
         resource_type=result.resource_type,
         resource_id=result.resource_id,
