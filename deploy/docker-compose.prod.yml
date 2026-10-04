@@ -181,6 +181,10 @@ services:
       AWS_SDK_READ_TIMEOUT_SECONDS: ${AWS_SDK_READ_TIMEOUT_SECONDS:-60}
     networks:
       - internal
+      # Workers execute customer AWS API calls and therefore need outbound
+      # internet access. Keep this on a dedicated egress network rather than
+      # sharing the public edge network used by the API/Caddy path.
+      - aws_egress
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -231,6 +235,9 @@ networks:
     ipam:
       config:
         - subnet: 172.30.0.0/16
+  # Dedicated outbound network for the scanner worker. It is intentionally
+  # not shared with the edge/API network and has no published ports.
+  aws_egress:
 
 volumes:
   postgres_data:
