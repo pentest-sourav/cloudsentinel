@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     security_headers_hsts_max_age_seconds: int = 31_536_000
     metrics_enabled: bool = False
     metrics_auth_token: str = ""
+    metrics_queue_refresh_seconds: int = 30
     log_level: str = "INFO"
     log_format: str = "auto"
 
@@ -115,6 +116,9 @@ class Settings(BaseSettings):
 
         if self.audit_retention_days <= 0:
             raise ValueError("AUDIT_RETENTION_DAYS must be > 0")
+
+        if self.metrics_queue_refresh_seconds <= 0:
+            raise ValueError("METRICS_QUEUE_REFRESH_SECONDS must be > 0")
 
         if self.security_headers_hsts_max_age_seconds <= 0:
             raise ValueError(

@@ -420,7 +420,7 @@ def metrics(request: Request):
             queue.close()
 
     return Response(
-        content=metrics_registry.render(),
+        content=metrics_registry.render(max_queue_age_seconds=settings.metrics_queue_refresh_seconds),
         media_type="text/plain; version=0.0.4; charset=utf-8",
     )
 

@@ -17,6 +17,7 @@ class MetricsRegistry:
         self._request_duration: dict[tuple[str, str], tuple[float, int]] = defaultdict(
             lambda: (0.0, 0)
         )
+        self._queue_metrics_updated_at = 0.0
         self._queue_metrics: dict[str, int] = {
             "stream_length": 0,
             "pending_count": 0,
@@ -68,9 +69,16 @@ class MetricsRegistry:
                 "dead_letter_length": max(dead_letter_length, 0),
                 "active_workers": max(active_workers, 0),
             }
+            self._queue_metrics_updated_at = time()
 
-    def render(self) -> str:
+    def render(self, *, max_queue_age_seconds: int = 30) -> str:
         lines = [
+            "# HELP cloudsentinel_scan_queue_metrics_age_seconds Age of the last successful queue metrics refresh.",
+            "# TYPE cloudsentinel_scan_queue_metrics_age_seconds gauge",
+            f"cloudsentinel_scan_queue_metrics_age_seconds {max(time() - self._queue_metrics_updated_at, 0.0):.3f}",
+            "# HELP cloudsentinel_scan_queue_metrics_fresh Queue metrics are fresh enough for alerting (1=yes, 0=no).",
+            "# TYPE cloudsentinel_scan_queue_metrics_fresh gauge",
+            f"cloudsentinel_scan_queue_metrics_fresh {1 if self._queue_metrics_updated_at and (time() - self._queue_metrics_updated_at) <= max_queue_age_seconds else 0}",
             "# HELP cloudsentinel_scan_queue_stream_length Current scan stream length.",
             "# TYPE cloudsentinel_scan_queue_stream_length gauge",
             f"cloudsentinel_scan_queue_stream_length {self._queue_metrics['stream_length']}",
