@@ -20,8 +20,10 @@ import uuid
 BASE_URL = os.environ.get("CLOUDSENTINEL_SMOKE_URL", "http://127.0.0.1:18000").rstrip("/")
 PASSWORD = os.environ.get("SMOKE_PASSWORD", "LaunchCertification-user-password-0123456789")
 ROLE_ARN = os.environ["CERT_AWS_SCAN_ROLE_ARN"]
+PARTIAL_ROLE_ARN = os.environ["CERT_AWS_PARTIAL_SCAN_ROLE_ARN"]
 EXPECTED_ACCOUNT_ID = os.environ["CERT_AWS_EXPECTED_ACCOUNT_ID"]
 REGION = os.environ.get("AWS_REGION", "us-east-1")
+REQUIRED_REGIONS = [r.strip() for r in os.environ.get("CERT_AWS_REQUIRED_REGIONS", REGION).split(",") if r.strip()]
 TIMEOUT_SECONDS = int(os.environ.get("CERT_AWS_SCAN_TIMEOUT_SECONDS", "1800"))
 POLL_SECONDS = int(os.environ.get("CERT_AWS_SCAN_POLL_SECONDS", "10"))
 READY_TIMEOUT_SECONDS = int(os.environ.get("CERT_AWS_READY_TIMEOUT_SECONDS", "120"))
@@ -206,6 +208,18 @@ def main() -> int:
     expect("risk_posture" in summary, f"risk posture missing from summary: {summary}")
 
     execution_errors = summary.get("execution_error_count", 0)
+    status, findings_payload = request(
+        "GET",
+        f"/api/v1/findings/scan/{scan_id}?limit=100&offset=0",
+        token=token,
+    )
+    expect(status == 200, f"finding retrieval failed: {status} {findings_payload}")
+    finding_regions = {item.get("region") for item in findings_payload.get("items", []) if item.get("region")}
+    missing_regions = [region for region in REQUIRED_REGIONS if region not in finding_regions]
+    expect(
+        not missing_regions,
+        f"real multi-region evidence missing required finding regions: {missing_regions}; observed={sorted(finding_regions)}",
+    )
     if execution_errors:
         raise RuntimeError(
             "AWS launch certification found execution errors. "
@@ -230,6 +244,58 @@ def main() -> int:
         graph.get("evidence_derived") is True,
         f"risk graph was not marked evidence-derived: {graph}",
     )
+
+    # Partial-permission drill: use a deliberately restricted read-only role.
+    # A successful drill must preserve usable findings while recording real AWS
+    # permission failures as completed_with_warnings rather than silently passing.
+    expect(PARTIAL_ROLE_ARN != ROLE_ARN, "partial-permission role must differ from the full scan role")
+    partial_status, partial_account = request(
+        "POST",
+        "/api/v1/cloud-accounts",
+        {
+            "name": "Real AWS Partial Permission Certification",
+            "provider": "aws",
+            "external_account_id": EXPECTED_ACCOUNT_ID,
+            "role_arn": PARTIAL_ROLE_ARN,
+            "region": REGION,
+        },
+        token=token,
+    )
+    expect(partial_status == 201, f"partial cloud-account creation failed: {partial_status} {partial_account}")
+    partial_account_id = partial_account["id"]
+
+    partial_status, partial_test = request(
+        "POST",
+        f"/api/v1/cloud-accounts/{partial_account_id}/test",
+        token=token,
+    )
+    expect(partial_status == 200 and partial_test.get("connected") is True, f"partial AWS role assumption failed: {partial_test}")
+
+    partial_status, partial_scan = request(
+        "POST",
+        "/api/v1/scans",
+        {"provider": "aws", "cloud_account_id": partial_account_id},
+        token=token,
+    )
+    expect(partial_status == 201, f"partial-permission scan could not be queued: {partial_status} {partial_scan}")
+    partial_scan_id = partial_scan["id"]
+    partial_deadline = time.monotonic() + TIMEOUT_SECONDS
+    partial_last = partial_scan
+    while time.monotonic() < partial_deadline:
+        partial_status, partial_last = request("GET", f"/api/v1/scans/{partial_scan_id}", token=token)
+        expect(partial_status == 200, f"partial scan status request failed: {partial_status} {partial_last}")
+        if partial_last.get("status") in {"completed", "completed_with_warnings", "failed"}:
+            break
+        time.sleep(POLL_SECONDS)
+
+    expect(
+        partial_last.get("status") == "completed_with_warnings",
+        f"partial-permission scan did not preserve warning semantics: {partial_last}",
+    )
+    partial_status, partial_summary = request("GET", f"/api/v1/scans/{partial_scan_id}/summary", token=token)
+    expect(partial_status == 200, f"partial scan summary failed: {partial_status} {partial_summary}")
+    expect(partial_summary.get("execution_error_count", 0) > 0, f"partial-permission drill produced no real execution errors: {partial_summary}")
+    expect(partial_summary.get("total_findings", 0) > 0, f"partial-permission drill produced no findings: {partial_summary}")
 
     print("real AWS launch certification: PASS")
     print(f"  AWS account: {EXPECTED_ACCOUNT_ID}")
