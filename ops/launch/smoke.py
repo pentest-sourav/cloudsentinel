@@ -50,20 +50,32 @@ def request(
         method=method,
     )
 
-    try:
-        with urllib.request.urlopen(request_obj, timeout=10) as response:
-            raw = response.read().decode("utf-8")
-            try:
-                return response.status, json.loads(raw)
-            except json.JSONDecodeError:
-                return response.status, raw
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8")
+    # A container can report healthy while the host-published socket is
+    # still transitioning during process/socket replacement. Retry only
+    # transport-level startup failures; HTTP responses are never retried.
+    last_error: Exception | None = None
+    for attempt in range(15):
         try:
-            payload_value = json.loads(raw)
-        except json.JSONDecodeError:
-            payload_value = raw
-        return exc.code, payload_value
+            with urllib.request.urlopen(request_obj, timeout=10) as response:
+                raw = response.read().decode("utf-8")
+                try:
+                    return response.status, json.loads(raw)
+                except json.JSONDecodeError:
+                    return response.status, raw
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8")
+            try:
+                payload_value = json.loads(raw)
+            except json.JSONDecodeError:
+                payload_value = raw
+            return exc.code, payload_value
+        except (ConnectionResetError, ConnectionRefusedError, TimeoutError, OSError) as exc:
+            last_error = exc
+            if attempt == 14:
+                raise
+            time.sleep(2)
+
+    raise RuntimeError(f"request failed after retries: {last_error}")
 
 
 def expect(condition: bool, message: str) -> None:
