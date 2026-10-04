@@ -71,12 +71,6 @@ class Settings(BaseSettings):
                 "MAX_CONCURRENT_SCANS_PER_TENANT must be between 1 and 100."
             )
 
-        database_pool_settings = (
-            self.database_pool_size,
-            self.database_max_overflow,
-            self.database_pool_timeout_seconds,
-            self.database_pool_recycle_seconds,
-        )
         if self.database_pool_size <= 0:
             raise ValueError("DATABASE_POOL_SIZE must be > 0")
         if self.database_max_overflow < 0:
