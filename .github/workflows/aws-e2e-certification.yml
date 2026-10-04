@@ -136,18 +136,20 @@ jobs:
 
       - name: Run real AWS end-to-end certification
         env:
-          CLOUDSENTINEL_SMOKE_URL: http://api:8000
+          CLOUDSENTINEL_SMOKE_URL: http://127.0.0.1:18000
         run: |
-          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml run --rm             -e CERT_AWS_SCAN_ROLE_ARN             -e CERT_AWS_EXPECTED_ACCOUNT_ID             -e AWS_REGION             -e CLOUDSENTINEL_SMOKE_URL             -e SMOKE_PASSWORD             -e CERT_AWS_SCAN_TIMEOUT_SECONDS             -e CERT_AWS_SCAN_POLL_SECONDS             api python3 ops/launch/aws_e2e_certification.py
+          python3 ops/launch/aws_e2e_certification.py
 
       - name: Run PostgreSQL backup and restore drill
         env:
           COMPOSE_FILE: deploy/docker-compose.prod.yml
           OVERLAY_FILE: deploy/docker-compose.launch.yml
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
         run: |
           cp .env.launch .env
           trap 'rm -f .env' EXIT
+          set -a
+          source .env.launch
+          set +a
           bash ops/launch/backup_restore_drill.sh
 
       - name: Collect certification evidence
