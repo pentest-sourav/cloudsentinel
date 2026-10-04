@@ -110,6 +110,13 @@ jobs:
           AWS_ACCESS_KEY_ID=ci-access AWS_SECRET_ACCESS_KEY=ci-secret AWS_SESSION_TOKEN=ci-session AWS_REGION=us-east-1 CLOUDSENTINEL_AWS_PRINCIPAL_ARN=arn:aws:iam::123456789012:role/ci-runner docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.launch.yml -f deploy/docker-compose.aws-cert.yml config --quiet
 
       - name: Validate observability configuration
+        env:
+          CLOUDSENTINEL_IMAGE: cloudsentinel-ci:${{ github.sha }}
+          CLOUDSENTINEL_DOMAIN: example.com
+          POSTGRES_PASSWORD: ci-compose-password
+          REDIS_PASSWORD: ci-compose-redis-password
+          JWT_SECRET_KEY: ci-compose-production-secret-012345678901234567890123
+          CORS_ALLOWED_ORIGINS: https://example.com
         run: |
           mkdir -p secrets
           printf 'ci-metrics-token\\n' > secrets/cloudsentinel_metrics_token
