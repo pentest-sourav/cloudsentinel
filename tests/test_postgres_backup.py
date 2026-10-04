@@ -112,7 +112,7 @@ def test_restore_uses_exit_on_error_for_isolated_target(tmp_path, monkeypatch):
     monkeypatch.setattr(
         postgres_backup,
         "require_binary",
-        lambda name: name,
+        lambda name, env_name=None: name,
     )
     commands = []
     monkeypatch.setattr(
