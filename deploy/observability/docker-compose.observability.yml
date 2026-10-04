@@ -2,6 +2,11 @@
 # Keep Prometheus/Alertmanager on the internal network; expose them only through
 # an operator-controlled private network or VPN in the real deployment.
 services:
+  api:
+    environment:
+      METRICS_ENABLED: "true"
+      METRICS_AUTH_TOKEN: ${METRICS_AUTH_TOKEN:?METRICS_AUTH_TOKEN must be set for observability}
+
   prometheus:
     image: prom/prometheus:v3.8.1
     restart: unless-stopped
