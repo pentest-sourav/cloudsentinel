@@ -1,0 +1,58 @@
+groups:
+  - name: cloudsentinel
+    interval: 30s
+    rules:
+      - alert: CloudSentinelQueueMetricsStale
+        expr: cloudsentinel_scan_queue_metrics_fresh == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: cloudsentinel
+        annotations:
+          summary: CloudSentinel queue metrics are stale
+          description: The API has not refreshed Redis queue metrics within the configured freshness window.
+
+      - alert: CloudSentinelWorkerUnavailable
+        expr: cloudsentinel_scan_queue_active_workers < 1
+        for: 2m
+        labels:
+          severity: critical
+          service: cloudsentinel
+        annotations:
+          summary: CloudSentinel worker heartbeat missing
+          description: No active CloudSentinel worker heartbeat is visible.
+
+      - alert: CloudSentinelQueueBacklog
+        expr: cloudsentinel_scan_queue_pending_count > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: cloudsentinel
+        annotations:
+          summary: CloudSentinel scan queue backlog is high
+          description: More than 100 scan jobs have remained pending for at least five minutes.
+
+      - alert: CloudSentinelDeadLetterGrowth
+        expr: increase(cloudsentinel_scan_queue_dead_letter_length[10m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: cloudsentinel
+        annotations:
+          summary: CloudSentinel dead-letter queue is growing
+          description: Failed scan jobs have entered the dead-letter stream during the last ten minutes.
+
+      - alert: CloudSentinelApiErrorRate
+        expr: |
+          (
+            sum(rate(cloudsentinel_http_requests_total{status=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(cloudsentinel_http_requests_total[5m])), 1)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: cloudsentinel
+        annotations:
+          summary: CloudSentinel API 5xx error rate is elevated
+          description: More than five percent of observed API requests are returning 5xx responses.
