@@ -204,7 +204,7 @@ def main() -> int:
     )
     expect(status == 200, f"scan summary failed: {status} {summary}")
     expect(summary.get("provider") == "aws", f"unexpected summary provider: {summary}")
-    expect(summary.get("total_findings", 0) >= 0, f"invalid finding count: {summary}")
+    expect(summary.get("total_findings", 0) > 0, f"real AWS scan produced no findings: {summary}")
     expect("risk_posture" in summary, f"risk posture missing from summary: {summary}")
 
     execution_errors = summary.get("execution_error_count", 0)
@@ -220,11 +220,27 @@ def main() -> int:
         not missing_regions,
         f"real multi-region evidence missing required finding regions: {missing_regions}; observed={sorted(finding_regions)}",
     )
-    if execution_errors:
+    # Optional AWS services may be unsubscribed, opt-in gated, missing,
+    # or denied by a deliberately least-privilege audit role. Those remain
+    # visible warnings. Certification blocks on scanner/runtime defects.
+    blocking_errors = []
+    for error in summary.get("execution_errors", []):
+        message = str(error.get("message", ""))
+        if any(marker in message for marker in (
+            "AccessDenied",
+            "UnauthorizedOperation",
+            "SubscriptionRequiredException",
+            "OptInRequired",
+            "ResourceNotFoundException",
+        )):
+            continue
+        blocking_errors.append(error)
+
+    if blocking_errors:
         raise RuntimeError(
-            "AWS launch certification found execution errors. "
-            f"Scan {scan_id}: {execution_errors}; "
-            f"errors={summary.get('execution_errors', [])}"
+            "AWS launch certification found unexpected execution errors. "
+            f"Scan {scan_id}: total={execution_errors}; "
+            f"blocking={blocking_errors}"
         )
 
     status, dashboard = request(

@@ -32,6 +32,7 @@ class RuleExecutor:
         self,
         rule: RuleDefinition,
         collector: Any,
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ) -> list[Finding]:
         handler = self.handlers.get(rule.data_source)
 
@@ -49,6 +50,7 @@ class RuleExecutor:
             finding = self._evaluate_single(
                 rule=rule,
                 collected_data=collected_data,
+                rule_parameters=rule_parameters,
             )
 
             if finding is not None:
@@ -59,6 +61,7 @@ class RuleExecutor:
                 finding = self._evaluate_single(
                     rule=rule,
                     collected_data=item,
+                    rule_parameters=rule_parameters,
                 )
 
                 if finding is not None:
@@ -76,6 +79,7 @@ class RuleExecutor:
         self,
         rule: RuleDefinition,
         collected_data: dict[str, Any],
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ) -> Finding | None:
         check_data = {
             argument: collected_data[argument]
@@ -88,6 +92,14 @@ class RuleExecutor:
             rule.rule_id,
             {},
         )
+
+        if isinstance(rule_parameters, dict):
+            override = rule_parameters.get(rule.rule_id, {})
+            if isinstance(override, dict):
+                configured_parameters = {
+                    **configured_parameters,
+                    **override,
+                }
 
         if isinstance(configured_parameters, dict):
             parameters.update(configured_parameters)
@@ -105,6 +117,7 @@ class RuleExecutor:
         self,
         registry: Any,
         collector: Any,
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
 
@@ -113,6 +126,7 @@ class RuleExecutor:
                 self.execute_rule(
                     rule=rule,
                     collector=collector,
+                    rule_parameters=rule_parameters,
                 )
             )
 

@@ -1128,6 +1128,19 @@ def run_aws_scan(
 
                 regional_sessions[current_region] = regional_session
 
+            try:
+                available_regions = regional_session.get_available_regions(service_name)
+            except Exception:
+                available_regions = []
+
+            # boto3 returns a concrete list here. Test doubles may expose
+            # a Mock, which must not be treated as an iterable. Only apply
+            # endpoint gating when the SDK returned a concrete region list.
+            if isinstance(available_regions, (list, tuple, set, frozenset)):
+                if available_regions and current_region not in available_regions:
+                    report_progress(service_name, current_region)
+                    continue
+
             regional_scanners = _build_scanners(
                 regional_session,
                 identity,

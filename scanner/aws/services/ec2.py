@@ -630,10 +630,30 @@ class EC2Service:
     def describe_vpn_gateways(
         self,
     ) -> list[dict[str, Any]]:
-        return self._describe_tagging_resources(
-            "describe_vpn_gateways",
-            "VpnGateways",
-        )
+        """Return all VPN gateways using the EC2 API's NextToken pagination."""
+        try:
+            gateways: list[dict[str, Any]] = []
+            next_token: str | None = None
+            while True:
+                kwargs: dict[str, Any] = {}
+                if next_token:
+                    kwargs["NextToken"] = next_token
+                response = self.ec2_client.describe_vpn_gateways(**kwargs)
+                entries = response.get("VpnGateways", [])
+                if isinstance(entries, list):
+                    gateways.extend(entry for entry in entries if isinstance(entry, dict))
+                token = response.get("NextToken")
+                if not isinstance(token, str) or not token:
+                    break
+                next_token = token
+            return gateways
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            code = error.get("Code", "UnknownError")
+            message = error.get("Message", "AWS request failed")
+            raise RuntimeError(f"EC2 VPN gateway discovery failed: {code}: {message}") from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(f"AWS SDK error during EC2 VPN gateway discovery: {exc}") from exc
 
     def describe_transit_gateways(
         self,
