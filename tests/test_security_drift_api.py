@@ -233,3 +233,5 @@ def test_drift_is_tenant_scoped(client):
     assert response.status_code == 200
     assert response.json()["current_scan_id"] is None
     assert response.json()["drift_state"] == "no_data"
+
+# CI synchronization: drift regression coverage is intentionally isolated by tenant.
