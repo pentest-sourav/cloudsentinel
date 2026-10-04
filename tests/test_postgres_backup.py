@@ -58,3 +58,72 @@ def test_prune_local_removes_expired_backup_and_manifest(tmp_path: Path):
 
     assert not backup.exists()
     assert not manifest.exists()
+
+
+def test_restore_refuses_live_database_target(tmp_path, monkeypatch):
+    backup = tmp_path / "cloudsentinel-postgres-test.dump"
+    backup.write_bytes(b"backup-data")
+    postgres_backup.write_manifest(
+        backup.with_suffix(".json"),
+        postgres_backup.manifest_for(
+            backup,
+            postgres_backup.checksum(backup),
+        ),
+    )
+
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://user:pass@db:5432/app",
+    )
+    monkeypatch.setattr(
+        postgres_backup,
+        "require_binary",
+        lambda name: name,
+    )
+    monkeypatch.setattr(
+        postgres_backup,
+        "run",
+        lambda command: None,
+    )
+
+    with pytest.raises(RuntimeError, match="Refusing to restore"):
+        postgres_backup.restore(
+            backup,
+            "postgresql://user:pass@db:5432/app",
+        )
+
+
+def test_restore_uses_exit_on_error_for_isolated_target(tmp_path, monkeypatch):
+    backup = tmp_path / "cloudsentinel-postgres-test.dump"
+    backup.write_bytes(b"backup-data")
+    postgres_backup.write_manifest(
+        backup.with_suffix(".json"),
+        postgres_backup.manifest_for(
+            backup,
+            postgres_backup.checksum(backup),
+        ),
+    )
+
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://user:pass@db:5432/app",
+    )
+    monkeypatch.setattr(
+        postgres_backup,
+        "require_binary",
+        lambda name: name,
+    )
+    commands = []
+    monkeypatch.setattr(
+        postgres_backup,
+        "run",
+        lambda command: commands.append(command),
+    )
+
+    postgres_backup.restore(
+        backup,
+        "postgresql://user:pass@restore-db:5432/app",
+    )
+
+    restore_command = commands[-1]
+    assert "--exit-on-error" in restore_command
