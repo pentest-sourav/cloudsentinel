@@ -5,6 +5,7 @@ Description=Run CloudSentinel PostgreSQL backup daily
 OnCalendar=*-*-* 02:15:00
 Persistent=true
 RandomizedDelaySec=15m
+AccuracySec=5m
 Unit=cloudsentinel-postgres-backup.service
 
 [Install]

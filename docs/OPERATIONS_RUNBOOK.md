@@ -90,21 +90,49 @@ manager and grant the backup runtime only the permissions it needs.
 
 ## Production backup scheduler
 
-For a host-based deployment, install the supplied systemd units:
+The scheduler must use PostgreSQL client binaries from the same major version as the production PostgreSQL server. PostgreSQL explicitly refuses to let an older `pg_dump` dump a newer major-version server, so do not rely on an unpinned host `pg_dump`. citeturn0search15
 
-\`\`\`bash
+For the current production Compose database (PostgreSQL 17), install the PostgreSQL 17 client on the host and configure absolute paths:
+
+```bash
+sudo mkdir -p /etc/cloudsentinel
+sudo install -m 0600 deploy/backup/backup.env.example /etc/cloudsentinel/backup.env
+sudo editor /etc/cloudsentinel/backup.env
+```
+
+Set `DATABASE_URL` to the production database endpoint and keep these pinned values:
+
+```text
+PG_DUMP_BIN=/usr/lib/postgresql/17/bin/pg_dump
+PG_RESTORE_BIN=/usr/lib/postgresql/17/bin/pg_restore
+BACKUP_EXPECTED_POSTGRES_MAJOR=17
+```
+
+Then install the hardened units:
+
+```bash
 sudo install -m 0644 deploy/backup/cloudsentinel-postgres-backup.service /etc/systemd/system/
 sudo install -m 0644 deploy/backup/cloudsentinel-postgres-backup.timer /etc/systemd/system/
-sudo install -m 0600 deploy/backup/backup.env.example /etc/cloudsentinel/backup.env
-# Edit the environment file with the real database URL and off-host destination.
 sudo systemctl daemon-reload
 sudo systemctl enable --now cloudsentinel-postgres-backup.timer
 sudo systemctl list-timers cloudsentinel-postgres-backup.timer
-\`\`\`
+```
 
-The timer is daily at 02:15 in the server's local timezone, with a persistent catch-up after downtime and a randomized delay of up to 15 minutes. The example environment file is intentionally non-secret and must be replaced with real credentials outside Git.
+Before relying on the timer, run one real backup manually and verify it:
 
-For production, configure an off-host encrypted backup destination. A local dump alone is not sufficient for host-loss recovery.
+```bash
+sudo systemctl start cloudsentinel-postgres-backup.service
+sudo systemctl status cloudsentinel-postgres-backup.service --no-pager
+ls -lh /var/lib/cloudsentinel/backups/
+```
+
+The backup utility writes to a temporary file and atomically renames it only after `pg_dump` succeeds, so failed dumps are not presented as usable zero-byte archives. It also fails fast when the configured client major does not match `BACKUP_EXPECTED_POSTGRES_MAJOR`.
+
+The timer is daily at 02:15 in the server's local timezone, with persistent catch-up after downtime, up to 15 minutes of randomized delay, and a 30-minute service timeout. The service is hardened with a dedicated account, restrictive filesystem access, private temporary storage, dropped privilege escalation, and restricted address families.
+
+For production, configure an off-host encrypted destination. A local dump alone is not sufficient for host-loss recovery. If S3 replication is enabled, the backup job is considered failed when the configured upload fails; do not silently accept a backup that never reached the off-host destination.
+
+Do not give the backup service access to the Docker socket merely to run `docker exec pg_dump`: Docker documents that Docker-socket access is effectively root-equivalent on the host. citeturn2search3turn2search7
 
 ## Prometheus and alerting
 

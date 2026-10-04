@@ -79,7 +79,7 @@ def test_restore_refuses_live_database_target(tmp_path, monkeypatch):
     monkeypatch.setattr(
         postgres_backup,
         "require_binary",
-        lambda name: name,
+        lambda name, env_name=None: name,
     )
     monkeypatch.setattr(
         postgres_backup,
@@ -112,7 +112,7 @@ def test_restore_uses_exit_on_error_for_isolated_target(tmp_path, monkeypatch):
     monkeypatch.setattr(
         postgres_backup,
         "require_binary",
-        lambda name: name,
+        lambda name, env_name=None: name,
     )
     commands = []
     monkeypatch.setattr(
@@ -128,3 +128,77 @@ def test_restore_uses_exit_on_error_for_isolated_target(tmp_path, monkeypatch):
 
     restore_command = commands[-1]
     assert "--exit-on-error" in restore_command
+
+
+def test_backup_uses_pinned_dump_binary_and_atomic_output(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@db:5432/app")
+    monkeypatch.setenv("PG_DUMP_BIN", "/usr/local/bin/pg_dump-17")
+    commands = []
+
+    monkeypatch.setattr(
+        postgres_backup,
+        "require_binary",
+        lambda name, env_name=None: "/usr/local/bin/pg_dump-17",
+    )
+    monkeypatch.setattr(postgres_backup, "validate_expected_major", lambda binary: None)
+
+    def fake_run(command):
+        commands.append(command)
+        output = Path(command[command.index("--file") + 1])
+        output.write_bytes(b"valid-backup")
+
+    monkeypatch.setattr(postgres_backup, "run", fake_run)
+
+    result = postgres_backup.backup(tmp_path)
+
+    assert result.exists()
+    assert result.read_bytes() == b"valid-backup"
+    assert not list(tmp_path.glob("*.tmp"))
+    assert commands[0][0] == "/usr/local/bin/pg_dump-17"
+    assert commands[0][commands[0].index("--file") + 1].endswith(".dump.tmp")
+
+
+def test_backup_removes_partial_archive_when_dump_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@db:5432/app")
+    monkeypatch.setattr(
+        postgres_backup,
+        "require_binary",
+        lambda name, env_name=None: "/usr/local/bin/pg_dump-17",
+    )
+    monkeypatch.setattr(postgres_backup, "validate_expected_major", lambda binary: None)
+
+    def failing_run(command):
+        output = Path(command[command.index("--file") + 1])
+        output.write_bytes(b"partial")
+        raise subprocess.CalledProcessError(1, command)
+
+    import subprocess
+    monkeypatch.setattr(postgres_backup, "run", failing_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        postgres_backup.backup(tmp_path)
+
+    assert not list(tmp_path.glob("cloudsentinel-postgres-*.dump"))
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_verify_rejects_empty_backup(tmp_path, monkeypatch):
+    backup = tmp_path / "cloudsentinel-postgres-empty.dump"
+    backup.write_bytes(b"")
+    postgres_backup.write_manifest(
+        backup.with_suffix(".json"),
+        {
+            "format": "postgresql-custom",
+            "filename": backup.name,
+            "size_bytes": 0,
+            "sha256": postgres_backup.checksum(backup),
+        },
+    )
+    monkeypatch.setattr(
+        postgres_backup,
+        "require_binary",
+        lambda name, env_name=None: "/usr/local/bin/pg_restore-17",
+    )
+
+    with pytest.raises(RuntimeError, match="Backup is empty"):
+        postgres_backup.verify(backup)
