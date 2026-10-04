@@ -79,7 +79,7 @@ def test_restore_refuses_live_database_target(tmp_path, monkeypatch):
     monkeypatch.setattr(
         postgres_backup,
         "require_binary",
-        lambda name: name,
+        lambda name, env_name=None: name,
     )
     monkeypatch.setattr(
         postgres_backup,
@@ -155,7 +155,7 @@ def test_backup_uses_pinned_dump_binary_and_atomic_output(tmp_path, monkeypatch)
     assert result.read_bytes() == b"valid-backup"
     assert not list(tmp_path.glob("*.tmp"))
     assert commands[0][0] == "/usr/local/bin/pg_dump-17"
-    assert commands[0][commands[0].index("--file") + 1].endswith(".dump.tmp") is False
+    assert commands[0][commands[0].index("--file") + 1].endswith(".dump.tmp")
 
 
 def test_backup_removes_partial_archive_when_dump_fails(tmp_path, monkeypatch):
