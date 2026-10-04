@@ -17,6 +17,7 @@ from backend.app.schemas.scan_summary import ScanSummaryResponse
 from backend.app.schemas.posture import PostureTrendResponse
 from backend.app.schemas.compliance import CompliancePostureResponse
 from backend.app.schemas.risk_graph import RiskGraphResponse
+from backend.app.schemas.security_drift import SecurityDriftResponse
 from backend.app.schemas.dashboard import DashboardOverviewResponse
 from backend.app.services.scan_queue import ScanJob, ScanQueue
 from backend.app.services.scan_service import (
@@ -29,6 +30,7 @@ from backend.app.services.scan_summary_service import get_scan_summary
 from backend.app.services.posture_service import get_posture_trend
 from backend.app.services.compliance_service import get_compliance_posture
 from backend.app.services.risk_graph_service import get_risk_graph
+from backend.app.services.security_drift_service import get_security_drift
 from backend.app.services.dashboard_service import get_dashboard_overview
 from backend.app.services.scan_schedule_service import create_schedule, delete_schedule, get_schedule, list_schedules, set_schedule_enabled
 from backend.app.services.audit_service import (
@@ -294,6 +296,39 @@ def get_posture_trend_history(
         tenant_id=current_user.tenant_id,
         cloud_account_id=cloud_account_id,
         limit=limit,
+    )
+
+
+@router.get(
+    "/drift",
+    response_model=SecurityDriftResponse,
+)
+def get_security_drift_data(
+    cloud_account_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if cloud_account_id is not None:
+        from backend.app.models.cloud_account import CloudAccount
+
+        account = (
+            db.query(CloudAccount)
+            .filter(
+                CloudAccount.id == cloud_account_id,
+                CloudAccount.tenant_id == current_user.tenant_id,
+            )
+            .first()
+        )
+        if account is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cloud account not found",
+            )
+
+    return get_security_drift(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        cloud_account_id=cloud_account_id,
     )
 
 

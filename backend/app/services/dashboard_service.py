@@ -4,6 +4,7 @@ from backend.app.models.scan import Scan
 from backend.app.services.compliance_service import get_compliance_posture
 from backend.app.services.risk_graph_service import get_risk_graph
 from backend.app.services.remediation_service import get_remediation_queue
+from backend.app.services.security_drift_service import get_security_drift
 from backend.app.services.scan_summary_service import get_scan_summary
 from backend.app.services.posture_service import get_posture_trend
 
@@ -103,6 +104,11 @@ def get_dashboard_overview(
                 "unassigned_items": 0,
                 "items": [],
             },
+            "drift": get_security_drift(
+                db=db,
+                tenant_id=tenant_id,
+                cloud_account_id=cloud_account_id,
+            ),
             "data_quality_notes": [
                 "No AWS scan has been run for this workspace yet.",
             ],
@@ -186,6 +192,12 @@ def get_dashboard_overview(
         limit=20,
     )
 
+    drift = get_security_drift(
+        db=db,
+        tenant_id=tenant_id,
+        cloud_account_id=cloud_account_id,
+    )
+
     compliance = None
     if latest_scan.status in {
         "completed",
@@ -231,5 +243,6 @@ def get_dashboard_overview(
         "compliance": compliance,
         "top_risks": top_risks,
         "remediation": remediation,
-        "data_quality_notes": notes,
+        "drift": drift,
+        "data_quality_notes": notes + drift["data_quality_notes"],
     }
