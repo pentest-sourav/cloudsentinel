@@ -14,7 +14,7 @@ from backend.app.services.cloud_account_status import (
 
 
 def generate_external_id() -> str:
-    return f"cs-{secrets.token_urlsafe(32)}"
+    return f"cs-aws-{secrets.token_urlsafe(32)}"
 
 
 def create_cloud_account(
