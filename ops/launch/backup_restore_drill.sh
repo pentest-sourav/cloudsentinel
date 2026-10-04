@@ -18,11 +18,31 @@ compose() {
 
 echo "Creating isolated PostgreSQL backup..."
 start=$SECONDS
-compose exec -T   -e PGPASSWORD="$POSTGRES_PASSWORD"   postgres   pg_dump   --format=custom   --no-owner   --no-acl   --file=-   -U "$POSTGRES_USER"   -d "$POSTGRES_DB" > "$DUMP"
+backup_error="$ARTIFACT_DIR/backup-error.txt"
+if ! compose exec -T \
+  -e PGPASSWORD="$POSTGRES_PASSWORD" \
+  postgres \
+  pg_dump \
+  --format=custom \
+  --no-owner \
+  --no-acl \
+  --file=- \
+  -U "$POSTGRES_USER" \
+  -d "$POSTGRES_DB" > "$DUMP" 2> "$backup_error"; then
+  echo "PostgreSQL backup failed. Container diagnostics:"
+  cat "$backup_error" >&2 || true
+  compose ps >&2 || true
+  compose logs --no-color --tail=100 postgres >&2 || true
+  exit 1
+fi
 backup_seconds=$((SECONDS - start))
 
 test -s "$DUMP"
-compose exec -T postgres pg_restore --list - < "$DUMP" >/dev/null
+if ! compose exec -T postgres pg_restore --list - < "$DUMP" >/dev/null 2> "$backup_error"; then
+  echo "PostgreSQL backup archive validation failed:" >&2
+  cat "$backup_error" >&2 || true
+  exit 1
+fi
 
 echo "Restoring backup into an isolated database..."
 compose exec -T   -e PGPASSWORD="$POSTGRES_PASSWORD"   postgres   psql   -U "$POSTGRES_USER"   -d postgres   -v ON_ERROR_STOP=1   -c "DROP DATABASE IF EXISTS cloudsentinel_restore_drill"   -c "CREATE DATABASE cloudsentinel_restore_drill"
