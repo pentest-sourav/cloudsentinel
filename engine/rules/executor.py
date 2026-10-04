@@ -32,6 +32,7 @@ class RuleExecutor:
         self,
         rule: RuleDefinition,
         collector: Any,
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ) -> list[Finding]:
         handler = self.handlers.get(rule.data_source)
 
@@ -89,6 +90,14 @@ class RuleExecutor:
             {},
         )
 
+        if isinstance(rule_parameters, dict):
+            override = rule_parameters.get(rule.rule_id, {})
+            if isinstance(override, dict):
+                configured_parameters = {
+                    **configured_parameters,
+                    **override,
+                }
+
         if isinstance(configured_parameters, dict):
             parameters.update(configured_parameters)
 
@@ -105,6 +114,7 @@ class RuleExecutor:
         self,
         registry: Any,
         collector: Any,
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ) -> list[Finding]:
         findings: list[Finding] = []
 
@@ -113,6 +123,7 @@ class RuleExecutor:
                 self.execute_rule(
                     rule=rule,
                     collector=collector,
+                    rule_parameters=rule_parameters,
                 )
             )
 
