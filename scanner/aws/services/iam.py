@@ -511,11 +511,13 @@ class IAMService:
         except ClientError as exc:
             error = exc.response.get("Error", {})
             code = error.get("Code", "UnknownError")
+            if code == "NoSuchEntity":
+                # No account password policy is valid scan input.
+                return {}
             message = error.get(
                 "Message",
                 "AWS request failed",
             )
-
             raise RuntimeError(
                 f"IAM password policy check failed: "
                 f"{code}: {message}"
