@@ -1,0 +1,177 @@
+name: AWS E2E Launch Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Signed immutable CloudSentinel image (ghcr.io/...@sha256:...)"
+        required: true
+        type: string
+      aws_runner_role_arn:
+        description: "Dedicated GitHub OIDC runner role ARN in the certification AWS account"
+        required: true
+        type: string
+      aws_scan_role_arn:
+        description: "Read-only CloudSentinel scan role ARN in the certification AWS account"
+        required: true
+        type: string
+      expected_account_id:
+        description: "AWS account ID the scanner must actually reach"
+        required: true
+        type: string
+      aws_region:
+        description: "Certification region"
+        required: true
+        default: "us-east-1"
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+jobs:
+  certify:
+    name: Real AWS production-path certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CLOUDSENTINEL_IMAGE: ${{ inputs.image }}
+      AWS_REGION: ${{ inputs.aws_region }}
+      CERT_AWS_SCAN_ROLE_ARN: ${{ inputs.aws_scan_role_arn }}
+      CERT_AWS_EXPECTED_ACCOUNT_ID: ${{ inputs.expected_account_id }}
+      CERT_AWS_SCAN_TIMEOUT_SECONDS: "1800"
+      CERT_AWS_SCAN_POLL_SECONDS: "10"
+      SMOKE_PASSWORD: "LaunchCertification-user-password-0123456789"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate certification inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${CLOUDSENTINEL_IMAGE}" == *@sha256:* ]] || { echo "image must be an immutable @sha256 digest"; exit 1; }
+          [[ "${CERT_AWS_SCAN_ROLE_ARN}" == arn:aws:iam::*:role/* ]] || { echo "aws_scan_role_arn must be an IAM role ARN"; exit 1; }
+          [[ "${{ inputs.aws_runner_role_arn }}" == arn:aws:iam::*:role/* ]] || { echo "aws_runner_role_arn must be an IAM role ARN"; exit 1; }
+          [[ "${CERT_AWS_EXPECTED_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]] || { echo "expected_account_id must be a 12-digit AWS account ID"; exit 1; }
+
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: ${{ inputs.aws_runner_role_arn }}
+          role-session-name: cloudsentinel-launch-certification-${{ github.run_id }}
+          aws-region: ${{ inputs.aws_region }}
+          allowed-account-ids: ${{ inputs.expected_account_id }}
+          role-duration-seconds: 3600
+          mask-aws-account-id: true
+
+      - name: Verify AWS runner identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(aws sts get-caller-identity --query Account --output text)"
+          test "${actual}" = "${CERT_AWS_EXPECTED_ACCOUNT_ID}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.9.2
+
+      - name: Verify signed production image
+        shell: bash
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          set -euo pipefail
+          echo "${IMAGE}" | grep -Eq '@sha256:[0-9a-f]{64}$'
+          docker pull "${IMAGE}"
+          cosign verify "${IMAGE}"             --certificate-identity-regexp='https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/v.*'             --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+
+      - name: Write ephemeral certification environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          {
+            echo "CLOUDSENTINEL_IMAGE=${CLOUDSENTINEL_IMAGE}"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)"
+            echo "REDIS_PASSWORD=$(openssl rand -hex 32)"
+            echo "JWT_SECRET_KEY=$(openssl rand -hex 48)"
+            echo "CORS_ALLOWED_ORIGINS=http://127.0.0.1:18000"
+            echo "CLOUDSENTINEL_DOMAIN=localhost"
+            echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}"
+            echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
+            echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}"
+            echo "AWS_REGION=${AWS_REGION}"
+            echo "AWS_DEFAULT_REGION=${AWS_REGION}"
+            echo "CLOUDSENTINEL_AWS_PRINCIPAL_ARN=${{ inputs.aws_runner_role_arn }}"
+          } > .env.launch
+
+      - name: Validate production compose graph
+        run: |
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml config >/tmp/cloudsentinel-compose.yml
+
+      - name: Pull production graph
+        run: |
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml pull
+
+      - name: Start PostgreSQL and Redis
+        run: |
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml up -d postgres redis
+
+      - name: Apply migrations
+        run: |
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml run --rm migrate
+
+      - name: Start API and worker
+        run: |
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml up -d api worker
+
+      - name: Run real AWS end-to-end certification
+        env:
+          CLOUDSENTINEL_SMOKE_URL: http://127.0.0.1:18000
+        run: |
+          python3 ops/launch/aws_e2e_certification.py
+
+      - name: Run PostgreSQL backup and restore drill
+        env:
+          COMPOSE_FILE: deploy/docker-compose.prod.yml
+          OVERLAY_FILE: deploy/docker-compose.launch.yml
+        run: |
+          cp .env.launch .env
+          trap 'rm -f .env' EXIT
+          set -a
+          source .env.launch
+          set +a
+          bash ops/launch/backup_restore_drill.sh
+
+      - name: Collect certification evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p certification-evidence
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml ps > certification-evidence/compose-ps.txt || true
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml logs --no-color > certification-evidence/compose-logs.txt || true
+          aws sts get-caller-identity > certification-evidence/aws-runner-identity.json || true
+          cp ops/launch/aws_e2e_certification.py certification-evidence/aws_e2e_certification.py
+
+      - name: Upload certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsentinel-aws-e2e-certification-${{ github.run_id }}
+          path: certification-evidence/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Tear down certification stack
+        if: always()
+        run: |
+          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml down -v --remove-orphans
