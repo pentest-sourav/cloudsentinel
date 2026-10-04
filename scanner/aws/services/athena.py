@@ -183,7 +183,17 @@ class AthenaService:
 
             return tags
 
-        except (ClientError, BotoCoreError) as exc:
+        except ClientError as exc:
+            error = exc.response.get("Error", {})
+            if error.get("Code") == "ResourceNotFoundException":
+                return []
+            self._raise_api_error(
+                f"tag discovery for {resource_arn}",
+                exc,
+            )
+            raise AssertionError("unreachable")
+
+        except BotoCoreError as exc:
             self._raise_api_error(
                 f"tag discovery for {resource_arn}",
                 exc,
