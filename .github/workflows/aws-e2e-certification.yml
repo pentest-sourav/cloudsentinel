@@ -52,22 +52,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "${CLOUDSENTINEL_IMAGE}" == *@sha256:* ]] || {
-            echo "image must be an immutable @sha256 digest"
-            exit 1
-          }
-          [[ "${CERT_AWS_SCAN_ROLE_ARN}" == arn:aws:iam::*:role/* ]] || {
-            echo "aws_scan_role_arn must be an IAM role ARN"
-            exit 1
-          }
-          [[ "${{ inputs.aws_runner_role_arn }}" == arn:aws:iam::*:role/* ]] || {
-            echo "aws_runner_role_arn must be an IAM role ARN"
-            exit 1
-          }
-          [[ "${CERT_AWS_EXPECTED_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]] || {
-            echo "expected_account_id must be a 12-digit AWS account ID"
-            exit 1
-          }
+          [[ "${CLOUDSENTINEL_IMAGE}" == *@sha256:* ]] || { echo "image must be an immutable @sha256 digest"; exit 1; }
+          [[ "${CERT_AWS_SCAN_ROLE_ARN}" == arn:aws:iam::*:role/* ]] || { echo "aws_scan_role_arn must be an IAM role ARN"; exit 1; }
+          [[ "${{ inputs.aws_runner_role_arn }}" == arn:aws:iam::*:role/* ]] || { echo "aws_runner_role_arn must be an IAM role ARN"; exit 1; }
+          [[ "${CERT_AWS_EXPECTED_ACCOUNT_ID}" =~ ^[0-9]{12}$ ]] || { echo "expected_account_id must be a 12-digit AWS account ID"; exit 1; }
 
       - name: Configure AWS credentials with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v6.3.0
@@ -83,9 +71,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          aws sts get-caller-identity
           actual="$(aws sts get-caller-identity --query Account --output text)"
           test "${actual}" = "${CERT_AWS_EXPECTED_ACCOUNT_ID}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.9.2
 
       - name: Verify signed production image
         shell: bash
@@ -95,15 +92,20 @@ jobs:
           set -euo pipefail
           echo "${IMAGE}" | grep -Eq '@sha256:[0-9a-f]{64}$'
           docker pull "${IMAGE}"
-          docker pull ghcr.io/${{ github.repository }}:v0.1.1 >/dev/null 2>&1 || true
           cosign verify "${IMAGE}"             --certificate-identity-regexp='https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/v.*'             --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 
       - name: Write ephemeral certification environment
         shell: bash
         run: |
           set -euo pipefail
+          umask 077
           {
             echo "CLOUDSENTINEL_IMAGE=${CLOUDSENTINEL_IMAGE}"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)"
+            echo "REDIS_PASSWORD=$(openssl rand -hex 32)"
+            echo "JWT_SECRET_KEY=$(openssl rand -hex 48)"
+            echo "CORS_ALLOWED_ORIGINS=http://127.0.0.1:18000"
+            echo "CLOUDSENTINEL_DOMAIN=localhost"
             echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}"
             echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}"
             echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}"
@@ -111,7 +113,6 @@ jobs:
             echo "AWS_DEFAULT_REGION=${AWS_REGION}"
             echo "CLOUDSENTINEL_AWS_PRINCIPAL_ARN=${{ inputs.aws_runner_role_arn }}"
           } > .env.launch
-          chmod 600 .env.launch
 
       - name: Validate production compose graph
         run: |
@@ -134,16 +135,20 @@ jobs:
           docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml up -d api worker
 
       - name: Run real AWS end-to-end certification
+        env:
+          CLOUDSENTINEL_SMOKE_URL: http://api:8000
         run: |
           docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml run --rm             -e CERT_AWS_SCAN_ROLE_ARN             -e CERT_AWS_EXPECTED_ACCOUNT_ID             -e AWS_REGION             -e CLOUDSENTINEL_SMOKE_URL             -e SMOKE_PASSWORD             -e CERT_AWS_SCAN_TIMEOUT_SECONDS             -e CERT_AWS_SCAN_POLL_SECONDS             api python3 ops/launch/aws_e2e_certification.py
-        env:
-          CLOUDSENTINEL_SMOKE_URL: http://host.docker.internal:18000
 
       - name: Run PostgreSQL backup and restore drill
+        env:
+          COMPOSE_FILE: deploy/docker-compose.prod.yml
+          OVERLAY_FILE: deploy/docker-compose.launch.yml
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
         run: |
-          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml exec -T postgres             bash -lc 'apt-get update -qq && apt-get install -y -qq postgresql-client >/dev/null'
-          docker compose --env-file .env.launch             -f deploy/docker-compose.prod.yml             -f deploy/docker-compose.launch.yml             -f deploy/docker-compose.aws-cert.yml exec -T             -e POSTGRES_HOST=postgres             -e POSTGRES_PORT=5432             -e POSTGRES_DB=cloudsentinel             -e POSTGRES_USER=cloudsentinel             -e POSTGRES_PASSWORD=cloudsentinel             postgres bash -lc 'cd /workspace 2>/dev/null || cd / && true; /bin/bash /workspace/ops/launch/backup_restore_drill.sh'
-        continue-on-error: false
+          cp .env.launch .env
+          trap 'rm -f .env' EXIT
+          bash ops/launch/backup_restore_drill.sh
 
       - name: Collect certification evidence
         if: always()
