@@ -225,8 +225,8 @@ def test_dashboard_overview_has_clean_empty_state(client):
 
     assert data["latest_scan_id"] is None
     assert data["total_findings"] == 0
-    assert data["posture_score"] == 100.0
-    assert data["posture_grade"] == "A"
+    assert data["posture_score"] is None
+    assert data["posture_grade"] == "no_data"
     assert data["attack_path_count"] == 0
     assert data["top_risks"] == []
     assert data["compliance"] is None
