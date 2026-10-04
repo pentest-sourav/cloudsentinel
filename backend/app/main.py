@@ -20,6 +20,7 @@ from backend.app.core.metrics import metrics_registry
 from backend.app.core.logging import configure_logging, reset_request_id, set_request_id
 from backend.app.core.rate_limit import rate_limiter
 from backend.app.core.database import SessionLocal
+from backend.app.core.health import health_tracker
 from backend.app.services.audit_service import purge_expired_audit_events
 from backend.app.services.scan_queue import ScanQueue
 
@@ -280,10 +281,11 @@ def readiness_check():
         try:
             db.execute(text("SELECT 1"))
             checks["database"] = "ok"
+            health_tracker.record_success()
         finally:
             db.close()
     except Exception:
-        pass
+        health_tracker.record_failure()
 
     queue = None
 
