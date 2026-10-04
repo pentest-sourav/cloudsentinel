@@ -33,8 +33,10 @@ class Scan(Base):
         nullable=False,
     )
 
+    # Keep lifecycle states comfortably bounded while allowing explicit
+    # warning states such as ``completed_with_warnings``.
     status: Mapped[str] = mapped_column(
-        String(20),
+        String(64),
         nullable=False,
         default="pending",
     )
