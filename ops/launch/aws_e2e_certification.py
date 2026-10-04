@@ -24,6 +24,8 @@ EXPECTED_ACCOUNT_ID = os.environ["CERT_AWS_EXPECTED_ACCOUNT_ID"]
 REGION = os.environ.get("AWS_REGION", "us-east-1")
 TIMEOUT_SECONDS = int(os.environ.get("CERT_AWS_SCAN_TIMEOUT_SECONDS", "1800"))
 POLL_SECONDS = int(os.environ.get("CERT_AWS_SCAN_POLL_SECONDS", "10"))
+READY_TIMEOUT_SECONDS = int(os.environ.get("CERT_AWS_READY_TIMEOUT_SECONDS", "120"))
+READY_POLL_SECONDS = float(os.environ.get("CERT_AWS_READY_POLL_SECONDS", "2"))
 
 
 def request(
@@ -62,14 +64,34 @@ def request(
         return exc.code, value
 
 
+def wait_for_ready() -> None:
+    deadline = time.monotonic() + READY_TIMEOUT_SECONDS
+    last_error: Exception | None = None
+
+    while time.monotonic() < deadline:
+        try:
+            status, ready = request("GET", "/ready")
+            if status == 200 and isinstance(ready, dict) and ready.get("status") == "ready":
+                print("API readiness: PASS")
+                return
+            last_error = RuntimeError(f"API not ready: {status} {ready}")
+        except (OSError, urllib.error.URLError) as exc:
+            last_error = exc
+
+        time.sleep(READY_POLL_SECONDS)
+
+    raise RuntimeError(
+        f"API did not become ready within {READY_TIMEOUT_SECONDS}s: {last_error}"
+    )
+
+
 def expect(condition: bool, message: str) -> None:
     if not condition:
         raise RuntimeError(message)
 
 
 def main() -> int:
-    status, ready = request("GET", "/ready")
-    expect(status == 200 and ready.get("status") == "ready", f"API not ready: {status} {ready}")
+    wait_for_ready()
 
     unique = uuid.uuid4().hex[:12]
     email = f"aws-cert-{unique}@example.test"
