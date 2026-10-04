@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from threading import Lock
-from time import perf_counter, time
+from time import time
 
 
 class MetricsRegistry:
-    """Small dependency-free Prometheus text registry for API instances."""
+    """Bounded dependency-free Prometheus text registry."""
+
+    MAX_REQUEST_SERIES = 2_000
 
     def __init__(self):
         self._lock = Lock()
@@ -41,6 +43,9 @@ class MetricsRegistry:
         duration_key = (method, path)
 
         with self._lock:
+            if key not in self._request_count and len(self._request_count) >= self.MAX_REQUEST_SERIES:
+                return
+
             self._request_count[key] += 1
             total, count = self._request_duration[duration_key]
             self._request_duration[duration_key] = (
@@ -86,41 +91,29 @@ class MetricsRegistry:
         ]
 
         with self._lock:
-            for (method, path, status), count in sorted(
-                self._request_count.items()
-            ):
+            for (method, path, status), count in sorted(self._request_count.items()):
                 lines.append(
                     "cloudsentinel_http_requests_total"
                     f'{{method="{_escape(method)}",path="{_escape(path)}",status="{status}"}} {count}'
                 )
 
-            lines.extend(
-                [
-                    "# HELP cloudsentinel_http_request_duration_seconds_sum "
-                    "Total HTTP request duration.",
-                    "# TYPE cloudsentinel_http_request_duration_seconds_sum counter",
-                ]
-            )
+            lines.extend([
+                "# HELP cloudsentinel_http_request_duration_seconds_sum Total HTTP request duration.",
+                "# TYPE cloudsentinel_http_request_duration_seconds_sum counter",
+            ])
 
-            for (method, path), (total, _) in sorted(
-                self._request_duration.items()
-            ):
+            for (method, path), (total, _) in sorted(self._request_duration.items()):
                 lines.append(
                     "cloudsentinel_http_request_duration_seconds_sum"
                     f'{{method="{_escape(method)}",path="{_escape(path)}"}} {total:.6f}'
                 )
 
-            lines.extend(
-                [
-                    "# HELP cloudsentinel_http_request_duration_seconds_count "
-                    "HTTP request count used for duration metrics.",
-                    "# TYPE cloudsentinel_http_request_duration_seconds_count counter",
-                ]
-            )
+            lines.extend([
+                "# HELP cloudsentinel_http_request_duration_seconds_count HTTP request count used for duration metrics.",
+                "# TYPE cloudsentinel_http_request_duration_seconds_count counter",
+            ])
 
-            for (method, path), (_, count) in sorted(
-                self._request_duration.items()
-            ):
+            for (method, path), (_, count) in sorted(self._request_duration.items()):
                 lines.append(
                     "cloudsentinel_http_request_duration_seconds_count"
                     f'{{method="{_escape(method)}",path="{_escape(path)}"}} {count}'
@@ -130,11 +123,7 @@ class MetricsRegistry:
 
 
 def _escape(value: str) -> str:
-    return (
-        value.replace("\\", "\\\\")
-        .replace('"', '\\"')
-        .replace("\n", "\\n")
-    )
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
 metrics_registry = MetricsRegistry()
