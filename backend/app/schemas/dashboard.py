@@ -47,4 +47,5 @@ class DashboardOverviewResponse(BaseModel):
     compliance: dict | None
     top_risks: list[DashboardTopRisk]
     remediation: dict
+    drift: dict
     data_quality_notes: list[str]
