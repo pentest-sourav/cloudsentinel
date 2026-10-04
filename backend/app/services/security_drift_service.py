@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import tuple_
 from sqlalchemy.orm import Session
 
 from backend.app.models.finding import Finding
@@ -18,12 +19,25 @@ def _scans(db: Session, tenant_id: int, cloud_account_id: int | None):
         Scan.status.in_(TERMINAL),
         Scan.completed_at.is_not(None),
     )
-    q = q.filter(
-        Scan.cloud_account_id.is_(None)
-        if cloud_account_id is None
-        else Scan.cloud_account_id == cloud_account_id
-    )
-    return q.order_by(Scan.completed_at.desc(), Scan.id.desc()).limit(2).all()
+    if cloud_account_id is not None:
+        q = q.filter(Scan.cloud_account_id == cloud_account_id)
+        return q.order_by(Scan.completed_at.desc(), Scan.id.desc()).limit(2).all()
+
+    latest = q.order_by(Scan.completed_at.desc(), Scan.id.desc()).first()
+    if latest is None:
+        return []
+
+    previous_q = q.filter(Scan.id != latest.id)
+    if latest.cloud_account_id is None:
+        previous_q = previous_q.filter(Scan.cloud_account_id.is_(None))
+    else:
+        previous_q = previous_q.filter(Scan.cloud_account_id == latest.cloud_account_id)
+
+    previous = previous_q.order_by(
+        Scan.completed_at.desc(),
+        Scan.id.desc(),
+    ).first()
+    return [latest, previous] if previous is not None else [latest]
 
 def _findings(db: Session, scan_id: int):
     return db.query(Finding).filter(Finding.scan_id == scan_id).order_by(Finding.id.asc()).all()
@@ -71,9 +85,22 @@ def _first_seen(db, tenant_id, account_id, current_scan, identities):
         Scan.completed_at.is_not(None),
         Scan.completed_at < current_scan.completed_at,
     )
+    comparison_account_id = current_scan.cloud_account_id
+    if comparison_account_id is None:
+        q = q.filter(Scan.cloud_account_id.is_(None))
+    else:
+        q = q.filter(Scan.cloud_account_id == comparison_account_id)
+    requested = list(identities)
     q = q.filter(
-        Scan.cloud_account_id.is_(None)
-        if account_id is None else Scan.cloud_account_id == account_id
+        tuple_(
+            Finding.provider,
+            Finding.rule_id,
+            Finding.resource_type,
+            Finding.resource_id,
+        ).in_([
+            (i.provider, i.rule_id, i.resource_type, i.resource_id)
+            for i in requested
+        ])
     )
     rows = q.order_by(Scan.completed_at.asc(), Scan.id.asc(), Finding.id.asc()).all()
     result = {}
