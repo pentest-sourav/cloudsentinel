@@ -128,7 +128,9 @@ def main() -> int:
     )
 
     unique = uuid.uuid4().hex[:12]
-    email = f"launch-{unique}@example.test"
+    # Use a syntactically valid, non-reserved domain. The registration
+    # validator intentionally rejects special-use domains such as example.test.
+    email = f"launch-{unique}@cloudsentinel.dev"
     tenant = f"Launch Certification {unique}"
 
     status, registration = request(
