@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - "v*"
+  release:
+    types:
+      - published
+      - edited
 
 permissions:
   contents: read
