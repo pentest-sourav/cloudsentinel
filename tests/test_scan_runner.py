@@ -351,6 +351,8 @@ def test_scan_runner_persists_execution_errors_and_completes_scan():
             scanner=lambda: AWSScanResult(
                 findings=[engine_finding],
                 errors=[execution_error],
+                successful_steps=1,
+                failed_steps=1,
             ),
         )
 
@@ -422,6 +424,8 @@ def test_scan_runner_completes_scan_with_warnings_when_execution_errors_exist():
             scanner=lambda: AWSScanResult(
                 findings=[],
                 errors=[execution_error],
+                successful_steps=1,
+                failed_steps=1,
             ),
         )
 
@@ -441,3 +445,58 @@ def test_scan_runner_completes_scan_with_warnings_when_execution_errors_exist():
     finally:
         db.close()
 
+
+
+def test_scan_runner_fails_when_aws_has_no_successful_execution():
+    from backend.app.models.scan_execution_error import ScanExecutionError
+    from backend.app.services.aws_scan_service import (
+        AWSScanResult,
+        ScannerExecutionError,
+    )
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    tenant = create_test_tenant(db)
+
+    try:
+        scan = Scan(
+            tenant_id=tenant.id,
+            provider="aws",
+            status="pending",
+        )
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        execution_error = ScannerExecutionError(
+            service="iam",
+            error_type="permission_denied",
+            error_code="AccessDenied",
+            message="IAM access denied",
+        )
+
+        result = ScanRunner(db=db).run(
+            scan=scan,
+            scanner=lambda: AWSScanResult(
+                findings=[],
+                errors=[execution_error],
+                attempted_steps=1,
+                successful_steps=0,
+                failed_steps=1,
+            ),
+        )
+
+        assert result.status == "failed"
+        assert "no successful scanner executions" in result.error_message
+
+        errors = (
+            db.query(ScanExecutionError)
+            .filter(ScanExecutionError.scan_id == scan.id)
+            .all()
+        )
+        assert len(errors) == 1
+        assert errors[0].error_code == "AccessDenied"
+    finally:
+        db.close()

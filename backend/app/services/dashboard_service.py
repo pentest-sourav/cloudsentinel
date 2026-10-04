@@ -57,9 +57,22 @@ def get_dashboard_overview(
             Scan.cloud_account_id == cloud_account_id,
         )
 
-    latest_scan = (
+    latest_attempt = (
         query.order_by(
-            Scan.completed_at.desc().nullslast(),
+            Scan.updated_at.desc(),
+            Scan.id.desc(),
+        )
+        .first()
+    )
+
+    latest_scan = (
+        query
+        .filter(
+            Scan.status.in_(("completed", "completed_with_warnings")),
+            Scan.completed_at.is_not(None),
+        )
+        .order_by(
+            Scan.completed_at.desc(),
             Scan.id.desc(),
         )
         .first()
@@ -84,8 +97,8 @@ def get_dashboard_overview(
             "medium_count": 0,
             "low_count": 0,
             "info_count": 0,
-            "posture_score": 100.0,
-            "posture_grade": "A",
+            "posture_score": None,
+            "posture_grade": "no_data",
             "average_risk_score": 0.0,
             "max_risk_score": 0.0,
             "affected_resource_count": 0,
@@ -110,7 +123,13 @@ def get_dashboard_overview(
                 cloud_account_id=cloud_account_id,
             ),
             "data_quality_notes": [
-                "No AWS scan has been run for this workspace yet.",
+                (
+                    f"Latest scan attempt #{latest_attempt.id} failed; "
+                    "no trustworthy terminal AWS assessment is available."
+                    if latest_attempt is not None
+                    and latest_attempt.status == "failed"
+                    else "No trustworthy AWS scan has been completed for this workspace yet."
+                ),
             ],
         }
 
@@ -171,6 +190,18 @@ def get_dashboard_overview(
         )
 
     notes = []
+    if latest_attempt is not None and latest_attempt.id != latest_scan.id:
+        if latest_attempt.status == "failed":
+            notes.append(
+                f"Latest scan attempt #{latest_attempt.id} failed; "
+                "posture is based on the most recent trustworthy terminal scan."
+            )
+        elif latest_attempt.status in {"pending", "running"}:
+            notes.append(
+                f"Scan #{latest_attempt.id} is {latest_attempt.status}; "
+                "posture is based on the most recent trustworthy terminal scan."
+            )
+
     if latest_scan.status not in {
         "completed",
         "completed_with_warnings",

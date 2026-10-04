@@ -64,6 +64,27 @@ class ScanRunner:
             )
 
             if execution_errors:
+                successful_steps = getattr(
+                    result,
+                    "successful_steps",
+                    None,
+                )
+
+                # An AWS scan with zero successful scanner executions has
+                # no trustworthy coverage. Never present that as a
+                # completed-with-warnings scan because the dashboard could
+                # otherwise be mistaken for a clean/complete assessment.
+                if successful_steps == 0:
+                    return fail_scan(
+                        db=self.db,
+                        scan=scan,
+                        error_message=(
+                            "AWS scan produced no successful scanner "
+                            "executions; results are not considered "
+                            "trustworthy."
+                        ),
+                    )
+
                 return complete_scan(
                     db=self.db,
                     scan=scan,

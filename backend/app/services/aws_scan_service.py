@@ -150,6 +150,9 @@ class ScannerExecutionError:
 class AWSScanResult:
     findings: list
     errors: list[ScannerExecutionError]
+    attempted_steps: int = 0
+    successful_steps: int = 0
+    failed_steps: int = 0
 
 
 def _classify_aws_error(error: Exception) -> str:
@@ -934,6 +937,17 @@ def run_aws_scan(
 
     findings: list = []
     errors: list[ScannerExecutionError] = []
+    attempted_steps = 0
+    successful_steps = 0
+    failed_steps = 0
+
+    def record_execution(error: ScannerExecutionError | None) -> None:
+        nonlocal attempted_steps, successful_steps, failed_steps
+        attempted_steps += 1
+        if error is None:
+            successful_steps += 1
+        else:
+            failed_steps += 1
 
     # ------------------------------------------------------------
     # Execute in the canonical scanner order.
@@ -968,6 +982,7 @@ def run_aws_scan(
 
             if error is not None:
                 errors.append(error)
+            record_execution(error)
 
             report_progress(service_name, "global")
             continue
@@ -992,6 +1007,7 @@ def run_aws_scan(
 
             if error is not None:
                 errors.append(error)
+            record_execution(error)
 
             report_progress(service_name, "global")
             continue
@@ -1050,6 +1066,7 @@ def run_aws_scan(
 
                 if error is not None:
                     errors.append(error)
+                record_execution(error)
 
                 report_progress("waf", current_region)
 
@@ -1076,6 +1093,7 @@ def run_aws_scan(
 
             if error is not None:
                 errors.append(error)
+            record_execution(error)
 
             report_progress("waf-cloudfront", "global")
             continue
@@ -1137,6 +1155,7 @@ def run_aws_scan(
 
             if error is not None:
                 errors.append(error)
+            record_execution(error)
 
             report_progress(service_name, current_region)
 
@@ -1145,4 +1164,7 @@ def run_aws_scan(
     return AWSScanResult(
         findings=findings,
         errors=errors,
+        attempted_steps=attempted_steps,
+        successful_steps=successful_steps,
+        failed_steps=failed_steps,
     )

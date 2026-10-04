@@ -225,8 +225,8 @@ def test_dashboard_overview_has_clean_empty_state(client):
 
     assert data["latest_scan_id"] is None
     assert data["total_findings"] == 0
-    assert data["posture_score"] == 100.0
-    assert data["posture_grade"] == "A"
+    assert data["posture_score"] is None
+    assert data["posture_grade"] == "no_data"
     assert data["attack_path_count"] == 0
     assert data["top_risks"] == []
     assert data["compliance"] is None
@@ -262,3 +262,43 @@ def test_dashboard_overview_is_tenant_scoped(client):
         headers={"Authorization": f"Bearer {token_b}"},
     )
     assert direct_scan_response.status_code == 404
+
+
+def test_dashboard_does_not_use_failed_scan_as_posture(client):
+    tenant_id, email = create_user(
+        "failed-dashboard@example.com",
+        "Failed Dashboard Tenant",
+        "failed-dashboard-tenant",
+    )
+
+    db = TestingSessionLocal()
+    try:
+        scan = Scan(
+            tenant_id=tenant_id,
+            provider="aws",
+            status="failed",
+            started_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            error_message="AWS access denied",
+        )
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+        failed_scan_id = scan.id
+    finally:
+        db.close()
+
+    token = login(client, email)
+    response = client.get(
+        "/api/v1/scans/dashboard/overview",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["latest_scan_id"] is None
+    assert data["posture_score"] is None
+    assert data["posture_grade"] == "no_data"
+    assert "failed" in data["data_quality_notes"][0].lower()
+    assert str(failed_scan_id) in data["data_quality_notes"][0]
