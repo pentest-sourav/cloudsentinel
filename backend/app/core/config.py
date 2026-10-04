@@ -162,6 +162,11 @@ class Settings(BaseSettings):
         if self.jwt_access_token_expire_minutes <= 0:
             raise ValueError("JWT_ACCESS_TOKEN_EXPIRE_MINUTES must be > 0")
 
+        if self.jwt_algorithm not in {"HS256", "HS384", "HS512"}:
+            raise ValueError(
+                "JWT_ALGORITHM must be one of HS256, HS384, or HS512."
+            )
+
         if self.app_environment.lower() == "production":
             if len(self.jwt_secret_key) < 32:
                 raise ValueError(
