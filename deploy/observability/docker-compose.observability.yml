@@ -35,10 +35,10 @@ services:
     cap_drop:
       - ALL
     volumes:
-      - ./deploy/observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Mount the observability directory instead of a single file. Docker Desktop\n      # on WSL can mis-handle single-file bind mounts as directory mounts.\n      - ./deploy/observability:/etc/alertmanager-config:ro
       - alertmanager_data:/alertmanager
     command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --config.file=/etc/alertmanager-config/alertmanager.yml
       - --storage.path=/alertmanager
     networks:
       - internal
