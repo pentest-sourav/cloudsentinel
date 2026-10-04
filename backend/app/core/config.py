@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str
 
+    # Keep the SQL connection budget explicit so API/worker replicas cannot
+    # silently grow an unbounded database connection footprint.
+    database_pool_size: int = 5
+    database_max_overflow: int = 10
+    database_pool_timeout_seconds: int = 30
+    database_pool_recycle_seconds: int = 1800
+
     scan_queue_stream: str = "cloudsentinel:scan_jobs"
     scan_queue_group: str = "cloudsentinel:scan_workers"
     scan_queue_max_retries: int = 3
@@ -54,7 +61,6 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-
     @model_validator(mode="after")
     def validate_runtime_security(self):
         if not 1 <= self.scan_scheduler_poll_seconds <= 300:
@@ -63,6 +69,25 @@ class Settings(BaseSettings):
         if not 1 <= self.max_concurrent_scans_per_tenant <= 100:
             raise ValueError(
                 "MAX_CONCURRENT_SCANS_PER_TENANT must be between 1 and 100."
+            )
+
+        database_pool_settings = (
+            self.database_pool_size,
+            self.database_max_overflow,
+            self.database_pool_timeout_seconds,
+            self.database_pool_recycle_seconds,
+        )
+        if self.database_pool_size <= 0:
+            raise ValueError("DATABASE_POOL_SIZE must be > 0")
+        if self.database_max_overflow < 0:
+            raise ValueError("DATABASE_MAX_OVERFLOW must be >= 0")
+        if any(value <= 0 for value in (
+            self.database_pool_timeout_seconds,
+            self.database_pool_recycle_seconds,
+        )):
+            raise ValueError(
+                "DATABASE_POOL_TIMEOUT_SECONDS and "
+                "DATABASE_POOL_RECYCLE_SECONDS must be > 0"
             )
 
         if self.max_request_body_bytes <= 0:
