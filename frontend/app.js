@@ -1843,6 +1843,60 @@ function renderExecutiveDashboard(data) {
             .join("");
     }
 
+    const drift = data?.drift || {};
+    const driftState = String(drift.drift_state || "no_data");
+    const driftStateLabel = {
+        worsened: "WORSENED",
+        improved: "IMPROVED",
+        stable: "STABLE",
+        baseline: "BASELINE",
+        no_data: "NO DATA",
+    }[driftState] || driftState.toUpperCase();
+
+    const driftStateElement = $("executive-drift-state");
+    driftStateElement.textContent = driftStateLabel;
+    driftStateElement.className = `status-pill drift-${escapeHtml(driftState)}`;
+
+    const postureDelta = drift.posture_delta;
+    $("executive-drift-delta").textContent =
+        postureDelta === null || postureDelta === undefined
+            ? "—"
+            : `${postureDelta >= 0 ? "+" : ""}${safeNumber(postureDelta).toFixed(1)}`;
+
+    $("executive-drift-new-resolved").textContent =
+        `${safeNumber(drift.new_count)} / ${safeNumber(drift.resolved_count)}`;
+    $("executive-drift-reopened").textContent =
+        safeNumber(drift.reopened_count);
+    $("executive-drift-risk").textContent =
+        `${safeNumber(drift.risk_increase_count)} ↑ · ${safeNumber(drift.risk_decrease_count)} ↓`;
+    $("executive-drift-exposure").textContent =
+        safeNumber(drift.newly_exposed_count);
+    $("executive-drift-sensitive").textContent =
+        safeNumber(drift.newly_sensitive_count);
+
+    const renderDriftItems = (items, emptyText) => {
+        if (!Array.isArray(items) || !items.length) {
+            return `<div class="empty-state compact"><span>${escapeHtml(emptyText)}</span></div>`;
+        }
+        return items.slice(0, 5).map((item) => `
+            <button type="button" class="executive-remediation-item" data-executive-finding="${escapeHtml(item.finding_id || "")}">
+                <span class="executive-remediation-main">
+                    <strong>${escapeHtml(item.title)}</strong>
+                    <small>${escapeHtml(item.status)} · ${escapeHtml(item.rule_id)} · ${escapeHtml(item.resource_id)}</small>
+                </span>
+                <span class="executive-remediation-side">
+                    <strong>${safeNumber(item.risk_score).toFixed(1)}${item.previous_risk_score !== null && item.previous_risk_score !== undefined ? ` (${item.risk_delta >= 0 ? "+" : ""}${safeNumber(item.risk_delta).toFixed(1)})` : ""}</strong>
+                    <small>${escapeHtml(item.severity)}</small>
+                </span>
+            </button>
+        `).join("");
+    };
+
+    $("executive-drift-regressions").innerHTML =
+        renderDriftItems(drift.top_regressions, "No regressions detected.");
+    $("executive-drift-improvements").innerHTML =
+        renderDriftItems(drift.top_improvements, "No improvements detected.");
+
     const remediation = data?.remediation?.items || [];
     const remediationElement = $("executive-remediation-list");
 
