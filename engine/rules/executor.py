@@ -50,6 +50,7 @@ class RuleExecutor:
             finding = self._evaluate_single(
                 rule=rule,
                 collected_data=collected_data,
+                rule_parameters=rule_parameters,
             )
 
             if finding is not None:
@@ -60,6 +61,7 @@ class RuleExecutor:
                 finding = self._evaluate_single(
                     rule=rule,
                     collected_data=item,
+                    rule_parameters=rule_parameters,
                 )
 
                 if finding is not None:
@@ -77,6 +79,7 @@ class RuleExecutor:
         self,
         rule: RuleDefinition,
         collected_data: dict[str, Any],
+        rule_parameters: dict[str, dict[str, Any]] | None = None,
     ) -> Finding | None:
         check_data = {
             argument: collected_data[argument]
