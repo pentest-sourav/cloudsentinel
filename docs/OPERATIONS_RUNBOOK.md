@@ -88,6 +88,32 @@ repository files. Use the deployment platform's secret store or an external secr
 manager and grant the backup runtime only the permissions it needs.
 
 
+## Production backup scheduler
+
+For a host-based deployment, install the supplied systemd units:
+
+\`\`\`bash
+sudo install -m 0644 deploy/backup/cloudsentinel-postgres-backup.service /etc/systemd/system/
+sudo install -m 0644 deploy/backup/cloudsentinel-postgres-backup.timer /etc/systemd/system/
+sudo install -m 0600 deploy/backup/backup.env.example /etc/cloudsentinel/backup.env
+# Edit the environment file with the real database URL and off-host destination.
+sudo systemctl daemon-reload
+sudo systemctl enable --now cloudsentinel-postgres-backup.timer
+sudo systemctl list-timers cloudsentinel-postgres-backup.timer
+\`\`\`
+
+The timer is daily at 02:15 in the server's local timezone, with a persistent catch-up after downtime and a randomized delay of up to 15 minutes. The example environment file is intentionally non-secret and must be replaced with real credentials outside Git.
+
+For production, configure an off-host encrypted backup destination. A local dump alone is not sufficient for host-loss recovery.
+
+## Prometheus and alerting
+
+The production metrics and alert rules are in `deploy/observability/`. Prometheus scrapes the authenticated API metrics endpoint using a credentials file, and the alert rules cover stale queue metrics, missing worker heartbeat, queue backlog, dead-letter growth, and sustained API 5xx errors.
+
+The observability Compose overlay can be merged with the production Compose file. Create the metrics token file at `secrets/cloudsentinel_metrics_token` with the same value configured as `METRICS_AUTH_TOKEN` for the API. Keep Prometheus and Alertmanager on a private/operator network; do not publish their ports directly to the public Internet.
+
+Alertmanager must be configured with a real operator receiver before alerting is considered operational. Test both firing and resolution, and record notification latency.
+
 ## Worker queue reliability
 
 The worker's Redis Streams recovery behavior is configurable through:

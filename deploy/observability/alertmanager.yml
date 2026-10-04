@@ -1,0 +1,15 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: cloudsentinel-default
+  group_by: ["alertname", "service", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: cloudsentinel-default
+
+# Configure a real receiver (email, PagerDuty, Slack, webhook, etc.) before
+# relying on alerts operationally. Do not put receiver credentials in Git.
