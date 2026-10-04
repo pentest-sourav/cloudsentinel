@@ -122,3 +122,12 @@ The production Compose deployment exposes health checks for the API, worker, and
 - The Caddy health check verifies its local admin metrics endpoint without exposing that endpoint through the public edge network.
 
 Treat an unhealthy worker as an operational incident: the Redis queue may still retain pending jobs for another worker, but scheduled scans and capacity may be degraded until the worker is restored.
+
+
+## Scan result integrity
+
+AWS scans distinguish between **complete**, **completed with warnings**, and **failed** coverage.
+
+A scan is never treated as a trustworthy warning-complete result when every attempted scanner execution failed. In that case the scan is marked failed and the underlying execution errors remain attached to the scan for diagnosis.
+
+An empty finding set is not itself a failure: a successful scan of an account with no matching policy violations is valid. The system bases result trust on successful AWS API/scanner execution, not on the number of findings.
