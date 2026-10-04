@@ -98,3 +98,16 @@ def test_aws_sts_session_duration_accepts_supported_bounds():
     assert _settings(
         aws_sts_session_duration_seconds=43_200,
     ).aws_sts_session_duration_seconds == 43_200
+
+
+@pytest.mark.parametrize("algorithm", ["HS256", "HS384", "HS512"])
+def test_jwt_hmac_algorithms_are_allowed(algorithm):
+    config = _settings(jwt_algorithm=algorithm)
+
+    assert config.jwt_algorithm == algorithm
+
+
+@pytest.mark.parametrize("algorithm", ["none", "RS256", "ES256", ""])
+def test_jwt_non_hmac_algorithms_are_rejected(algorithm):
+    with pytest.raises(ValidationError, match="JWT_ALGORITHM"):
+        _settings(jwt_algorithm=algorithm)
