@@ -72,7 +72,7 @@ jobs:
 
       - name: Validate launch certification scripts
         run: |
-          python -m py_compile ops/launch/smoke.py
+          python -m py_compile ops/launch/smoke.py ops/launch/aws_e2e_certification.py
           bash -n ops/launch/backup_restore_drill.sh
 
       - name: Run test suite
@@ -107,6 +107,7 @@ jobs:
         run: |
           docker compose -f deploy/docker-compose.prod.yml config --quiet
           docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.launch.yml config --quiet
+          AWS_ACCESS_KEY_ID=ci-access AWS_SECRET_ACCESS_KEY=ci-secret AWS_SESSION_TOKEN=ci-session AWS_REGION=us-east-1 CLOUDSENTINEL_AWS_PRINCIPAL_ARN=arn:aws:iam::123456789012:role/ci-runner docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.launch.yml -f deploy/docker-compose.aws-cert.yml config --quiet
 
       - name: Scan application image
         uses: aquasecurity/trivy-action@v0.36.0
