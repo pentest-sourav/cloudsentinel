@@ -123,7 +123,13 @@ def get_dashboard_overview(
                 cloud_account_id=cloud_account_id,
             ),
             "data_quality_notes": [
-                "No AWS scan has been run for this workspace yet.",
+                (
+                    f"Latest scan attempt #{latest_attempt.id} failed; "
+                    "no trustworthy terminal AWS assessment is available."
+                    if latest_attempt is not None
+                    and latest_attempt.status == "failed"
+                    else "No trustworthy AWS scan has been completed for this workspace yet."
+                ),
             ],
         }
 
