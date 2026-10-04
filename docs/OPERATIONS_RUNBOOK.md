@@ -111,3 +111,14 @@ termination grace time for the configured scan workload.
 ### Restore safety
 
 Restore drills must use an isolated PostgreSQL instance. The backup utility rejects a target equal to `DATABASE_URL` and uses `pg_restore --exit-on-error` so a partial restore is not silently accepted.
+
+
+## Production service health
+
+The production Compose deployment exposes health checks for the API, worker, and Caddy edge proxy.
+
+- The worker health check verifies Redis connectivity and that its expiring worker heartbeat is visible.
+- Worker heartbeat and stale-scan thresholds are explicitly configurable through the production environment.
+- The Caddy health check verifies its local admin metrics endpoint without exposing that endpoint through the public edge network.
+
+Treat an unhealthy worker as an operational incident: the Redis queue may still retain pending jobs for another worker, but scheduled scans and capacity may be degraded until the worker is restored.
