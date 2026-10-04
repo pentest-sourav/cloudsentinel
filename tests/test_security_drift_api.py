@@ -55,11 +55,11 @@ def client():
     return TestClient(app)
 
 
-def user_and_token(client):
+def user_and_token(client, suffix="a"):
     db = SessionLocal()
     tenant = Tenant(
         name="Drift Tenant",
-        slug="drift-tenant",
+        slug=f"drift-tenant-{suffix}",
         status="active",
         created_at=datetime.now(timezone.utc),
     )
@@ -67,7 +67,7 @@ def user_and_token(client):
     db.flush()
     user = User(
         tenant_id=tenant.id,
-        email="drift@example.com",
+        email=f"drift-{suffix}@example.com",
         password_hash=hash_password("StrongPassword-2026!"),
         full_name="Drift Owner",
         role="owner",
@@ -224,7 +224,7 @@ def test_drift_is_tenant_scoped(client):
     token_a, tenant_a = user_and_token(client)
     seed_three_scans(tenant_a)
 
-    token_b, _ = user_and_token(client)
+    token_b, _ = user_and_token(client, suffix="b")
     response = client.get(
         "/api/v1/scans/drift",
         headers={"Authorization": f"Bearer {token_b}"},
