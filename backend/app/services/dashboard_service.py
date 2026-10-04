@@ -57,9 +57,22 @@ def get_dashboard_overview(
             Scan.cloud_account_id == cloud_account_id,
         )
 
-    latest_scan = (
+    latest_attempt = (
         query.order_by(
-            Scan.completed_at.desc().nullslast(),
+            Scan.updated_at.desc(),
+            Scan.id.desc(),
+        )
+        .first()
+    )
+
+    latest_scan = (
+        query
+        .filter(
+            Scan.status.in_(("completed", "completed_with_warnings")),
+            Scan.completed_at.is_not(None),
+        )
+        .order_by(
+            Scan.completed_at.desc(),
             Scan.id.desc(),
         )
         .first()
@@ -171,6 +184,18 @@ def get_dashboard_overview(
         )
 
     notes = []
+    if latest_attempt is not None and latest_attempt.id != latest_scan.id:
+        if latest_attempt.status == "failed":
+            notes.append(
+                f"Latest scan attempt #{latest_attempt.id} failed; "
+                "posture is based on the most recent trustworthy terminal scan."
+            )
+        elif latest_attempt.status in {"pending", "running"}:
+            notes.append(
+                f"Scan #{latest_attempt.id} is {latest_attempt.status}; "
+                "posture is based on the most recent trustworthy terminal scan."
+            )
+
     if latest_scan.status not in {
         "completed",
         "completed_with_warnings",
