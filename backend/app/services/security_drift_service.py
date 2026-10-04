@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import tuple_
 from sqlalchemy.orm import Session
 
 from backend.app.models.finding import Finding
@@ -18,11 +19,8 @@ def _scans(db: Session, tenant_id: int, cloud_account_id: int | None):
         Scan.status.in_(TERMINAL),
         Scan.completed_at.is_not(None),
     )
-    q = q.filter(
-        Scan.cloud_account_id.is_(None)
-        if cloud_account_id is None
-        else Scan.cloud_account_id == cloud_account_id
-    )
+    if cloud_account_id is not None:
+        q = q.filter(Scan.cloud_account_id == cloud_account_id)
     return q.order_by(Scan.completed_at.desc(), Scan.id.desc()).limit(2).all()
 
 def _findings(db: Session, scan_id: int):
@@ -71,9 +69,19 @@ def _first_seen(db, tenant_id, account_id, current_scan, identities):
         Scan.completed_at.is_not(None),
         Scan.completed_at < current_scan.completed_at,
     )
+    if account_id is not None:
+        q = q.filter(Scan.cloud_account_id == account_id)
+    requested = list(identities)
     q = q.filter(
-        Scan.cloud_account_id.is_(None)
-        if account_id is None else Scan.cloud_account_id == account_id
+        tuple_(
+            Finding.provider,
+            Finding.rule_id,
+            Finding.resource_type,
+            Finding.resource_id,
+        ).in_([
+            (i.provider, i.rule_id, i.resource_type, i.resource_id)
+            for i in requested
+        ])
     )
     rows = q.order_by(Scan.completed_at.asc(), Scan.id.asc(), Finding.id.asc()).all()
     result = {}
