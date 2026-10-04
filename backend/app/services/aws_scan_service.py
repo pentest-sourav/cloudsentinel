@@ -1128,6 +1128,15 @@ def run_aws_scan(
 
                 regional_sessions[current_region] = regional_session
 
+            try:
+                available_regions = regional_session.get_available_regions(service_name)
+            except Exception:
+                available_regions = []
+
+            if available_regions and current_region not in available_regions:
+                report_progress(service_name, current_region)
+                continue
+
             regional_scanners = _build_scanners(
                 regional_session,
                 identity,
