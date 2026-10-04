@@ -33,7 +33,7 @@ class DashboardOverviewResponse(BaseModel):
     low_count: int
     info_count: int
 
-    posture_score: float
+    posture_score: float | None
     posture_grade: str
     average_risk_score: float
     max_risk_score: float
