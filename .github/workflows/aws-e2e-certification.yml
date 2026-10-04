@@ -51,7 +51,8 @@ jobs:
       CERT_AWS_PARTIAL_SCAN_ROLE_ARN: ${{ inputs.aws_partial_scan_role_arn }}
       CERT_AWS_REQUIRED_REGIONS: ${{ inputs.required_scan_regions }}
       CERT_AWS_EXPECTED_ACCOUNT_ID: ${{ inputs.expected_account_id }}
-      CERT_AWS_SCAN_TIMEOUT_SECONDS: "1800"
+      # Real multi-region scans can legitimately exceed 30 minutes.
+      CERT_AWS_SCAN_TIMEOUT_SECONDS: "3600"
       CERT_AWS_SCAN_POLL_SECONDS: "10"
       SMOKE_PASSWORD: "LaunchCertification-user-password-0123456789"
 
