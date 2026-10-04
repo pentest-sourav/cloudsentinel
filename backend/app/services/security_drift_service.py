@@ -21,7 +21,23 @@ def _scans(db: Session, tenant_id: int, cloud_account_id: int | None):
     )
     if cloud_account_id is not None:
         q = q.filter(Scan.cloud_account_id == cloud_account_id)
-    return q.order_by(Scan.completed_at.desc(), Scan.id.desc()).limit(2).all()
+        return q.order_by(Scan.completed_at.desc(), Scan.id.desc()).limit(2).all()
+
+    latest = q.order_by(Scan.completed_at.desc(), Scan.id.desc()).first()
+    if latest is None:
+        return []
+
+    previous_q = q.filter(Scan.id != latest.id)
+    if latest.cloud_account_id is None:
+        previous_q = previous_q.filter(Scan.cloud_account_id.is_(None))
+    else:
+        previous_q = previous_q.filter(Scan.cloud_account_id == latest.cloud_account_id)
+
+    previous = previous_q.order_by(
+        Scan.completed_at.desc(),
+        Scan.id.desc(),
+    ).first()
+    return [latest, previous] if previous is not None else [latest]
 
 def _findings(db: Session, scan_id: int):
     return db.query(Finding).filter(Finding.scan_id == scan_id).order_by(Finding.id.asc()).all()
@@ -69,8 +85,11 @@ def _first_seen(db, tenant_id, account_id, current_scan, identities):
         Scan.completed_at.is_not(None),
         Scan.completed_at < current_scan.completed_at,
     )
-    if account_id is not None:
-        q = q.filter(Scan.cloud_account_id == account_id)
+    comparison_account_id = current_scan.cloud_account_id
+    if comparison_account_id is None:
+        q = q.filter(Scan.cloud_account_id.is_(None))
+    else:
+        q = q.filter(Scan.cloud_account_id == comparison_account_id)
     requested = list(identities)
     q = q.filter(
         tuple_(
