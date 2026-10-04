@@ -75,6 +75,7 @@ def user_and_token(client):
     )
     db.add(user)
     db.commit()
+    tenant_id = tenant.id
     email = user.email
     db.close()
 
@@ -83,7 +84,7 @@ def user_and_token(client):
         json={"email": email, "password": "StrongPassword-2026!"},
     )
     assert response.status_code == 200
-    return response.json()["access_token"], tenant.id
+    return response.json()["access_token"], tenant_id
 
 
 def add_scan(db, tenant_id, completed_at):
