@@ -11,7 +11,7 @@ services:
     cap_drop:
       - ALL
     volumes:
-      # Mount the observability directory to avoid Docker Desktop/WSL single-file bind mount issues.\n      - ./deploy/observability:/etc/prometheus-config:ro
+      # Mount the observability directory to avoid Docker Desktop/WSL single-file bind mount issues.\n      - ./observability:/etc/prometheus-config:ro
       - prometheus_data:/prometheus
     secrets:
       - cloudsentinel_metrics_token
@@ -34,7 +34,7 @@ services:
     cap_drop:
       - ALL
     volumes:
-      # Mount the observability directory instead of a single file. Docker Desktop\n      # on WSL can mis-handle single-file bind mounts as directory mounts.\n      - ./deploy/observability:/etc/alertmanager-config:ro
+      # Mount the observability directory instead of a single file. Docker Desktop\n      # on WSL can mis-handle single-file bind mounts as directory mounts.\n      - ./observability:/etc/alertmanager-config:ro
       - alertmanager_data:/alertmanager
     command:
       - --config.file=/etc/alertmanager-config/alertmanager.yml
@@ -44,7 +44,7 @@ services:
 
 secrets:
   cloudsentinel_metrics_token:
-    file: ./secrets/cloudsentinel_metrics_token
+    file: ../secrets/cloudsentinel_metrics_token
 
 volumes:
   prometheus_data:
