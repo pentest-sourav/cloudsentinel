@@ -96,7 +96,7 @@ def main() -> int:
     wait_for_ready()
 
     unique = uuid.uuid4().hex[:12]
-    email = f"aws-cert-{unique}@example.test"
+    email = f"aws-cert-{unique}@cloudsentinel.com"
     tenant_name = f"AWS Launch Certification {unique}"
 
     status, registration = request(
