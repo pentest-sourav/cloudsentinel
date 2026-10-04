@@ -1007,6 +1007,7 @@ def run_aws_scan(
 
             if error is not None:
                 errors.append(error)
+            record_execution(error)
 
             report_progress(service_name, "global")
             continue
