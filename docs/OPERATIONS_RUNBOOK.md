@@ -106,3 +106,8 @@ For controlled shutdown, send SIGTERM to the worker. It stops accepting the next
 queue read, finishes the current job, acknowledges only successfully completed jobs,
 and closes the Redis connection. Container orchestration should allow enough
 termination grace time for the configured scan workload.
+
+
+### Restore safety
+
+Restore drills must use an isolated PostgreSQL instance. The backup utility rejects a target equal to `DATABASE_URL` and uses `pg_restore --exit-on-error` so a partial restore is not silently accepted.

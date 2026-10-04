@@ -20,7 +20,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -190,11 +189,19 @@ def restore(backup_path: Path, target_url: str) -> None:
     if not target_url:
         raise RuntimeError("A target database URL is required")
 
+    # Never allow the recovery utility to overwrite the live application
+    # database accidentally. Restore drills must target an isolated database.
+    if libpq_url(database_url()) == libpq_url(target_url):
+        raise RuntimeError(
+            "Refusing to restore over DATABASE_URL; use an isolated target database"
+        )
+
     run(
         [
             "pg_restore",
             "--clean",
             "--if-exists",
+            "--exit-on-error",
             "--no-owner",
             "--no-acl",
             "--dbname",
