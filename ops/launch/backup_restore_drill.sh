@@ -19,6 +19,7 @@ compose() {
 echo "Creating isolated PostgreSQL backup..."
 start=$SECONDS
 CONTAINER_DUMP="/tmp/cloudsentinel-postgres-launch-drill.dump"
+CONTAINER_RESTORE="/tmp/cloudsentinel-postgres-launch-restore.dump"
 backup_error="$ARTIFACT_DIR/backup-error.txt"
 
 echo "Checking PostgreSQL readiness..."
@@ -61,31 +62,45 @@ if [ ! -s "$DUMP" ]; then
   exit 1
 fi
 
-if ! compose exec -T postgres pg_restore --list - < "$DUMP" >/dev/null 2> "$backup_error"; then
+echo "Validating PostgreSQL backup archive..."
+if ! pg_restore --list "$DUMP" > "$ARTIFACT_DIR/pg-restore-list.txt" 2> "$backup_error"; then
   echo "PostgreSQL backup archive validation failed:" >&2
   cat "$backup_error" >&2 || true
   exit 1
 fi
 
 echo "Restoring backup into an isolated database..."
-compose exec -T   -e PGPASSWORD="$POSTGRES_PASSWORD"   postgres   psql   -U "$POSTGRES_USER"   -d postgres   -v ON_ERROR_STOP=1   -c "DROP DATABASE IF EXISTS cloudsentinel_restore_drill"   -c "CREATE DATABASE cloudsentinel_restore_drill"
+if ! compose cp "$DUMP" "postgres:$CONTAINER_RESTORE" > "$ARTIFACT_DIR/pg-restore-cp.stdout" 2> "$backup_error"; then
+  echo "Failed to copy PostgreSQL backup into the container:" >&2
+  cat "$backup_error" >&2 || true
+  cat "$ARTIFACT_DIR/pg-restore-cp.stdout" >&2 || true
+  exit 1
+fi
+
+compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS cloudsentinel_restore_drill" -c "CREATE DATABASE cloudsentinel_restore_drill"
 
 start=$SECONDS
-compose exec -T   -e PGPASSWORD="$POSTGRES_PASSWORD"   postgres   pg_restore   --no-owner   --no-acl   --dbname=cloudsentinel_restore_drill   - < "$DUMP"
+if ! compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres pg_restore --no-owner --no-acl --dbname=cloudsentinel_restore_drill "$CONTAINER_RESTORE" > "$ARTIFACT_DIR/pg-restore.stdout" 2> "$backup_error"; then
+  echo "PostgreSQL restore failed:" >&2
+  cat "$backup_error" >&2 || true
+  cat "$ARTIFACT_DIR/pg-restore.stdout" >&2 || true
+  exit 1
+fi
 restore_seconds=$((SECONDS - start))
 
 tenant_count="$(
-  compose exec -T     -e PGPASSWORD="$POSTGRES_PASSWORD"     postgres     psql     -U "$POSTGRES_USER"     -d cloudsentinel_restore_drill     -tAc "SELECT count(*) FROM tenants"
+  compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql -U "$POSTGRES_USER" -d cloudsentinel_restore_drill -tAc "SELECT count(*) FROM tenants"
 )"
 
 user_count="$(
-  compose exec -T     -e PGPASSWORD="$POSTGRES_PASSWORD"     postgres     psql     -U "$POSTGRES_USER"     -d cloudsentinel_restore_drill     -tAc "SELECT count(*) FROM users"
+  compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql -U "$POSTGRES_USER" -d cloudsentinel_restore_drill -tAc "SELECT count(*) FROM users"
 )"
 
 test "$tenant_count" -ge 1
 test "$user_count" -ge 1
 
-compose exec -T   -e PGPASSWORD="$POSTGRES_PASSWORD"   postgres   psql   -U "$POSTGRES_USER"   -d postgres   -v ON_ERROR_STOP=1   -c "DROP DATABASE cloudsentinel_restore_drill"
+compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c "DROP DATABASE cloudsentinel_restore_drill"
+compose exec -T postgres rm -f "$CONTAINER_RESTORE" || true
 
 cat > "$ARTIFACT_DIR/backup-restore-evidence.txt" <<EOF
 CloudSentinel PostgreSQL launch certification drill
