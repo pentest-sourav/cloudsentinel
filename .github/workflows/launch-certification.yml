@@ -116,12 +116,15 @@ jobs:
           set +a
           docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up migrate
 
-      - name: Start API and worker
+      - name: Start API and worker and wait for health
         run: |
           set -a
           . ./.env.launch
           set +a
-          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up -d api worker
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up -d --wait --wait-timeout 180 api worker
+
+          echo "Production API and worker reported healthy."
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             ps
 
       - name: Run authenticated launch smoke test
         run: |
