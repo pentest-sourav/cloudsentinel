@@ -68,7 +68,6 @@ class CodeBuildService:
                 kwargs: dict[str, Any] = {
                     "sortOrder": "ASCENDING",
                     "sortBy": "NAME",
-                    "maxResults": 100,
                 }
 
                 if next_token:
