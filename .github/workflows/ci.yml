@@ -114,7 +114,7 @@ jobs:
           mkdir -p secrets
           printf 'ci-metrics-token\\n' > secrets/cloudsentinel_metrics_token
           docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.launch.yml -f deploy/observability/docker-compose.observability.yml config --quiet
-          docker run --rm -v "$PWD/deploy/observability:/etc/prometheus:ro" prom/prometheus:v3.8.1 promtool check config /etc/prometheus/prometheus.yml
+          docker run --rm -v "$PWD/deploy/observability:/etc/prometheus:ro" -v "$PWD/secrets/cloudsentinel_metrics_token:/run/secrets/cloudsentinel_metrics_token:ro" prom/prometheus:v3.8.1 promtool check config /etc/prometheus/prometheus.yml
           docker run --rm -v "$PWD/deploy/observability:/etc/alertmanager:ro" prom/alertmanager:v0.30.1 amtool check-config /etc/alertmanager/alertmanager.yml
 
       - name: Scan application image
