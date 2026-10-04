@@ -92,6 +92,11 @@ services:
       SCAN_QUEUE_RECOVERY_IDLE_MS: ${SCAN_QUEUE_RECOVERY_IDLE_MS:-30000}
       SCAN_QUEUE_RECOVERY_BATCH_SIZE: ${SCAN_QUEUE_RECOVERY_BATCH_SIZE:-10}
       SCAN_QUEUE_READ_BLOCK_MS: ${SCAN_QUEUE_READ_BLOCK_MS:-5000}
+      SCAN_QUEUE_WORKER_HEARTBEAT_SECONDS: ${SCAN_QUEUE_WORKER_HEARTBEAT_SECONDS:-10}
+      SCAN_QUEUE_WORKER_STALE_SECONDS: ${SCAN_QUEUE_WORKER_STALE_SECONDS:-30}
+      SCAN_QUEUE_STALE_SCAN_SECONDS: ${SCAN_QUEUE_STALE_SCAN_SECONDS:-120}
+      MAX_CONCURRENT_SCANS_PER_TENANT: ${MAX_CONCURRENT_SCANS_PER_TENANT:-2}
+      SCAN_SCHEDULER_POLL_SECONDS: ${SCAN_SCHEDULER_POLL_SECONDS:-10}
       SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH: ${SCAN_QUEUE_DEAD_LETTER_MAX_LENGTH:-10000}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
       DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-5}
@@ -166,6 +171,11 @@ services:
       SECURITY_HEADERS_HSTS_ENABLED: "true"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_FORMAT: json
+      SCAN_QUEUE_WORKER_HEARTBEAT_SECONDS: ${SCAN_QUEUE_WORKER_HEARTBEAT_SECONDS:-10}
+      SCAN_QUEUE_WORKER_STALE_SECONDS: ${SCAN_QUEUE_WORKER_STALE_SECONDS:-30}
+      SCAN_QUEUE_STALE_SCAN_SECONDS: ${SCAN_QUEUE_STALE_SCAN_SECONDS:-120}
+      MAX_CONCURRENT_SCANS_PER_TENANT: ${MAX_CONCURRENT_SCANS_PER_TENANT:-2}
+      SCAN_SCHEDULER_POLL_SECONDS: ${SCAN_SCHEDULER_POLL_SECONDS:-10}
       AWS_STS_SESSION_DURATION_SECONDS: ${AWS_STS_SESSION_DURATION_SECONDS:-900}
       AWS_SDK_CONNECT_TIMEOUT_SECONDS: ${AWS_SDK_CONNECT_TIMEOUT_SECONDS:-10}
       AWS_SDK_READ_TIMEOUT_SECONDS: ${AWS_SDK_READ_TIMEOUT_SECONDS:-60}
@@ -175,6 +185,12 @@ services:
       migrate:
         condition: service_completed_successfully
     command: ["python", "-m", "backend.worker"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from backend.app.core.config import settings; from backend.app.services.scan_queue import ScanQueue; q=ScanQueue(); assert q.ping(); assert q.worker_health()[\"active_workers\"] > 0; q.close()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
 
   caddy:
     image: caddy:2.11.6-alpine@sha256:881bbc60f9986d5ab8e7cfd6cf7e4ef3c9c0439fef2429d035d065577882f028
@@ -198,6 +214,12 @@ services:
       - caddy_config:/config
     networks:
       - edge
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:2019/metrics"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     depends_on:
       api:
         condition: service_healthy
