@@ -81,7 +81,11 @@ if ! compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres psql -U "$POSTG
 fi
 
 start=$SECONDS
-if ! compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres pg_restore --no-owner --no-acl --dbname=cloudsentinel_restore_drill "$CONTAINER_RESTORE" > "$ARTIFACT_DIR/pg-restore.stdout" 2> "$backup_error"; then
+if ! compose exec -T -e PGPASSWORD="$POSTGRES_PASSWORD" postgres pg_restore \
+  --username="$POSTGRES_USER" \
+  --no-owner --no-acl \
+  --dbname=cloudsentinel_restore_drill \
+  "$CONTAINER_RESTORE" > "$ARTIFACT_DIR/pg-restore.stdout" 2> "$backup_error"; then
   echo "PostgreSQL restore failed:" >&2
   cat "$backup_error" >&2 || true
   cat "$ARTIFACT_DIR/pg-restore.stdout" >&2 || true
