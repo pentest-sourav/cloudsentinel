@@ -118,8 +118,14 @@ def get_security_drift(*, db: Session, tenant_id: int, cloud_account_id: int | N
 
     risk_up = [x for x in persistent if x["risk_delta"] > 0 or (x["severity"] != x["previous_severity"] and x["severity"] in {"critical","high"})]
     risk_down = [x for x in persistent if x["risk_delta"] < 0 or (x["severity"] != x["previous_severity"] and x["previous_severity"] in {"critical","high"} and x["severity"] not in {"critical","high"})]
-    exposed = [x for x in persistent if x["internet_exposed"] and not x["previous_internet_exposed"]]
-    sensitive = [x for x in persistent if x["sensitive_data"] and not x["previous_sensitive_data"]]
+    exposed = [
+        x for x in [*persistent, *new_changes, *reopened]
+        if x["internet_exposed"] and not x["previous_internet_exposed"]
+    ]
+    sensitive = [
+        x for x in [*persistent, *new_changes, *reopened]
+        if x["sensitive_data"] and not x["previous_sensitive_data"]
+    ]
 
     cp = build_risk_posture(db, current.id)
     pp = build_risk_posture(db, previous.id) if previous else None
