@@ -70,6 +70,11 @@ jobs:
       - name: Validate web console JavaScript
         run: node --check frontend/app.js
 
+      - name: Validate launch certification scripts
+        run: |
+          python -m py_compile ops/launch/smoke.py
+          bash -n ops/launch/backup_restore_drill.sh
+
       - name: Run test suite
         run: pytest -q
 
@@ -99,7 +104,9 @@ jobs:
           REDIS_PASSWORD: ci-compose-redis-password
           JWT_SECRET_KEY: ci-compose-production-secret-012345678901234567890123
           CORS_ALLOWED_ORIGINS: https://example.com
-        run: docker compose -f deploy/docker-compose.prod.yml config --quiet
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml config --quiet
+          docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.launch.yml config --quiet
 
       - name: Scan application image
         uses: aquasecurity/trivy-action@v0.36.0

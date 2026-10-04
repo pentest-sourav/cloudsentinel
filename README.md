@@ -232,6 +232,7 @@ See the project documentation for the current onboarding details.
 - production deployment baseline with private PostgreSQL/Redis networking and TLS termination
 - immutable production container publishing through GitHub Container Registry
 - PostgreSQL backup and restore runbook
+- repeatable production launch certification workflow with signed-image verification, authenticated smoke tests, and isolated recovery drill
 
 ---
 
@@ -349,6 +350,7 @@ CloudSentinel is an active open-source project with a launchable self-hosted web
 
 - 🚧 Expanded AWS Security Hub control coverage
 - 🚧 Production backup/restore drills and measured recovery objectives
+- 🚧 Real AWS end-to-end launch certification against a dedicated test account
 - ✅ Web dashboard and AWS onboarding/verification console
 - 🚧 Azure provider implementation
 - 🚧 Additional compliance frameworks

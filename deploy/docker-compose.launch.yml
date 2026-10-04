@@ -1,0 +1,11 @@
+# Ephemeral launch-certification overlay.
+# It exposes only the API locally so the certification workflow can exercise
+# the production container graph without publishing PostgreSQL/Redis.
+services:
+  api:
+    ports:
+      - "127.0.0.1:18000:8000"
+
+  caddy:
+    profiles:
+      - edge
