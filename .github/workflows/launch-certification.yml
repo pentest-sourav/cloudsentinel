@@ -1,0 +1,204 @@
+name: Production Launch Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Signed immutable GHCR image digest to certify"
+        required: true
+        type: string
+      previous_image:
+        description: "Optional signed previous image digest for rollback drill"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  certify:
+    name: Certify production release
+    runs-on: ubuntu-latest
+    env:
+      PROJECT: cloudsentinel-launch
+      COMPOSE_FILE: deploy/docker-compose.prod.yml
+      OVERLAY_FILE: deploy/docker-compose.launch.yml
+      METRICS_AUTH_TOKEN: launch-certification-metrics-token
+      POSTGRES_DB: cloudsentinel
+      POSTGRES_USER: cloudsentinel
+      POSTGRES_PASSWORD: LaunchCertification-db-password-0123456789
+      REDIS_PASSWORD: LaunchCertification-redis-password-0123456789
+      JWT_SECRET_KEY: LaunchCertification-jwt-secret-01234567890123456789
+      CORS_ALLOWED_ORIGINS: http://127.0.0.1:18000
+      CLOUDSENTINEL_DOMAIN: localhost
+      METRICS_ENABLED: "true"
+      CLOUDSENTINEL_SMOKE_URL: http://127.0.0.1:18000
+      SMOKE_PASSWORD: LaunchCertification-user-password-0123456789
+      LAUNCH_ARTIFACT_DIR: artifacts/launch-certification
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.9.2
+
+      - name: Validate immutable release reference
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          case "$IMAGE" in
+            *@sha256:*) ;;
+            *)
+              echo "image must be an immutable digest reference" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify release signature
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          cosign verify "$IMAGE"             --certificate-identity-regexp='https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/v.*'             --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+
+      - name: Write launch environment
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          cat > .env.launch <<EOF
+          CLOUDSENTINEL_IMAGE=$IMAGE
+          CLOUDSENTINEL_DOMAIN=$CLOUDSENTINEL_DOMAIN
+          POSTGRES_DB=$POSTGRES_DB
+          POSTGRES_USER=$POSTGRES_USER
+          POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+          REDIS_PASSWORD=$REDIS_PASSWORD
+          JWT_SECRET_KEY=$JWT_SECRET_KEY
+          CORS_ALLOWED_ORIGINS=$CORS_ALLOWED_ORIGINS
+          METRICS_ENABLED=$METRICS_ENABLED
+          METRICS_AUTH_TOKEN=$METRICS_AUTH_TOKEN
+          EOF
+          chmod 600 .env.launch
+          mkdir -p "$LAUNCH_ARTIFACT_DIR"
+
+      - name: Validate production launch configuration
+        run: |
+          set -a
+          . ./.env.launch
+          set +a
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             config >/dev/null
+
+      - name: Pull certified release image
+        run: |
+          set -a
+          . ./.env.launch
+          set +a
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             pull postgres redis migrate api worker
+
+      - name: Start production dependency graph
+        run: |
+          set -a
+          . ./.env.launch
+          set +a
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up -d postgres redis
+
+      - name: Run production migrations
+        run: |
+          set -a
+          . ./.env.launch
+          set +a
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up migrate
+
+      - name: Start API and worker
+        run: |
+          set -a
+          . ./.env.launch
+          set +a
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up -d api worker
+
+      - name: Run authenticated launch smoke test
+        run: |
+          python3 ops/launch/smoke.py
+
+      - name: Run PostgreSQL backup and restore drill
+        run: |
+          set -a
+          . ./.env.launch
+          set +a
+          COMPOSE_PROJECT_NAME="$PROJECT"           POSTGRES_PASSWORD="$POSTGRES_PASSWORD"           LAUNCH_ARTIFACT_DIR="$LAUNCH_ARTIFACT_DIR"           bash ops/launch/backup_restore_drill.sh
+
+      - name: Roll back to previous signed release
+        if: ${{ inputs.previous_image != '' }}
+        env:
+          PREVIOUS_IMAGE: ${{ inputs.previous_image }}
+        run: |
+          case "$PREVIOUS_IMAGE" in
+            *@sha256:*) ;;
+            *)
+              echo "previous_image must be an immutable digest reference" >&2
+              exit 1
+              ;;
+          esac
+
+          cosign verify "$PREVIOUS_IMAGE"             --certificate-identity-regexp='https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/v.*'             --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+
+          set -a
+          . ./.env.launch
+          set +a
+          export CLOUDSENTINEL_IMAGE="$PREVIOUS_IMAGE"
+
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             pull migrate api worker
+
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up migrate
+
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up -d api worker
+
+          python3 ops/launch/smoke.py
+
+      - name: Restore certified release
+        if: ${{ inputs.previous_image != '' }}
+        env:
+          IMAGE: ${{ inputs.image }}
+        run: |
+          set -a
+          . ./.env.launch
+          set +a
+          export CLOUDSENTINEL_IMAGE="$IMAGE"
+
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             pull migrate api worker
+
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up migrate
+
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             up -d api worker
+
+          python3 ops/launch/smoke.py
+
+      - name: Upload certification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsentinel-launch-certification
+          path: artifacts/launch-certification
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Collect container diagnostics
+        if: ${{ failure() }}
+        run: |
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             ps || true
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             logs --no-color --tail=300 api worker migrate || true
+
+      - name: Tear down certification environment
+        if: ${{ always() }}
+        run: |
+          set -a
+          . ./.env.launch 2>/dev/null || true
+          set +a
+          docker compose -p "$PROJECT"             -f "$COMPOSE_FILE"             -f "$OVERLAY_FILE"             down -v --remove-orphans || true
