@@ -8,10 +8,73 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write
+  attestations: write
 
 jobs:
+  verify:
+    name: Verify release candidate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: cloudsentinel
+          POSTGRES_USER: cloudsentinel
+          POSTGRES_PASSWORD: cloudsentinel
+        options: >-
+          --health-cmd="pg_isready -U cloudsentinel -d cloudsentinel"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+      redis:
+        image: redis:8-alpine
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgresql+psycopg://cloudsentinel:cloudsentinel@localhost:5432/cloudsentinel
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: release-ci-secret-012345678901234567890123
+      APP_ENVIRONMENT: test
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade -r requirements.txt
+          pip install pytest
+
+      - name: Apply database migrations
+        run: alembic upgrade head
+
+      - name: Compile Python sources
+        run: python -m compileall -q backend engine scanner reporting
+
+      - name: Validate web console JavaScript
+        run: node --check frontend/app.js
+
+      - name: Run full test suite
+        run: pytest -q
+
+      - name: Dependency audit
+        run: |
+          python -m pip install pip-audit
+          pip-audit -r requirements.txt --strict
+
   publish:
-    name: Publish production image
+    name: Build, attest and sign production image
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -24,6 +87,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Generate image metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -32,11 +98,45 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=sha,format=long
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.ref_name }}
 
-      - name: Build and publish
+      - name: Build and publish immutable image
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest generated SBOM
+        uses: actions/attest-sbom@v2
+        with:
+          subject-name: ghcr.io/${{ github.repository }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          sbom-path: ${{ steps.build.outputs.metadata }}
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.9.2
+
+      - name: Sign immutable image digest
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}"
+
+      - name: Verify immutable image signature
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+        run: cosign verify "${IMAGE}" --certificate-identity-regexp='https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/v.*' --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
