@@ -18,26 +18,49 @@ compose() {
 
 echo "Creating isolated PostgreSQL backup..."
 start=$SECONDS
+CONTAINER_DUMP="/tmp/cloudsentinel-postgres-launch-drill.dump"
 backup_error="$ARTIFACT_DIR/backup-error.txt"
-if ! compose exec -T \
-  -e PGPASSWORD="$POSTGRES_PASSWORD" \
-  postgres \
-  pg_dump \
-  --format=custom \
-  --no-owner \
-  --no-acl \
-  --file=- \
-  -U "$POSTGRES_USER" \
-  -d "$POSTGRES_DB" > "$DUMP" 2> "$backup_error"; then
-  echo "PostgreSQL backup failed. Container diagnostics:"
+
+echo "Checking PostgreSQL readiness..."
+if ! compose exec -T postgres pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$ARTIFACT_DIR/pg-isready.txt" 2> "$backup_error"; then
+  echo "PostgreSQL is not ready:"
   cat "$backup_error" >&2 || true
+  cat "$ARTIFACT_DIR/pg-isready.txt" >&2 || true
   compose ps >&2 || true
   compose logs --no-color --tail=100 postgres >&2 || true
   exit 1
 fi
+
+echo "Running pg_dump inside the PostgreSQL container..."
+if ! compose exec -T \
+  -e PGPASSWORD="$POSTGRES_PASSWORD" \
+  postgres \
+  sh -c 'rm -f "$1" && pg_dump --format=custom --no-owner --no-acl -U "$2" -d "$3" -f "$1"' \
+  sh "$CONTAINER_DUMP" "$POSTGRES_USER" "$POSTGRES_DB" > "$ARTIFACT_DIR/pg-dump.stdout" 2> "$backup_error"; then
+  echo "PostgreSQL pg_dump failed:"
+  cat "$backup_error" >&2 || true
+  cat "$ARTIFACT_DIR/pg-dump.stdout" >&2 || true
+  compose ps >&2 || true
+  compose logs --no-color --tail=100 postgres >&2 || true
+  exit 1
+fi
+
+if ! compose cp "postgres:$CONTAINER_DUMP" "$DUMP" > "$ARTIFACT_DIR/pg-cp.stdout" 2> "$backup_error"; then
+  echo "Failed to copy PostgreSQL backup out of the container:"
+  cat "$backup_error" >&2 || true
+  cat "$ARTIFACT_DIR/pg-cp.stdout" >&2 || true
+  exit 1
+fi
+
+compose exec -T postgres rm -f "$CONTAINER_DUMP" || true
 backup_seconds=$((SECONDS - start))
 
-test -s "$DUMP"
+if [ ! -s "$DUMP" ]; then
+  echo "PostgreSQL backup archive is empty." >&2
+  ls -lh "$DUMP" >&2 || true
+  exit 1
+fi
+
 if ! compose exec -T postgres pg_restore --list - < "$DUMP" >/dev/null 2> "$backup_error"; then
   echo "PostgreSQL backup archive validation failed:" >&2
   cat "$backup_error" >&2 || true
