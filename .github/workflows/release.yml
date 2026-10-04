@@ -22,6 +22,8 @@ jobs:
           POSTGRES_DB: cloudsentinel
           POSTGRES_USER: cloudsentinel
           POSTGRES_PASSWORD: cloudsentinel
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd="pg_isready -U cloudsentinel -d cloudsentinel"
           --health-interval=5s
@@ -29,6 +31,8 @@ jobs:
           --health-retries=10
       redis:
         image: redis:8-alpine
+        ports:
+          - 6379:6379
         options: >-
           --health-cmd="redis-cli ping"
           --health-interval=5s
