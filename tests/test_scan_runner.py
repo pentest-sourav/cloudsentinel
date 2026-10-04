@@ -500,3 +500,110 @@ def test_scan_runner_fails_when_aws_has_no_successful_execution():
         assert errors[0].error_code == "AccessDenied"
     finally:
         db.close()
+
+
+
+def test_scan_runner_accepts_zero_findings_when_execution_completes_cleanly():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    tenant = create_test_tenant(db)
+
+    try:
+        scan = Scan(
+            tenant_id=tenant.id,
+            provider="aws",
+            status="pending",
+        )
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        from backend.app.services.aws_scan_service import AWSScanResult
+
+        result = ScanRunner(db=db).run(
+            scan=scan,
+            scanner=lambda: AWSScanResult(
+                findings=[],
+                errors=[],
+                attempted_steps=2,
+                successful_steps=2,
+                failed_steps=0,
+            ),
+        )
+
+        assert result.status == "completed"
+        assert result.completed_at is not None
+        assert db.query(FindingModel).filter(
+            FindingModel.scan_id == scan.id
+        ).count() == 0
+    finally:
+        db.close()
+
+
+def test_scan_runner_discards_findings_when_all_aws_execution_fails():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    tenant = create_test_tenant(db)
+
+    try:
+        scan = Scan(
+            tenant_id=tenant.id,
+            provider="aws",
+            status="pending",
+        )
+        db.add(scan)
+        db.commit()
+        db.refresh(scan)
+
+        from backend.app.models.scan_execution_error import ScanExecutionError
+        from backend.app.services.aws_scan_service import (
+            AWSScanResult,
+            ScannerExecutionError,
+        )
+
+        engine_finding = Finding(
+            rule_id="CS-AWS-S3-001",
+            title="Untrusted finding must not survive failed execution",
+            severity=Severity.HIGH,
+            provider="aws",
+            resource_type="s3_bucket",
+            resource_id="untrusted-bucket",
+            description="This finding is supplied alongside total execution failure.",
+            evidence={"synthetic": True},
+        )
+        execution_error = ScannerExecutionError(
+            service="s3",
+            error_type="permission_denied",
+            error_code="AccessDenied",
+            message="S3 access denied",
+            region="ap-south-1",
+        )
+
+        result = ScanRunner(db=db).run(
+            scan=scan,
+            scanner=lambda: AWSScanResult(
+                findings=[engine_finding],
+                errors=[execution_error],
+                attempted_steps=1,
+                successful_steps=0,
+                failed_steps=1,
+            ),
+        )
+
+        assert result.status == "failed"
+        assert db.query(FindingModel).filter(
+            FindingModel.scan_id == scan.id
+        ).count() == 0
+
+        errors = db.query(ScanExecutionError).filter(
+            ScanExecutionError.scan_id == scan.id
+        ).all()
+        assert len(errors) == 1
+        assert errors[0].service == "s3"
+        assert errors[0].region == "ap-south-1"
+    finally:
+        db.close()
