@@ -51,6 +51,35 @@ class ScanRunner:
                 findings = result
                 execution_errors = []
 
+            successful_steps = getattr(
+                result,
+                "successful_steps",
+                None,
+            )
+
+            if execution_errors and (
+                successful_steps is None
+                or successful_steps <= 0
+            ):
+                # A scan with execution failures and no proven successful
+                # scanner execution has zero trustworthy coverage. Persist
+                # the failure evidence, but do not persist any findings from
+                # an execution that cannot establish usable AWS evidence.
+                persist_execution_errors(
+                    db=self.db,
+                    scan_id=scan.id,
+                    errors=execution_errors,
+                )
+                return fail_scan(
+                    db=self.db,
+                    scan=scan,
+                    error_message=(
+                        "AWS scan produced no successful scanner "
+                        "executions; results are not considered "
+                        "trustworthy."
+                    ),
+                )
+
             persist_findings(
                 db=self.db,
                 scan_id=scan.id,
@@ -64,27 +93,6 @@ class ScanRunner:
             )
 
             if execution_errors:
-                successful_steps = getattr(
-                    result,
-                    "successful_steps",
-                    None,
-                )
-
-                # An AWS scan with zero successful scanner executions has
-                # no trustworthy coverage. Never present that as a
-                # completed-with-warnings scan because the dashboard could
-                # otherwise be mistaken for a clean/complete assessment.
-                if successful_steps == 0:
-                    return fail_scan(
-                        db=self.db,
-                        scan=scan,
-                        error_message=(
-                            "AWS scan produced no successful scanner "
-                            "executions; results are not considered "
-                            "trustworthy."
-                        ),
-                    )
-
                 return complete_scan(
                     db=self.db,
                     scan=scan,
