@@ -10,10 +10,10 @@ observability verification.
 certification remains gated on deployment-specific evidence.**
 
 The application and deployment configuration are production-oriented and the
-critical worker/queue observability path has now been exercised against the
-running Compose deployment. This document deliberately does not turn repository
-configuration into unsupported claims about an arbitrary production
-environment.
+critical worker/queue observability path has been exercised against the running
+Compose deployment. This document deliberately does not turn repository
+configuration or a developer workstation into unsupported claims about an
+arbitrary production environment.
 
 ## Evidence already established
 
@@ -28,18 +28,59 @@ environment.
 | AWS partial-permission path | dedicated restricted certification role | IMPLEMENTED |
 | Immutable signed release | GHCR digest + Sigstore verification | PASS |
 | Production Compose graph | health checks, migrations, non-root containers, network isolation | PASS |
-| PostgreSQL backup verification | matching container tooling + explicit DB user | PASS |
-| Isolated restore drill | restore into separate database and verify tenant/user records | PASS |
+| PostgreSQL backup creation | PostgreSQL 17 custom-format dump + SHA-256 manifest | PASS |
+| Off-host backup upload | Dedicated S3 destination, exact object verification | PASS (engineering environment) |
+| Backup encryption/versioning | S3 SSE-S3 and returned object VersionId | PASS |
+| Isolated restore drill | Fresh separate database restored successfully | PASS |
+| Restored data integrity | tenants=622, users=619, cloud_accounts=188, scans=301, findings=25 | PASS |
+| Database restore duration | Fresh isolated restore completed in 0.276s on 2026-10-05 | MEASURED ENGINEERING EVIDENCE |
 | Rollback drill | previous signed image boot + certified image restoration | PASS |
 | Authenticated production metrics | Bearer-protected API metrics + Prometheus scrape | PASS |
 | Worker-unavailable alert | real worker stop caused Prometheus critical alert to fire | PASS |
 | Alertmanager ingestion | fired worker alert received by Alertmanager | PASS |
 | Worker recovery | worker restart restored heartbeat and health | PASS |
 | Alert resolution | Prometheus alert disappeared after worker recovery | PASS |
-| External operator notification | real email/Slack/PagerDuty/webhook delivery | NOT YET EVIDENCED |
+| External operator notification | real email/Slack/PagerDuty/webhook delivery | INTENTIONALLY DEFERRED |
 | Production backup scheduler | daily scheduler artifacts supplied | CONFIGURATION PROVIDED; target deployment not evidenced |
-| Off-host backup replication | target deployment evidence | NOT YET EVIDENCED |
-| Measured RPO/RTO | target-environment measurement | NOT YET EVIDENCED |
+| Cross-account backup replication | separate backup account/replica | NOT YET EVIDENCED |
+| Measured production RPO | target-environment incident measurement | NOT YET EVIDENCED |
+| Measured full-system production RTO | target-environment end-to-end recovery measurement | NOT YET EVIDENCED |
+
+## Backup and restore evidence
+
+On 2026-10-05 a PostgreSQL 17 backup was created and uploaded to the dedicated
+S3 backup destination.
+
+Remote object verification returned:
+
+- size: 91,288 bytes;
+- server-side encryption: AES256;
+- S3 VersionId: present;
+- exact dump object verified with `head-object`;
+- corresponding manifest object was also remotely verified.
+
+The backup was copied into the running PostgreSQL container and restored into
+the isolated database `cloudsentinel_restore_rto`. The live CloudSentinel
+database was not used as the restore target.
+
+Restore duration:
+
+- `pg_restore` wall-clock duration: **0.276 seconds**.
+
+Restored record counts:
+
+- tenants: **622**
+- users: **619**
+- cloud_accounts: **188**
+- scans: **301**
+- findings: **25**
+
+The isolated database and temporary restore dump were removed after verification.
+
+This proves the backup -> off-host object -> restore -> data verification
+lifecycle in the tested environment. It does not by itself prove that the
+target production scheduler is installed or that the target production host
+has the same restore performance.
 
 ## Live observability verification
 
@@ -68,8 +109,7 @@ After heartbeat recovery:
 - worker container reported `running | health=healthy | exit=0`
 
 This proves the internal detection, alert ingestion, recovery and alert
-resolution path. It does **not** prove delivery to a human operator because the
-repository intentionally contains no external receiver credentials.
+resolution path. External human notification is intentionally deferred.
 
 ## Required production deployment configuration
 
@@ -100,13 +140,17 @@ The repository contains:
 - Prometheus scrape configuration;
 - Alertmanager deployment configuration.
 
-Before unrestricted production certification, configure one real external
-receiver outside Git and record both alert detection time and notification
-delivery time.
+External operator notification is intentionally deferred until real-world
+traffic justifies selecting and configuring a receiver.
 
 ### RTO
 
-Do not publish an RTO number until a real deployment measures:
+The isolated database restore provides a measured **0.276s database restore
+duration** in the tested local Compose environment.
+
+This must not be published as the application's production RTO.
+
+A production RTO measurement must include:
 
 1. incident detection;
 2. operator/recovery start;
@@ -116,13 +160,10 @@ Do not publish an RTO number until a real deployment measures:
 6. worker readiness;
 7. representative authenticated request.
 
-The launch certification restore duration is useful engineering evidence, but
-it is not a production RTO because it does not represent the target deployment.
-
 ## Release gate
 
-A release should not be called **production certified** unless all of these are
-true:
+A release should not be called **production certified** unless all deployment
+specific requirements are actually evidenced:
 
 - CI is green for the exact release commit.
 - The image is immutable and signature-verified.
@@ -132,9 +173,12 @@ true:
 - Isolated restore passes.
 - Rollback to the previous signed release passes.
 - Production monitoring is receiving metrics.
-- At least one real alert reaches an operator.
-- Backup cadence and off-host replication are active.
-- RPO and RTO have been measured and recorded.
+- Backup cadence is active on the target deployment.
+- Off-host backup protection is active on the target deployment.
+- Production RPO and full-system RTO have been measured and recorded.
+
+External operator notification is currently outside the release gate by explicit
+product decision.
 
 ## Current honest positioning
 
@@ -144,5 +188,5 @@ true:
 > production-oriented observability, recovery and AWS certification workflows.
 
 Do not claim "enterprise CSPM replacement", "zero false positives",
-"guaranteed compliance", or measured RPO/RTO until those claims are evidenced in
-the target deployment.
+"guaranteed compliance", or measured production RPO/RTO until those claims are
+evidenced in the target deployment.
