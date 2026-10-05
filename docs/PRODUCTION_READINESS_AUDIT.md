@@ -6,12 +6,12 @@ observability verification.
 
 ## Decision
 
-**Status: controlled-production / public-beta candidate; operational enterprise
-certification remains gated on deployment-specific evidence.**
+**Status: production-grade controlled-deployment candidate; full production certification remains deployment-specific.**
 
 The application and deployment configuration are production-oriented and the
 critical worker/queue observability path has been exercised against the running
-Compose deployment. This document deliberately does not turn repository
+Compose deployment. Additional worker, Redis, PostgreSQL and Caddy recovery
+checks were completed on 2026-10-05. This document deliberately does not turn repository
 configuration or a developer workstation into unsupported claims about an
 arbitrary production environment.
 
@@ -28,6 +28,11 @@ arbitrary production environment.
 | AWS partial-permission path | dedicated restricted certification role | IMPLEMENTED |
 | Immutable signed release | GHCR digest + Sigstore verification | PASS |
 | Production Compose graph | health checks, migrations, non-root containers, network isolation | PASS |
+| Caddy proxy health | HTTPS `/health` through Caddy returned HTTP 200; container healthcheck verified healthy | PASS |
+| Worker failure/recovery drill | worker stopped, became unhealthy, restarted and returned healthy | PASS (engineering environment) |
+| Redis failure/recovery drill | Redis restarted and returned healthy in ~11s; authenticated PING returned PONG | PASS (engineering environment) |
+| PostgreSQL failure/recovery drill | PostgreSQL restarted and returned healthy in ~11s; `pg_isready` accepted connections | PASS (engineering environment) |
+| API after dependency recovery | HTTPS `/health` returned HTTP 200 after Redis/PostgreSQL recovery | PASS (engineering environment) |
 | PostgreSQL backup creation | PostgreSQL 17 custom-format dump + SHA-256 manifest | PASS |
 | Off-host backup upload | Dedicated S3 destination, exact object verification | PASS (engineering environment) |
 | Backup encryption/versioning | S3 SSE-S3 and returned object VersionId | PASS |
@@ -146,7 +151,8 @@ traffic justifies selecting and configuring a receiver.
 ### RTO
 
 The isolated database restore provides a measured **0.276s database restore
-duration** in the tested local Compose environment.
+duration** in the tested local Compose environment. Dependency recovery drills also measured
+approximately **11s** for Redis and PostgreSQL container recovery in the same environment.
 
 This must not be published as the application's production RTO.
 
@@ -184,8 +190,11 @@ product decision.
 
 > CloudSentinel is an AWS-first cloud security posture and compliance auditor
 > designed for evidence-backed security findings, risk analysis and compliance
-> mapping. It is suitable for controlled production/beta deployments and has
-> production-oriented observability, recovery and AWS certification workflows.
+> mapping. The current main branch is a production-grade controlled-deployment
+> candidate with demonstrated AWS scanning, tenant isolation, signed release
+> artifacts, backup/restore, rollback, observability and dependency recovery.
+> Target-environment production certification still requires deployment-specific
+> backup cadence, replication, RPO and full-system RTO evidence.
 
 Do not claim "enterprise CSPM replacement", "zero false positives",
 "guaranteed compliance", or measured production RPO/RTO until those claims are
